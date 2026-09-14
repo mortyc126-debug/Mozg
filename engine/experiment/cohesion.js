@@ -36,6 +36,29 @@ const JN = (process.argv[4] || '0,0.05,0.1,0.2,0.4').split(',').map(Number);
    механизм: развитие идентично, различие ровно одно. */
 const MODE = process.argv[5] || 'probe';
 
+/* КОНТРОЛЬ ПРОТИВ СЖАТИЯ. Соседство по радиусу чувствительно к
+   уплотнению: если агенты просто сблизились, они чаще остаются внутри
+   радиуса, и сохранность растёт БЕЗ всякого сопротивления перестройке.
+   Соседство по k ближайшим от плотности не зависит: сколько бы ни
+   сжалась ткань, ближайших всегда ровно k. Если прирост сохранности
+   держится и здесь -- он не объясняется сжатием. */
+const KNN = 6;
+function knnSets(w) {
+  const m = new Map();
+  const cs = w.cells;
+  for (const c of cs) {
+    const ds = [];
+    for (const o of cs) {
+      if (o === c) continue;
+      const dx = o.x - c.x, dy = o.y - c.y;
+      ds.push([dx * dx + dy * dy, o]);
+    }
+    ds.sort((a, b) => a[0] - b[0]);
+    m.set(c, new Set(ds.slice(0, KNN).map((x) => x[1])));
+  }
+  return m;
+}
+
 function neighbourSets(w) {
   const m = new Map();
   for (const c of w.cells) m.set(c, new Set());
@@ -87,6 +110,7 @@ for (const seed of SEEDS) {
   if (MODE !== 'dev') w.p.junction = jn;
 
   const before = neighbourSets(w);
+  const beforeK = knnSets(w);
   const nCells0 = w.cells.length;
   const row = { seed, gene: GENE, jn, cells: nCells0, nb0: meanNb(w) };
   let done = 0;
@@ -94,6 +118,7 @@ for (const seed of SEEDS) {
     while (done < chk) { step(w); done++; }
     const r = retention(before, neighbourSets(w));
     row['k' + chk] = r.frac;
+    row['n' + chk] = retention(beforeK, knnSets(w)).frac;
   }
   row.cellsEnd = w.cells.length;
   row.nbEnd = meanNb(w);
@@ -102,16 +127,15 @@ for (const seed of SEEDS) {
   console.log(`жёсткость ${String(jn).padStart(5)} | сид ${String(seed).padStart(4)} | ` +
     `агентов ${nCells0}->${row.cellsEnd} | соседей ${row.nbEnd.toFixed(1)} | ` +
     `закреплённых ${row.jnMean.toFixed(1)} | ` +
-    CHECKS.map((c) => `${c}ш ${(100 * row['k' + c]).toFixed(0)}%`).join(' '));
+    CHECKS.map((c) => `${c}ш ${(100 * row['k' + c]).toFixed(0)}%/${(100 * row['n' + c]).toFixed(0)}%`).join(' '));
 }
 }
 console.log(`\n=== СВОДКА (режим ${MODE}${MODE === 'probe' ? ': развитие ОДИНАКОВОЕ, механизм включён только на замер' : ': механизм влиял и на развитие'}) ===`);
-console.log('жёсткость | закреплённых | соседей |  50ш  | 100ш  | 400ш  | агентов');
+console.log('сохранность: по РАДИУСУ / по k БЛИЖАЙШИМ (контроль против сжатия)');
+console.log('жёсткость | соседей |     50ш     |    100ш     |    400ш');
 for (const jn of JN) {
   const rs = out.filter((r) => r.jn === jn);
   const m = (k) => rs.reduce((s2, r) => s2 + r[k], 0) / rs.length;
-  console.log(`${String(jn).padStart(9)} | ${m('jnMean').toFixed(2).padStart(12)} | ` +
-    `${m('nbEnd').toFixed(2).padStart(7)} | ` +
-    CHECKS.map((c) => `${(100 * m('k' + c)).toFixed(1)}%`.padStart(6)).join(' | ') +
-    ` | ${m('cellsEnd').toFixed(0).padStart(7)}`);
+  console.log(`${String(jn).padStart(9)} | ${m('nbEnd').toFixed(2).padStart(7)} | ` +
+    CHECKS.map((c) => `${(100 * m('k' + c)).toFixed(1)}% / ${(100 * m('n' + c)).toFixed(1)}%`.padStart(11)).join(' | '));
 }
