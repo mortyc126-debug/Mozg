@@ -1,6 +1,21 @@
 #!/usr/bin/env node
 'use strict';
-/* ЧТО ЗАДАЁТ ОПОРУ НА ОДНОСЛОЙНОМ ПЛАСТЕ?
+/* НЕ ЦИРКУЛЯРЕН ЛИ РЕЗУЛЬТАТ ЭТАПА 13?
+
+   Ориентация q тянется к локальной асимметрии ПЛОТНОСТИ. Но изогнутый
+   пласт сам создаёт асимметрию плотности. Значит q может быть
+   СЛЕДСТВИЕМ изгиба, а не опорой для него, и согласованность знака
+   получалась бы тривиально: мы предсказываем изгиб величиной, которую
+   сам изгиб и породил.
+
+   Различение прямое: взять q РАНО, до развития изгиба, и предсказать им
+   изгиб в конце. Если ранний q предсказывает -- опора настоящая и
+   предшествует следствию. Если предсказывает только поздний q --
+   результат этапа 13 циркулярен и подлежит отзыву.
+
+   Дополнительно проверяется прежний кандидат -- градиент среды.
+
+   ЧТО ЗАДАЁТ ОПОРУ НА ОДНОСЛОЙНОМ ПЛАСТЕ?
 
    Изгиб согласован на 10 сидах из 12 относительно средней ориентации q,
    но у однослойного пласта соседи анти-согласованы (-0.150) и деления
@@ -28,6 +43,7 @@ const ALL = [5, 77, 2024, 9, 101, 202, 303, 404, 505, 606, 707, 808];
 const SEEDS = (process.argv[2] || ALL.join(',')).split(',').map(Number);
 const ROWS = (process.argv[3] || '1,2').split(',').map(Number);
 const GRAD = process.argv[4] === undefined ? 1.0 : +process.argv[4];
+const EARLY = +(process.argv[5] || 100);   // шаг, на котором снимается ранний q
 
 /* знак прогиба относительно ЗАДАННОЙ опоры refx,refy */
 function bendSign(cells, refx, refy) {
@@ -71,7 +87,7 @@ function bendSign(cells, refx, refy) {
 
 for (const rows of ROWS) {
   const per = 60, n0 = per * rows;
-  let qDotG = 0, byQ = 0, byG = 0, nOk = 0;
+  let qDotG = 0, byQ = 0, byG = 0, byEarly = 0, bendEarly = 0, nOk = 0;
   for (const seed of SEEDS) {
     const g = ancestral();
     for (const gi of GENES) g.eff[gi].pol = 1;
@@ -80,7 +96,17 @@ for (const rows of ROWS) {
       params: { polarity: STRENGTH, maxCells: n0, gradient: GRAD,
                 junctionAdhesion: 1, junction: 0.1 },
     });
-    for (let i = 0; i < STEPS; i++) step(w);
+    let eqx = 0, eqy = 0, eSign = 0;
+    for (let i = 0; i < STEPS; i++) {
+      step(w);
+      if (i === EARLY - 1) {                    // снимок РАННЕГО q и раннего изгиба
+        let ax = 0, ay = 0;
+        for (const c of w.cells) { ax += c.qx; ay += c.qy; }
+        const al = Math.hypot(ax, ay) || 1;
+        eqx = ax / al; eqy = ay / al;
+        eSign = bendSign(w.cells, eqx, eqy);
+      }
+    }
     const gx = Math.cos(w.theta), gy = Math.sin(w.theta);
     let qx = 0, qy = 0;
     for (const c of w.cells) { qx += c.qx; qy += c.qy; }
@@ -88,10 +114,14 @@ for (const rows of ROWS) {
     qDotG += (qx / ql) * gx + (qy / ql) * gy;
     if (bendSign(w.cells, qx / ql, qy / ql) > 0) byQ++;
     if (bendSign(w.cells, gx, gy) > 0) byG++;
+    if (bendSign(w.cells, eqx, eqy) > 0) byEarly++;   // поздний изгиб по РАННЕМУ q
+    if (eSign > 0) bendEarly++;                        // изгиб уже на раннем шаге
     nOk++;
   }
   console.log(`\n=== слой ${rows}, амплитуда градиента ${GRAD}, ${nOk} сидов ===`);
   console.log(`  среднее q ПО градиенту (косинус угла): ${(qDotG / nOk).toFixed(3)}`);
   console.log(`  знак изгиба согласован относительно q       : ${byQ} из ${nOk}`);
   console.log(`  знак изгиба согласован относительно ГРАДИЕНТА: ${byG} из ${nOk}`);
+  console.log(`  ПО РАННЕМУ q (шаг ${EARLY}) предсказан поздний изгиб: ${byEarly} из ${nOk}`);
+  console.log(`    (для сравнения: изгиб на самом раннем шаге ${bendEarly} из ${nOk})`);
 }

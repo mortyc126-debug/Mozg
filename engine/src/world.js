@@ -322,6 +322,11 @@ function step(w) {
   // физика
   const H2 = buildHash(w);
   updateOrientation(w, H2);
+  /* точка вмешательства для экспериментов: вызывается ПОСЛЕ обновления
+     ориентации и ДО физики, поэтому подменённое значение успевает
+     подействовать. По умолчанию не задана и ничего не делает --
+     побитовое совпадение с прежним движком проверяется тестом. */
+  if (w.onOrient) w.onOrient(w);
   updateJunctions(w, H2);
   if (w.two) { physicsTwoPoint(w, H2); }
   else physicsPoint(w, H2);
