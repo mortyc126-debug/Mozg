@@ -30,6 +30,62 @@
    ============================================================ */
 const { createWorld, step } = require('../src/world');
 const { measure, curvature, shape } = require('../src/measure');
+
+/* РАЗЛИЧЕНИЕ ДУГИ И ОБЛАКА.
+   Толщина (wid) -- габаритная ширина, она смешивает изгиб и разброс:
+   у дуги она велика просто потому, что дуга изогнута. Поэтому большой
+   прогиб при большой толщине неинтерпретируем -- этап 5 на этом и
+   забраковал свой результат.
+   Здесь считается ОСТАТОК подгонки параболы: среднеквадратичное
+   отклонение агентов от подогнанной кривой. У настоящей дуги остаток
+   мал (агенты лежат НА кривой), у облака остаток сопоставим с его
+   шириной. Отношение прогиб/остаток и есть различитель:
+   заметно больше 1 -- дуга, около 1 и меньше -- облако. */
+function fitResidual(group) {
+  const n = group.length;
+  if (n < 12) return { rms: 0, len: 0 };
+  let mx = 0, my = 0;
+  for (const c of group) { mx += c.x / n; my += c.y / n; }
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const c of group) { const dx = c.x - mx, dy = c.y - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+  sxx /= n; syy /= n; sxy /= n;
+  const tr = sxx + syy, det = sxx * syy - sxy * sxy;
+  const l1 = tr / 2 + Math.sqrt(Math.max(0, tr * tr / 4 - det));
+  let ux = sxy, uy = l1 - sxx;
+  const nl = Math.hypot(ux, uy) || 1; ux /= nl; uy /= nl;
+  const vx = -uy, vy = ux;
+  const P = group.map((c) => {
+    const dx = c.x - mx, dy = c.y - my;
+    return [dx * ux + dy * uy, dx * vx + dy * vy];
+  });
+  let S0 = n, S1 = 0, S2 = 0, S3 = 0, S4 = 0, T0 = 0, T1 = 0, T2 = 0;
+  for (const [u, v] of P) {
+    const u2 = u * u;
+    S1 += u; S2 += u2; S3 += u2 * u; S4 += u2 * u2;
+    T0 += v; T1 += u * v; T2 += u2 * v;
+  }
+  const M = [[S4, S3, S2], [S3, S2, S1], [S2, S1, S0]], Y = [T2, T1, T0];
+  for (let i = 0; i < 3; i++) {
+    let pi = i;
+    for (let r = i + 1; r < 3; r++) if (Math.abs(M[r][i]) > Math.abs(M[pi][i])) pi = r;
+    if (Math.abs(M[pi][i]) < 1e-12) return { rms: 0, len: 0 };
+    [M[i], M[pi]] = [M[pi], M[i]]; [Y[i], Y[pi]] = [Y[pi], Y[i]];
+    for (let r = 0; r < 3; r++) {
+      if (r === i) continue;
+      const f2 = M[r][i] / M[i][i];
+      for (let k = i; k < 3; k++) M[r][k] -= f2 * M[i][k];
+      Y[r] -= f2 * Y[i];
+    }
+  }
+  const a = Y[0] / M[0][0], b = Y[1] / M[1][1], c0 = Y[2] / M[2][2];
+  let ss = 0, lo = 1e9, hi = -1e9;
+  for (const [u, v] of P) {
+    const pred = a * u * u + b * u + c0;
+    ss += (v - pred) * (v - pred);
+    if (u < lo) lo = u; if (u > hi) hi = u;
+  }
+  return { rms: Math.sqrt(ss / n), len: hi - lo };
+}
 const { ancestral } = require('../src/genome');
 
 const STEPS = 1400;
@@ -54,12 +110,15 @@ function run(seed, rows, strength, genes) {
   const m = measure(w);
   const sh = shape(w.cells, w);
   const cu = curvature(w.cells);
+  const fr = fitResidual(w.cells);
   // угол между градиентом среды и слоем: слой горизонтален, поэтому это |cos theta|
   const along = Math.abs(Math.cos(w.theta));
   return {
     pop: m.n, states: m.types.length, anis: m.anis,
     elong: sh.elong, wid: sh.wid, len: cu.len,
     sagitta: cu.sagitta, bend: cu.bend, along,
+    rms: fr.rms, arc: fr.rms > 1e-9 ? cu.sagitta / fr.rms : 0,
+    nb: w.cells.reduce((s2, c) => s2 + c.nb, 0) / w.cells.length,
     profiles: m.types.map((t) => `${t.bits}:${t.n}`).join(' '),
   };
 }
@@ -83,6 +142,9 @@ for (const rows of ROWS) {
   console.log(`  прогиб/длина: ${f(mn('a', (r) => r.bend))} → ${f(mn('b', (r) => r.bend))}, вырос у ${up} из ${recs.length}`);
   console.log(`  прогиб, ед.:  ${f(mn('a', (r) => r.sagitta), 1)} → ${f(mn('b', (r) => r.sagitta), 1)}`);
   console.log(`  толщина:      ${f(mn('a', (r) => r.wid), 1)} → ${f(mn('b', (r) => r.wid), 1)}`);
+  console.log(`  ОСТАТОК подгонки: ${f(mn('a', (r) => r.rms), 1)} → ${f(mn('b', (r) => r.rms), 1)}`);
+  console.log(`  ПРОГИБ/ОСТАТОК:   ${f(mn('a', (r) => r.arc), 2)} → ${f(mn('b', (r) => r.arc), 2)}   (>>1 дуга, ~1 облако)`);
+  console.log(`  соседей:      ${f(mn('a', (r) => r.nb), 2)} → ${f(mn('b', (r) => r.nb), 2)}`);
   console.log(`  длина:        ${f(mn('a', (r) => r.len), 1)} → ${f(mn('b', (r) => r.len), 1)}`);
   console.log(`  агентов:      ${f(mn('a', (r) => r.pop), 0)} → ${f(mn('b', (r) => r.pop), 0)}`);
   console.log(`  состояний:    ${f(mn('a', (r) => r.states), 1)} → ${f(mn('b', (r) => r.states), 1)}`);
