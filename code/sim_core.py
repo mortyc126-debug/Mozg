@@ -10,7 +10,22 @@ def simulate(
     transmission=True,
     homeostasis=True,
     gradual_growth=True,
+    positions=None,
+    contact_radius=0.25,
 ):
+    """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
+
+    Жеребьёвка случайных позиций выполняется В ЛЮБОМ СЛУЧАЕ, даже когда
+    координаты заданы снаружи: иначе сдвинулся бы весь последующий поток
+    случайных чисел (drive и далее), и сравнение мерило бы не геометрию,
+    а другой поток. При positions=None и contact_radius=0.25 поведение
+    побитово прежнее -- проверяется тестом.
+
+    contact_radius -- радиус, в пределах которого возможен рост контакта.
+    Вынесен в параметр, чтобы выравнивать ПЛОТНОСТЬ связей при сравнении
+    разных расположений (ловушка №13: иначе сравнивалась бы плотность,
+    а не организация).
+    """
     rng = np.random.default_rng(seed)
 
     N = 80
@@ -18,7 +33,10 @@ def simulate(
     duration = 12.0
     steps = int(duration / dt)
 
-    positions = rng.uniform(0, 1, size=(N, 2))
+    drawn = rng.uniform(0, 1, size=(N, 2))          # жеребьёвка не пропускается
+    positions = drawn if positions is None else np.asarray(positions, dtype=float)
+    if positions.shape != (N, 2):
+        raise ValueError(f"positions должен быть ({N}, 2), получено {positions.shape}")
     distance = np.linalg.norm(
         positions[:, None, :] - positions[None, :, :],
         axis=2,
@@ -59,7 +77,7 @@ def simulate(
             eligible = (
                 ready[:, None]
                 & ready[None, :]
-                & (distance < 0.25)
+                & (distance < contact_radius)
                 & ~contacts
             )
             np.fill_diagonal(eligible, False)
@@ -181,13 +199,20 @@ def simulate(
     }
 
 
-def simulate_with_snapshots(seed=42, n_snapshots=5):
+def simulate_with_snapshots(seed=42, n_snapshots=5, positions=None,
+                            contact_radius=0.25):
     """
     Идентична simulate() (со всеми механизмами включёнными),
     но дополнительно сохраняет полные снимки состояния сети
     в n_snapshots равноотстоящих моментах времени свободного
     прогона. Моменты выбираются по фиксированной сетке времени,
     без отбора по близости какого-либо узла к порогу.
+
+    positions и contact_radius -- как в simulate(): позиции можно задать
+    снаружи, радиус роста контакта вынесен, чтобы выравнивать плотность
+    связей. При значениях по умолчанию поведение побитово прежнее.
+    Жеребьёвка случайных позиций выполняется в любом случае, иначе
+    сдвинулся бы весь последующий поток случайных чисел.
     """
     rng = np.random.default_rng(seed)
 
@@ -196,7 +221,8 @@ def simulate_with_snapshots(seed=42, n_snapshots=5):
     duration = 12.0
     steps = int(duration / dt)
 
-    positions = rng.uniform(0, 1, size=(N, 2))
+    drawn = rng.uniform(0, 1, size=(N, 2))          # жеребьёвка не пропускается
+    positions = drawn if positions is None else np.asarray(positions, dtype=float)
     distance = np.linalg.norm(
         positions[:, None, :] - positions[None, :, :],
         axis=2,
@@ -240,7 +266,7 @@ def simulate_with_snapshots(seed=42, n_snapshots=5):
             eligible = (
                 ready[:, None]
                 & ready[None, :]
-                & (distance < 0.25)
+                & (distance < contact_radius)
                 & ~contacts
             )
             np.fill_diagonal(eligible, False)
