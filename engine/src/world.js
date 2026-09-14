@@ -64,6 +64,16 @@ const DEFAULTS = {
   align: 0.0,               // вес направлений соседей при обновлении ориентации; 0 — механизм выключен
   alignSelf: 1.0,           // вес собственной локальной асимметрии
   alignRate: 0.10,          // скорость поворота ориентации за шаг
+  /* чтение градиента среды. Агент сравнивает значение поля у себя со
+     значениями у соседей и получает направление возрастания. Больше
+     ничего ему не сообщается: ни координат, ни направления поля, ни
+     «верха» — только разности с теми соседями, которые рядом. Поэтому
+     восстановить он может лишь ту составляющую градиента, вдоль которой
+     у него ЕСТЬ соседи: у прямой однорядной цепи поперечная
+     составляющая невидима (измерено: 1.6% против 90% у двурядной).
+     0 — механизм выключен, и тогда поведение движка побитово прежнее. */
+  gradAlign: 0.0,           // вес направления возрастания поля при обновлении ориентации
+  gradField: 5,             // какое поле читается (5 — неподвижный градиент среды)
   twoPoint: false,          // агент как две связанные точки: у него появляется форма
   bodyLength: 3.6,          // расстояние между точками агента (только при twoPoint)
   bodyStiff: 0.55,          // жёсткость связи между точками
@@ -351,7 +361,8 @@ function step(w) {
    обхода агентов не создавал скрытого преимущества.  */
 function updateOrientation(w, H) {
   const kn = w.p.align, ks = w.p.alignSelf, rate = w.p.alignRate;
-  if (kn <= 0) {                       // согласование выключено: ориентация равна локальной асимметрии
+  const kg = w.p.gradAlign, gf = w.p.gradField;
+  if (kn <= 0 && kg <= 0) {            // оба согласования выключены: ориентация равна локальной асимметрии
     for (const c of w.cells) { c.qx = c.ax; c.qy = c.ay; }
     return;
   }
@@ -359,13 +370,25 @@ function updateOrientation(w, H) {
   const nx = new Float64Array(w.cells.length), ny = new Float64Array(w.cells.length);
   w.cells.forEach((c, i) => {
     let sx = 0, sy = 0, n = 0;
+    let gx = 0, gy = 0, gn = 0;
+    const F = kg > 0 ? w.f[gf] : null;
+    const fc = F ? F[gidx(c.x, c.y)] : 0;
     forNeighbors(H, c, RNq, (o) => {
-      const dx = o.x - c.x, dy = o.y - c.y;
-      if (dx * dx + dy * dy > RNq * RNq) return;
+      const dx = o.x - c.x, dy = o.y - c.y, d2 = dx * dx + dy * dy;
+      if (d2 > RNq * RNq) return;
       sx += o.qx; sy += o.qy; n++;
+      // направление возрастания поля: разность с соседом, отнесённая к направлению на него
+      if (F && d2 > 1e-9) {
+        const d = Math.sqrt(d2), df = F[gidx(o.x, o.y)] - fc;
+        gx += df * dx / d; gy += df * dy / d; gn++;
+      }
     });
     if (n) { sx /= n; sy /= n; }
-    let tx = ks * c.ax * c.amag + kn * sx, ty = ks * c.ay * c.amag + kn * sy;
+    if (gn) {
+      const gl = Math.hypot(gx, gy);
+      if (gl > 1e-12) { gx /= gl; gy /= gl; } else { gx = 0; gy = 0; }
+    }
+    let tx = ks * c.ax * c.amag + kn * sx + kg * gx, ty = ks * c.ay * c.amag + kn * sy + kg * gy;
     const L = Math.hypot(tx, ty);
     if (L > 1e-9) { tx /= L; ty /= L; } else { tx = c.qx; ty = c.qy; }
     let ux = c.qx + (tx - c.qx) * rate, uy = c.qy + (ty - c.qy) * rate;
