@@ -74,7 +74,12 @@ const DEFAULTS = {
      поэтому под нагрузкой соседи просто меняются местами и локальное
      сокращение рассасывается. Закреплённый контакт сохраняется между
      конкретной парой и сопротивляется как растяжению, так и сжатию,
-     пока не разорвётся. junction = 0 -- механизм выключен полностью:
+     пока не разорвётся. Равновесная длина у каждого контакта СВОЯ и
+     запоминается в момент образования: закреплённый контакт сохраняет
+     СЛОЖИВШЕЕСЯ расстояние, а не навязывает общее. Первая версия тянула
+     всех к постоянной D0 и тем СТЯГИВАЛА ткань (соседей 6.7 -> 9.1,
+     сохранность падала до 52%) -- дефект, обнаруженный побочным
+     показателем. junction = 0 -- механизм выключен полностью:
      ни одна строка ниже не исполняется и ни одного случайного числа
      не тратится, поэтому поведение побитово совпадает с прежним. */
   junction: 0,              // жёсткость закреплённого контакта; 0 -- выключено
@@ -94,7 +99,7 @@ function newCell(x, y, rnd, nGenes) {
     p1x: x, p1y: y, p1vx: 0, p1vy: 0, r1: 1,
     p2x: x, p2y: y, p2vx: 0, p2vy: 0, r2: 1,
     sens: new Float64Array(NF),
-    nb: 0, links: [], jn: new Set(),
+    nb: 0, links: [], jn: new Map(),
     v: 0, u: 0, ad: 0, inp: 0, fired: -9999,
     dead: false,
   };
@@ -455,22 +460,27 @@ function physicsTwoPoint(w, H) {
    быть сравнением одного и того же прогона. */
 function updateJunctions(w, H) {
   if (!w.p.junction) return;
-  const RNj = D0 * 1.35, brk = D0 * w.p.junctionBreak, mx = w.p.junctionMax;
-  // 1. разрыв: мёртвый партнёр или растяжение сверх порога
+  const RNj = D0 * 1.35, mx = w.p.junctionMax, br = w.p.junctionBreak;
+  // 1. разрыв: мёртвый партнёр или растяжение сверх порога ОТ СВОЕЙ длины
   for (const c of w.cells) {
     if (c.jn.size === 0) continue;
-    for (const o of Array.from(c.jn)) {
+    for (const [o, rest] of Array.from(c.jn)) {
       const dx = o.x - c.x, dy = o.y - c.y;
-      if (o.dead || dx * dx + dy * dy > brk * brk) { c.jn.delete(o); o.jn.delete(c); }
+      const lim = rest * br;
+      if (o.dead || dx * dx + dy * dy > lim * lim) { c.jn.delete(o); o.jn.delete(c); }
     }
   }
-  // 2. образование: соседи в пределах RNj, у обоих есть свободное место
+  // 2. образование: соседи в пределах RNj, у обоих есть свободное место.
+  //    Равновесная длина = расстояние В МОМЕНТ ОБРАЗОВАНИЯ.
   for (const c of w.cells) {
     if (c.jn.size >= mx) continue;
     forNeighbors(H, c, RNj, (o) => {
       if (c.jn.size >= mx || o.jn.size >= mx || o === c || c.jn.has(o)) return;
-      const dx = o.x - c.x, dy = o.y - c.y;
-      if (dx * dx + dy * dy < RNj * RNj) { c.jn.add(o); o.jn.add(c); }
+      const dx = o.x - c.x, dy = o.y - c.y, d2 = dx * dx + dy * dy;
+      if (d2 < RNj * RNj) {
+        const rest = Math.sqrt(d2) || D0;
+        c.jn.set(o, rest); o.jn.set(c, rest);
+      }
     });
   }
 }
@@ -482,11 +492,11 @@ function junctionForce(w, c) {
   let fx = 0, fy = 0;
   if (!w.p.junction || c.jn.size === 0) return { fx, fy };
   const k = w.p.junction;
-  for (const o of c.jn) {
+  for (const [o, rest] of c.jn) {
     const dx = o.x - c.x, dy = o.y - c.y;
     const d = Math.hypot(dx, dy);
     if (d < 1e-6) continue;
-    const f = k * (d - D0);          // >0 растянут -> тянуть к соседу
+    const f = k * (d - rest);        // >0 растянут относительно СВОЕЙ длины
     fx += (dx / d) * f; fy += (dy / d) * f;
   }
   return { fx, fy };
