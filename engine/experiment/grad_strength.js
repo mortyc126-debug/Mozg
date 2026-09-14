@@ -35,6 +35,7 @@
 const { createWorld, step } = require('../src/world');
 const { ancestral } = require('../src/genome');
 
+const GHALF = +(process.env.GHALF || 95);
 const STEPS = 1400, STRENGTH = 0.35, GENES = [0, 1];
 const KG = (process.argv[4] || '0,0.25,0.5,1,2,4,8').split(',').map(Number);
 const BASE = Array.from({ length: 72 }, (_, i) => i + 1);
@@ -97,7 +98,7 @@ function run(seed, rows, gradAlign, amp) {
   const w = createWorld({
     seed, genome: g, init: 'layer', layerLength: per, layerRows: rows,
     params: { polarity: STRENGTH, maxCells: n0, gradient: amp,
-              junctionAdhesion: 1, junction: 0.1, gradAlign },
+              junctionAdhesion: 1, junction: 0.1, gradAlign, gradHalf: GHALF },
   });
   for (let i = 0; i < STEPS; i++) step(w);
   const gx = Math.cos(w.theta), gy = Math.sin(w.theta);

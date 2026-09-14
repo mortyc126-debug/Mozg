@@ -43,6 +43,8 @@
 const { createWorld, step } = require('../src/world');
 const { ancestral } = require('../src/genome');
 
+const GHALF = +(process.env.GHALF || 95);
+const KG = +(process.env.KG || 0.5);
 const STEPS = 1400, STRENGTH = 0.35, GENES = [0, 1];
 const WANT = +(process.argv[2] || 90);
 const ROWS = (process.argv[3] || '1').split(',').map(Number);
@@ -110,7 +112,7 @@ function run(seed, rows, kg, amp) {
   const w = createWorld({
     seed, genome: g, init: 'layer', layerLength: per, layerRows: rows,
     params: { polarity: STRENGTH, maxCells: n0, gradient: amp,
-              junctionAdhesion: 1, junction: 0.1, gradAlign: kg },
+              junctionAdhesion: 1, junction: 0.1, gradAlign: kg, gradHalf: GHALF },
   });
   for (let i = 0; i < STEPS; i++) step(w);
   const gx = Math.cos(w.theta), gy = Math.sin(w.theta);
@@ -129,7 +131,7 @@ for (const rows of ROWS) {
   console.log(`\n=== слой ${rows}, ${picked.length} свежих сидов ===`);
   console.log('  ветка                  большинство   доля    прогиб/остаток');
   const sign = {};
-  for (const [name, kg, amp] of [['чтение выключено', 0, 1.0], ['чтение 0.5      ', 0.5, 1.0], ['0.5, поле назад ', 0.5, -1.0]]) {
+  for (const [name, kg, amp] of [['чтение выключено', 0, 1.0], ['чтение включено ', KG, 1.0], ['поле развёрнуто ', KG, -1.0]]) {
     let plus = 0, n = 0, ratio = 0;
     sign[name] = {};
     for (const seed of picked) {
@@ -142,7 +144,7 @@ for (const rows of ROWS) {
     const rr = ratio / n;
     console.log(`  ${name}   ${String(maj).padStart(2)} из ${String(n).padStart(2)}   ${(maj / n).toFixed(2)}   ${rr.toFixed(2)} ${rr > 1 ? '(дуга)' : '(облако)'}   ${plus >= n - plus ? 'ПО опоре' : 'ПРОТИВ опоры'}`);
   }
-  const a = sign['чтение 0.5      '], b = sign['0.5, поле назад '];
+  const a = sign['чтение включено '], b = sign['поле развёрнуто '];
   let flip = 0, pair = 0;
   for (const seed of picked) { pair++; if (a[seed] !== b[seed]) flip++; }
   console.log(`  ПРИЧИННАЯ ПРОВЕРКА: при развороте поля знак перевернулся на ${flip} из ${pair} (${(flip / pair).toFixed(2)}, порог ${Math.ceil(pair * 5 / 6)})`);
