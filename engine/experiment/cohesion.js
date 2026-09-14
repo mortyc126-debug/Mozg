@@ -35,6 +35,9 @@ const JN = (process.argv[4] || '0,0.05,0.1,0.2,0.4').split(',').map(Number);
    (та же ошибка, что ловушка №13 в Mozg). Режим 'probe' изолирует
    механизм: развитие идентично, различие ровно одно. */
 const MODE = process.argv[5] || 'probe';
+/* сцепление только через закреплённые контакты (замена механизма, не
+   добавление). 0 -- прежнее поведение. */
+const JADH = +(process.argv[6] || 0);
 
 /* КОНТРОЛЬ ПРОТИВ СЖАТИЯ. Соседство по радиусу чувствительно к
    уплотнению: если агенты просто сблизились, они чаще остаются внутри
@@ -85,6 +88,27 @@ function retention(before, now) {
   return { frac: n ? sum / n : NaN, n };
 }
 
+/* ЦЕЛОСТНОСТЬ ТЕЛА. Замена механизма сцепления может привести к тому,
+   что ткань рассыплется. У осколков сохранность соседей будет
+   прекрасной -- поэтому целостность надо мерить отдельно, иначе
+   развал будет выглядеть успехом. Доля агентов в крупнейшем связном
+   куске по соседству (в пределах RN). */
+function integrity(w) {
+  const sets = neighbourSets(w);
+  const seen = new Set();
+  let best = 0;
+  for (const c of w.cells) {
+    if (seen.has(c)) continue;
+    const stack = [c]; seen.add(c); let n = 0;
+    while (stack.length) {
+      const x = stack.pop(); n++;
+      for (const o of sets.get(x)) if (!seen.has(o)) { seen.add(o); stack.push(o); }
+    }
+    if (n > best) best = n;
+  }
+  return best / w.cells.length;
+}
+
 function meanNb(w) {
   return w.cells.reduce((s2, c) => s2 + c.nb, 0) / w.cells.length;
 }
@@ -103,11 +127,12 @@ for (const seed of SEEDS) {
     seed, genome: g,
     params: { twoPoint: true, align: 1, alignSelf: 1, alignRate: 0.10,
               polarity: GENE === null ? 0 : 0.35,
-              junction: MODE === 'dev' ? jn : 0 },
+              junction: MODE === 'dev' ? jn : 0,
+              junctionAdhesion: MODE === 'dev' ? JADH : 0 },
   });
   for (let i = 0; i < DEV; i++) step(w);
   // в режиме probe механизм включается ПОСЛЕ одинакового развития
-  if (MODE !== 'dev') w.p.junction = jn;
+  if (MODE !== 'dev') { w.p.junction = jn; w.p.junctionAdhesion = JADH; }
 
   const before = neighbourSets(w);
   const beforeK = knnSets(w);
@@ -123,19 +148,22 @@ for (const seed of SEEDS) {
   row.cellsEnd = w.cells.length;
   row.nbEnd = meanNb(w);
   row.jnMean = w.cells.reduce((s2, c) => s2 + c.jn.size, 0) / w.cells.length;
+  row.intg = integrity(w);
   out.push(row);
   console.log(`жёсткость ${String(jn).padStart(5)} | сид ${String(seed).padStart(4)} | ` +
     `агентов ${nCells0}->${row.cellsEnd} | соседей ${row.nbEnd.toFixed(1)} | ` +
-    `закреплённых ${row.jnMean.toFixed(1)} | ` +
+    `закреплённых ${row.jnMean.toFixed(1)} | целостность ${(100 * row.intg).toFixed(0)}% | ` +
     CHECKS.map((c) => `${c}ш ${(100 * row['k' + c]).toFixed(0)}%/${(100 * row['n' + c]).toFixed(0)}%`).join(' '));
 }
 }
 console.log(`\n=== СВОДКА (режим ${MODE}${MODE === 'probe' ? ': развитие ОДИНАКОВОЕ, механизм включён только на замер' : ': механизм влиял и на развитие'}) ===`);
 console.log('сохранность: по РАДИУСУ / по k БЛИЖАЙШИМ (контроль против сжатия)');
-console.log('жёсткость | соседей |     50ш     |    100ш     |    400ш');
+console.log(`сцепление только через закреплённые контакты: ${JADH ? 'ДА' : 'нет'}`);
+console.log('жёсткость | соседей | целост. |     50ш     |    100ш     |    400ш');
 for (const jn of JN) {
   const rs = out.filter((r) => r.jn === jn);
   const m = (k) => rs.reduce((s2, r) => s2 + r[k], 0) / rs.length;
   console.log(`${String(jn).padStart(9)} | ${m('nbEnd').toFixed(2).padStart(7)} | ` +
+    `${(100 * m('intg')).toFixed(0).padStart(6)}% | ` +
     CHECKS.map((c) => `${(100 * m('k' + c)).toFixed(1)}% / ${(100 * m('n' + c)).toFixed(1)}%`.padStart(11)).join(' | '));
 }

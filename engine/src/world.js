@@ -85,6 +85,15 @@ const DEFAULTS = {
   junction: 0,              // жёсткость закреплённого контакта; 0 -- выключено
   junctionBreak: 1.9,       // разрыв при растяжении сверх этой доли D0
   junctionMax: 6,           // предел закреплённых контактов на агента
+  /* сцепление ТОЛЬКО через закреплённый контакт. Этап 11 показал, что
+     закреплённые контакты, добавленные ПОВЕРХ обычного сцепления, дают
+     лишь +6 п.п. сохранности: механизм, удерживающий старых соседей,
+     борется с механизмом, притягивающим любого оказавшегося рядом.
+     Здесь притяжение действует лишь между закреплёнными партнёрами;
+     отталкивание остаётся всеобщим, иначе агенты проникали бы друг в
+     друга. Это ЗАМЕНА существующего механизма, а не добавление.
+     0 -- выключено, поведение прежнее. */
+  junctionAdhesion: 0,
 };
 
 function newCell(x, y, rnd, nGenes) {
@@ -379,7 +388,9 @@ function physicsPoint(w, H) {
       const k = w.p.polarity * c.pol * c.amag;
       const de = k ? D0 * (1 - 0.5 * k * (nx * c.qx + ny * c.qy)) : D0;
       if (d < de) { const f = 0.9 * (de - d); fx -= nx * f; fy -= ny * f; }
-      else { const f = Math.sqrt(c.adh * o.adh) * 0.10 * w.p.adhesionScale * (RA2 - d); fx += nx * f; fy += ny * f; }
+      else if (!w.p.junctionAdhesion || c.jn.has(o)) {
+        const f = Math.sqrt(c.adh * o.adh) * 0.10 * w.p.adhesionScale * (RA2 - d); fx += nx * f; fy += ny * f;
+      }
     });
     const jf = junctionForce(w, c);
     fx += jf.fx; fy += jf.fy;
@@ -423,7 +434,9 @@ function physicsTwoPoint(w, H) {
         const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
         let fx, fy;
         if (d < eq) { const f = 0.9 * (eq - d); fx = -nx * f; fy = -ny * f; }
-        else { const f = Math.sqrt(c.adh * o.adh) * 0.10 * adhS * (far - d); fx = nx * f; fy = ny * f; }
+        else if (!w.p.junctionAdhesion || c.jn.has(o)) {
+          const f = Math.sqrt(c.adh * o.adh) * 0.10 * adhS * (far - d); fx = nx * f; fy = ny * f;
+        } else { fx = 0; fy = 0; }
         if (idx === 1) { f1x += fx; f1y += fy; } else { f2x += fx; f2y += fy; }
       }
     });
@@ -459,7 +472,7 @@ function physicsTwoPoint(w, H) {
    поток RNG сдвинулся бы и сравнение с выключенным механизмом перестало
    быть сравнением одного и того же прогона. */
 function updateJunctions(w, H) {
-  if (!w.p.junction) return;
+  if (!w.p.junction && !w.p.junctionAdhesion) return;
   const RNj = D0 * 1.35, mx = w.p.junctionMax, br = w.p.junctionBreak;
   // 1. разрыв: мёртвый партнёр или растяжение сверх порога ОТ СВОЕЙ длины
   for (const c of w.cells) {
