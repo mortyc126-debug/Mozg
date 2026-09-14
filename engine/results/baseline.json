@@ -1,0 +1,4460 @@
+{
+ "created": "2026-09-13T23:22:21.268Z",
+ "steps": 1400,
+ "marks": [
+  0,
+  10,
+  25,
+  50,
+  100,
+  200,
+  300,
+  400,
+  600,
+  900,
+  1200,
+  1400
+ ],
+ "runs": [
+  {
+   "seed": 5,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.498,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.45,
+      "hollow": 0.81
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.683,
+     "expression": [
+      0.199,
+      0.154,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.76
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 86,
+     "energy": 1.916,
+     "expression": [
+      0.384,
+      0.284,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 27,
+      "elongation": 2.13,
+      "inner": 0.44,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 104,
+     "energy": 2.135,
+     "expression": [
+      0.514,
+      0.373,
+      0.002,
+      0.014,
+      0.014,
+      0.017
+     ],
+     "states": 3,
+     "anisotropy": 0.999,
+     "morphology": {
+      "n": 14,
+      "elongation": 6.85,
+      "inner": 0.79,
+      "hollow": 0.57
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 134,
+     "energy": 2.442,
+     "expression": [
+      0.572,
+      0.388,
+      0.028,
+      0.017,
+      0.03,
+      0.113
+     ],
+     "states": 2,
+     "anisotropy": 0.995,
+     "morphology": {
+      "n": 49,
+      "elongation": 2.17,
+      "inner": 0.47,
+      "hollow": 0.55
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 241,
+     "energy": 2.37,
+     "expression": [
+      0.555,
+      0.388,
+      0.095,
+      0.035,
+      0.063,
+      0.14
+     ],
+     "states": 3,
+     "anisotropy": 0.986,
+     "morphology": {
+      "n": 18,
+      "elongation": 6.52,
+      "inner": 0.94,
+      "hollow": 0.44
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 2,
+      "links": 1,
+      "degree": 0.01,
+      "wMean": 0.412
+     }
+    },
+    {
+     "t": 300,
+     "population": 402,
+     "energy": 2.425,
+     "expression": [
+      0.557,
+      0.375,
+      0.144,
+      0.084,
+      0.105,
+      0.124
+     ],
+     "states": 2,
+     "anisotropy": 0.977,
+     "morphology": {
+      "n": 195,
+      "elongation": 1.98,
+      "inner": 0.75,
+      "hollow": 0.59
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 8,
+      "links": 21,
+      "degree": 0.1,
+      "wMean": 0.41
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.762,
+     "expression": [
+      0.553,
+      0.375,
+      0.168,
+      0.139,
+      0.179,
+      0.111
+     ],
+     "states": 3,
+     "anisotropy": 0.974,
+     "morphology": {
+      "n": 48,
+      "elongation": 4.11,
+      "inner": 1,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 82,
+      "links": 135,
+      "degree": 0.48,
+      "wMean": 0.389
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.549,
+      0.386,
+      0.141,
+      0.117,
+      0.188,
+      0.12
+     ],
+     "states": 4,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 28,
+      "elongation": 12.76,
+      "inner": 1,
+      "hollow": 0.61
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 100,
+      "links": 208,
+      "degree": 0.74,
+      "wMean": 0.322
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.548,
+      0.387,
+      0.139,
+      0.116,
+      0.187,
+      0.121
+     ],
+     "states": 3,
+     "anisotropy": 0.982,
+     "morphology": {
+      "n": 40,
+      "elongation": 4.83,
+      "inner": 1,
+      "hollow": 0.55
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 103,
+      "links": 213,
+      "degree": 0.76,
+      "wMean": 0.229
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.548,
+      0.387,
+      0.139,
+      0.115,
+      0.186,
+      0.12
+     ],
+     "states": 3,
+     "anisotropy": 0.983,
+     "morphology": {
+      "n": 39,
+      "elongation": 4.75,
+      "inner": 1,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 100,
+      "links": 206,
+      "degree": 0.74,
+      "wMean": 0.174
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.548,
+      0.388,
+      0.139,
+      0.115,
+      0.183,
+      0.118
+     ],
+     "states": 3,
+     "anisotropy": 0.982,
+     "morphology": {
+      "n": 40,
+      "elongation": 4.8,
+      "inner": 1,
+      "hollow": 0.55
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 96,
+      "links": 198,
+      "degree": 0.71,
+      "wMean": 0.16
+     }
+    }
+   ],
+   "excitation": {
+    "before": 9,
+    "after": 17,
+    "farBefore": 25.29200697453193,
+    "farAfter": 50.28063373461762,
+    "gain": 1.8888888888888888
+   }
+  },
+  {
+   "seed": 77,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.493,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.82
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.678,
+     "expression": [
+      0.206,
+      0.148,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.977,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.42,
+      "hollow": 0.78
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 83,
+     "energy": 1.981,
+     "expression": [
+      0.39,
+      0.279,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.965,
+     "morphology": {
+      "n": 28,
+      "elongation": 2.73,
+      "inner": 0.29,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 94,
+     "energy": 2.308,
+     "expression": [
+      0.522,
+      0.366,
+      0.001,
+      0.014,
+      0.014,
+      0.011
+     ],
+     "states": 3,
+     "anisotropy": 0.945,
+     "morphology": {
+      "n": 12,
+      "elongation": 6.68,
+      "inner": 0.75,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 130,
+     "energy": 2.363,
+     "expression": [
+      0.604,
+      0.36,
+      0.024,
+      0.016,
+      0.029,
+      0.1
+     ],
+     "states": 2,
+     "anisotropy": 0.97,
+     "morphology": {
+      "n": 40,
+      "elongation": 2.44,
+      "inner": 0.47,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 242,
+     "energy": 2.337,
+     "expression": [
+      0.587,
+      0.358,
+      0.093,
+      0.035,
+      0.06,
+      0.138
+     ],
+     "states": 3,
+     "anisotropy": 0.985,
+     "morphology": {
+      "n": 15,
+      "elongation": 8.57,
+      "inner": 0.87,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 416,
+     "energy": 2.391,
+     "expression": [
+      0.577,
+      0.355,
+      0.146,
+      0.084,
+      0.101,
+      0.119
+     ],
+     "states": 4,
+     "anisotropy": 0.981,
+     "morphology": {
+      "n": 27,
+      "elongation": 9.46,
+      "inner": 0.96,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 11,
+      "links": 21,
+      "degree": 0.1,
+      "wMean": 0.409
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.78,
+     "expression": [
+      0.559,
+      0.367,
+      0.169,
+      0.143,
+      0.187,
+      0.105
+     ],
+     "states": 3,
+     "anisotropy": 0.971,
+     "morphology": {
+      "n": 48,
+      "elongation": 3.68,
+      "inner": 1,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 87,
+      "links": 153,
+      "degree": 0.55,
+      "wMean": 0.387
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.556,
+      0.378,
+      0.144,
+      0.12,
+      0.188,
+      0.12
+     ],
+     "states": 3,
+     "anisotropy": 0.966,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.41,
+      "inner": 1,
+      "hollow": 0.48
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 114,
+      "links": 178,
+      "degree": 0.64,
+      "wMean": 0.316
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.555,
+      0.379,
+      0.145,
+      0.12,
+      0.189,
+      0.119
+     ],
+     "states": 3,
+     "anisotropy": 0.967,
+     "morphology": {
+      "n": 47,
+      "elongation": 4.31,
+      "inner": 1,
+      "hollow": 0.49
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 119,
+      "links": 193,
+      "degree": 0.69,
+      "wMean": 0.236
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.556,
+      0.378,
+      0.144,
+      0.119,
+      0.186,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.966,
+     "morphology": {
+      "n": 46,
+      "elongation": 4.5,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 113,
+      "links": 181,
+      "degree": 0.65,
+      "wMean": 0.177
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.556,
+      0.378,
+      0.141,
+      0.117,
+      0.181,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.966,
+     "morphology": {
+      "n": 42,
+      "elongation": 4.52,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 94,
+      "links": 177,
+      "degree": 0.63,
+      "wMean": 0.17
+     }
+    }
+   ],
+   "excitation": {
+    "before": 4,
+    "after": 18,
+    "farBefore": 16.355233735960834,
+    "farAfter": 53.320080740281085,
+    "gain": 4.5
+   }
+  },
+  {
+   "seed": 2024,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.506,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.44,
+      "hollow": 0.81
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.691,
+     "expression": [
+      0.205,
+      0.149,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.994,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.44,
+      "hollow": 0.76
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 82,
+     "energy": 2.016,
+     "expression": [
+      0.39,
+      0.278,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.998,
+     "morphology": {
+      "n": 27,
+      "elongation": 2.51,
+      "inner": 0.41,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 99,
+     "energy": 2.208,
+     "expression": [
+      0.537,
+      0.351,
+      0.001,
+      0.013,
+      0.014,
+      0.011
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 29,
+      "elongation": 2.61,
+      "inner": 0.41,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 138,
+     "energy": 2.28,
+     "expression": [
+      0.593,
+      0.369,
+      0.026,
+      0.016,
+      0.03,
+      0.104
+     ],
+     "states": 2,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 45,
+      "elongation": 2.08,
+      "inner": 0.56,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 232,
+     "energy": 2.41,
+     "expression": [
+      0.593,
+      0.354,
+      0.085,
+      0.031,
+      0.056,
+      0.128
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 16,
+      "elongation": 8.7,
+      "inner": 0.94,
+      "hollow": 0.44
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 408,
+     "energy": 2.36,
+     "expression": [
+      0.589,
+      0.343,
+      0.142,
+      0.079,
+      0.089,
+      0.114
+     ],
+     "states": 3,
+     "anisotropy": 0.964,
+     "morphology": {
+      "n": 26,
+      "elongation": 8.94,
+      "inner": 0.96,
+      "hollow": 0.46
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 4,
+      "links": 8,
+      "degree": 0.04,
+      "wMean": 0.415
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.786,
+     "expression": [
+      0.584,
+      0.342,
+      0.171,
+      0.138,
+      0.179,
+      0.109
+     ],
+     "states": 3,
+     "anisotropy": 0.951,
+     "morphology": {
+      "n": 47,
+      "elongation": 3.98,
+      "inner": 1,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 79,
+      "links": 139,
+      "degree": 0.5,
+      "wMean": 0.392
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.579,
+      0.355,
+      0.141,
+      0.118,
+      0.196,
+      0.126
+     ],
+     "states": 3,
+     "anisotropy": 0.951,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.67,
+      "inner": 1,
+      "hollow": 0.57
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 120,
+      "links": 209,
+      "degree": 0.75,
+      "wMean": 0.325
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.579,
+      0.356,
+      0.14,
+      0.116,
+      0.197,
+      0.13
+     ],
+     "states": 3,
+     "anisotropy": 0.951,
+     "morphology": {
+      "n": 42,
+      "elongation": 4.95,
+      "inner": 1,
+      "hollow": 0.55
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 122,
+      "links": 208,
+      "degree": 0.74,
+      "wMean": 0.233
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.578,
+      0.356,
+      0.141,
+      0.117,
+      0.196,
+      0.129
+     ],
+     "states": 3,
+     "anisotropy": 0.951,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.59,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 123,
+      "links": 210,
+      "degree": 0.75,
+      "wMean": 0.191
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.578,
+      0.356,
+      0.141,
+      0.117,
+      0.198,
+      0.129
+     ],
+     "states": 3,
+     "anisotropy": 0.951,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.99,
+      "inner": 1,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 123,
+      "links": 211,
+      "degree": 0.75,
+      "wMean": 0.166
+     }
+    }
+   ],
+   "excitation": {
+    "before": 3,
+    "after": 10,
+    "farBefore": 18.756121566892585,
+    "farAfter": 56.2941844361112,
+    "gain": 3.3333333333333335
+   }
+  },
+  {
+   "seed": 9,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.494,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.47,
+      "hollow": 0.82
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.679,
+     "expression": [
+      0.2,
+      0.153,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.977,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.45,
+      "hollow": 0.78
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 82,
+     "energy": 2.005,
+     "expression": [
+      0.379,
+      0.289,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.975,
+     "morphology": {
+      "n": 12,
+      "elongation": 2.67,
+      "inner": 0.25,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 96,
+     "energy": 2.263,
+     "expression": [
+      0.523,
+      0.365,
+      0.001,
+      0.013,
+      0.014,
+      0.012
+     ],
+     "states": 3,
+     "anisotropy": 0.974,
+     "morphology": {
+      "n": 13,
+      "elongation": 6.23,
+      "inner": 0.69,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 123,
+     "energy": 2.467,
+     "expression": [
+      0.569,
+      0.395,
+      0.022,
+      0.016,
+      0.03,
+      0.111
+     ],
+     "states": 3,
+     "anisotropy": 0.949,
+     "morphology": {
+      "n": 45,
+      "elongation": 2.53,
+      "inner": 0.53,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 207,
+     "energy": 2.501,
+     "expression": [
+      0.576,
+      0.372,
+      0.082,
+      0.03,
+      0.06,
+      0.136
+     ],
+     "states": 3,
+     "anisotropy": 0.966,
+     "morphology": {
+      "n": 14,
+      "elongation": 7.74,
+      "inner": 0.86,
+      "hollow": 0.36
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 365,
+     "energy": 2.334,
+     "expression": [
+      0.567,
+      0.365,
+      0.141,
+      0.069,
+      0.082,
+      0.123
+     ],
+     "states": 4,
+     "anisotropy": 0.945,
+     "morphology": {
+      "n": 27,
+      "elongation": 8.99,
+      "inner": 0.96,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 2,
+      "links": 2,
+      "degree": 0.01,
+      "wMean": 0.411
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.545,
+     "expression": [
+      0.564,
+      0.361,
+      0.169,
+      0.128,
+      0.164,
+      0.11
+     ],
+     "states": 3,
+     "anisotropy": 0.942,
+     "morphology": {
+      "n": 39,
+      "elongation": 3.85,
+      "inner": 1,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 6,
+      "compMax": 46,
+      "links": 114,
+      "degree": 0.41,
+      "wMean": 0.395
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.561,
+      0.372,
+      0.145,
+      0.12,
+      0.188,
+      0.119
+     ],
+     "states": 3,
+     "anisotropy": 0.937,
+     "morphology": {
+      "n": 48,
+      "elongation": 4.57,
+      "inner": 1,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 121,
+      "links": 196,
+      "degree": 0.7,
+      "wMean": 0.326
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.561,
+      0.373,
+      0.144,
+      0.118,
+      0.194,
+      0.127
+     ],
+     "states": 3,
+     "anisotropy": 0.944,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.72,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 123,
+      "links": 211,
+      "degree": 0.75,
+      "wMean": 0.262
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.562,
+      0.372,
+      0.143,
+      0.118,
+      0.195,
+      0.128
+     ],
+     "states": 3,
+     "anisotropy": 0.945,
+     "morphology": {
+      "n": 45,
+      "elongation": 4.93,
+      "inner": 1,
+      "hollow": 0.49
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 124,
+      "links": 210,
+      "degree": 0.75,
+      "wMean": 0.207
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.563,
+      0.371,
+      0.144,
+      0.118,
+      0.195,
+      0.127
+     ],
+     "states": 4,
+     "anisotropy": 0.947,
+     "morphology": {
+      "n": 28,
+      "elongation": 4.99,
+      "inner": 0.61,
+      "hollow": 0.68
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 124,
+      "links": 210,
+      "degree": 0.75,
+      "wMean": 0.171
+     }
+    }
+   ],
+   "excitation": {
+    "before": 7,
+    "after": 10,
+    "farBefore": 26.075732190233346,
+    "farAfter": 52.46156551274151,
+    "gain": 1.4285714285714286
+   }
+  },
+  {
+   "seed": 101,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.503,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.08,
+      "inner": 0.45,
+      "hollow": 0.81
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.687,
+     "expression": [
+      0.206,
+      0.147,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.977,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.44,
+      "hollow": 0.78
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 81,
+     "energy": 2.037,
+     "expression": [
+      0.393,
+      0.275,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.975,
+     "morphology": {
+      "n": 26,
+      "elongation": 2.57,
+      "inner": 0.38,
+      "hollow": 0.46
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 105,
+     "energy": 2.102,
+     "expression": [
+      0.539,
+      0.349,
+      0.002,
+      0.014,
+      0.014,
+      0.013
+     ],
+     "states": 3,
+     "anisotropy": 0.974,
+     "morphology": {
+      "n": 17,
+      "elongation": 6.13,
+      "inner": 0.76,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 135,
+     "energy": 2.342,
+     "expression": [
+      0.604,
+      0.357,
+      0.029,
+      0.017,
+      0.027,
+      0.103
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 39,
+      "elongation": 2.99,
+      "inner": 0.49,
+      "hollow": 0.44
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 235,
+     "energy": 2.355,
+     "expression": [
+      0.593,
+      0.354,
+      0.089,
+      0.032,
+      0.056,
+      0.124
+     ],
+     "states": 3,
+     "anisotropy": 0.99,
+     "morphology": {
+      "n": 17,
+      "elongation": 9.89,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 392,
+     "energy": 2.442,
+     "expression": [
+      0.595,
+      0.336,
+      0.146,
+      0.083,
+      0.1,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.976,
+     "morphology": {
+      "n": 24,
+      "elongation": 9.59,
+      "inner": 0.88,
+      "hollow": 0.58
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 6,
+      "links": 20,
+      "degree": 0.1,
+      "wMean": 0.415
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.728,
+     "expression": [
+      0.578,
+      0.348,
+      0.169,
+      0.136,
+      0.177,
+      0.112
+     ],
+     "states": 3,
+     "anisotropy": 0.975,
+     "morphology": {
+      "n": 42,
+      "elongation": 4,
+      "inner": 1,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 77,
+      "links": 133,
+      "degree": 0.47,
+      "wMean": 0.39
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.574,
+      0.36,
+      0.144,
+      0.12,
+      0.19,
+      0.118
+     ],
+     "states": 3,
+     "anisotropy": 0.974,
+     "morphology": {
+      "n": 46,
+      "elongation": 4,
+      "inner": 1,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 124,
+      "links": 194,
+      "degree": 0.69,
+      "wMean": 0.323
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.574,
+      0.36,
+      0.142,
+      0.117,
+      0.182,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.97,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.34,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 121,
+      "links": 184,
+      "degree": 0.66,
+      "wMean": 0.249
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.575,
+      0.359,
+      0.142,
+      0.117,
+      0.182,
+      0.116
+     ],
+     "states": 3,
+     "anisotropy": 0.97,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.36,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 118,
+      "links": 180,
+      "degree": 0.64,
+      "wMean": 0.196
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.575,
+      0.36,
+      0.141,
+      0.116,
+      0.18,
+      0.115
+     ],
+     "states": 3,
+     "anisotropy": 0.97,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.36,
+      "inner": 1,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 118,
+      "links": 179,
+      "degree": 0.64,
+      "wMean": 0.166
+     }
+    }
+   ],
+   "excitation": {
+    "before": 5,
+    "after": 15,
+    "farBefore": 15.219125219652575,
+    "farAfter": 81.24497877895585,
+    "gain": 3
+   }
+  },
+  {
+   "seed": 202,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.516,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.82
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.7,
+     "expression": [
+      0.204,
+      0.149,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.996,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.47,
+      "hollow": 0.76
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 84,
+     "energy": 1.98,
+     "expression": [
+      0.39,
+      0.278,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 29,
+      "elongation": 2.47,
+      "inner": 0.41,
+      "hollow": 0.59
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 97,
+     "energy": 2.276,
+     "expression": [
+      0.522,
+      0.365,
+      0.002,
+      0.014,
+      0.014,
+      0.013
+     ],
+     "states": 3,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 14,
+      "elongation": 6.68,
+      "inner": 0.79,
+      "hollow": 0.43
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 143,
+     "energy": 2.213,
+     "expression": [
+      0.57,
+      0.392,
+      0.026,
+      0.017,
+      0.026,
+      0.094
+     ],
+     "states": 2,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 55,
+      "elongation": 2.32,
+      "inner": 0.53,
+      "hollow": 0.44
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 249,
+     "energy": 2.366,
+     "expression": [
+      0.567,
+      0.377,
+      0.096,
+      0.036,
+      0.063,
+      0.136
+     ],
+     "states": 3,
+     "anisotropy": 0.992,
+     "morphology": {
+      "n": 18,
+      "elongation": 10.29,
+      "inner": 0.94,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 439,
+     "energy": 2.343,
+     "expression": [
+      0.547,
+      0.383,
+      0.15,
+      0.088,
+      0.11,
+      0.119
+     ],
+     "states": 3,
+     "anisotropy": 0.985,
+     "morphology": {
+      "n": 24,
+      "elongation": 12.87,
+      "inner": 0.96,
+      "hollow": 0.63
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 16,
+      "links": 41,
+      "degree": 0.19,
+      "wMean": 0.413
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.858,
+     "expression": [
+      0.533,
+      0.393,
+      0.17,
+      0.149,
+      0.209,
+      0.122
+     ],
+     "states": 3,
+     "anisotropy": 0.981,
+     "morphology": {
+      "n": 53,
+      "elongation": 4.08,
+      "inner": 1,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 5,
+      "compMax": 93,
+      "links": 172,
+      "degree": 0.61,
+      "wMean": 0.389
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.401,
+      0.145,
+      0.119,
+      0.203,
+      0.13
+     ],
+     "states": 3,
+     "anisotropy": 0.981,
+     "morphology": {
+      "n": 40,
+      "elongation": 4.46,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 137,
+      "links": 226,
+      "degree": 0.81,
+      "wMean": 0.326
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.401,
+      0.144,
+      0.118,
+      0.203,
+      0.134
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 41,
+      "elongation": 4.18,
+      "inner": 1,
+      "hollow": 0.49
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 136,
+      "links": 228,
+      "degree": 0.81,
+      "wMean": 0.24
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.401,
+      0.144,
+      0.119,
+      0.202,
+      0.132
+     ],
+     "states": 3,
+     "anisotropy": 0.978,
+     "morphology": {
+      "n": 41,
+      "elongation": 4.26,
+      "inner": 1,
+      "hollow": 0.46
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 136,
+      "links": 228,
+      "degree": 0.81,
+      "wMean": 0.178
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.4,
+      0.145,
+      0.12,
+      0.205,
+      0.133
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.4,
+      "inner": 1,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 137,
+      "links": 232,
+      "degree": 0.83,
+      "wMean": 0.157
+     }
+    }
+   ],
+   "excitation": {
+    "before": 3,
+    "after": 10,
+    "farBefore": 20.369735919248306,
+    "farAfter": 66.34270280242586,
+    "gain": 3.3333333333333335
+   }
+  },
+  {
+   "seed": 303,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.494,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.82
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.679,
+     "expression": [
+      0.201,
+      0.152,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.45,
+      "hollow": 0.75
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 86,
+     "energy": 1.913,
+     "expression": [
+      0.381,
+      0.287,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 1,
+     "morphology": {
+      "n": 12,
+      "elongation": 3.72,
+      "inner": 0.08,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 105,
+     "energy": 2.109,
+     "expression": [
+      0.517,
+      0.37,
+      0.002,
+      0.013,
+      0.014,
+      0.015
+     ],
+     "states": 3,
+     "anisotropy": 0.976,
+     "morphology": {
+      "n": 35,
+      "elongation": 2.58,
+      "inner": 0.49,
+      "hollow": 0.49
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 136,
+     "energy": 2.381,
+     "expression": [
+      0.565,
+      0.396,
+      0.028,
+      0.017,
+      0.029,
+      0.11
+     ],
+     "states": 3,
+     "anisotropy": 0.994,
+     "morphology": {
+      "n": 48,
+      "elongation": 2.29,
+      "inner": 0.54,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 256,
+     "energy": 2.36,
+     "expression": [
+      0.55,
+      0.393,
+      0.099,
+      0.038,
+      0.071,
+      0.147
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 19,
+      "elongation": 10.3,
+      "inner": 0.95,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 4,
+      "links": 7,
+      "degree": 0.05,
+      "wMean": 0.418
+     }
+    },
+    {
+     "t": 300,
+     "population": 439,
+     "energy": 2.368,
+     "expression": [
+      0.547,
+      0.385,
+      0.148,
+      0.086,
+      0.107,
+      0.121
+     ],
+     "states": 3,
+     "anisotropy": 0.973,
+     "morphology": {
+      "n": 30,
+      "elongation": 11.16,
+      "inner": 0.97,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 5,
+      "compMax": 15,
+      "links": 28,
+      "degree": 0.13,
+      "wMean": 0.415
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.848,
+     "expression": [
+      0.544,
+      0.382,
+      0.172,
+      0.146,
+      0.192,
+      0.114
+     ],
+     "states": 3,
+     "anisotropy": 0.97,
+     "morphology": {
+      "n": 51,
+      "elongation": 3.73,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 90,
+      "links": 146,
+      "degree": 0.52,
+      "wMean": 0.388
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.544,
+      0.39,
+      0.145,
+      0.121,
+      0.206,
+      0.132
+     ],
+     "states": 4,
+     "anisotropy": 0.965,
+     "morphology": {
+      "n": 46,
+      "elongation": 4.83,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 130,
+      "links": 237,
+      "degree": 0.85,
+      "wMean": 0.324
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.544,
+      0.39,
+      0.146,
+      0.121,
+      0.209,
+      0.135
+     ],
+     "states": 3,
+     "anisotropy": 0.959,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.61,
+      "inner": 1,
+      "hollow": 0.48
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 132,
+      "links": 236,
+      "degree": 0.84,
+      "wMean": 0.253
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.545,
+      0.389,
+      0.146,
+      0.121,
+      0.21,
+      0.135
+     ],
+     "states": 4,
+     "anisotropy": 0.957,
+     "morphology": {
+      "n": 40,
+      "elongation": 4.43,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 131,
+      "links": 234,
+      "degree": 0.84,
+      "wMean": 0.196
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.545,
+      0.388,
+      0.146,
+      0.12,
+      0.204,
+      0.133
+     ],
+     "states": 4,
+     "anisotropy": 0.955,
+     "morphology": {
+      "n": 38,
+      "elongation": 4.94,
+      "inner": 1,
+      "hollow": 0.58
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 123,
+      "links": 215,
+      "degree": 0.77,
+      "wMean": 0.174
+     }
+    }
+   ],
+   "excitation": {
+    "before": 4,
+    "after": 11,
+    "farBefore": 12.359972522861714,
+    "farAfter": 49.726162426399455,
+    "gain": 2.75
+   }
+  },
+  {
+   "seed": 404,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.507,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.44,
+      "hollow": 0.81
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.691,
+     "expression": [
+      0.172,
+      0.181,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.976,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.78
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 81,
+     "energy": 2.041,
+     "expression": [
+      0.331,
+      0.337,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.983,
+     "morphology": {
+      "n": 18,
+      "elongation": 3.11,
+      "inner": 0.17,
+      "hollow": 0.33
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 107,
+     "energy": 2.075,
+     "expression": [
+      0.445,
+      0.444,
+      0.002,
+      0.014,
+      0.014,
+      0.014
+     ],
+     "states": 3,
+     "anisotropy": 0.972,
+     "morphology": {
+      "n": 18,
+      "elongation": 7.12,
+      "inner": 0.78,
+      "hollow": 0.44
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 141,
+     "energy": 2.322,
+     "expression": [
+      0.504,
+      0.458,
+      0.026,
+      0.017,
+      0.032,
+      0.122
+     ],
+     "states": 2,
+     "anisotropy": 0.991,
+     "morphology": {
+      "n": 71,
+      "elongation": 1.9,
+      "inner": 0.63,
+      "hollow": 0.58
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 240,
+     "energy": 2.43,
+     "expression": [
+      0.501,
+      0.444,
+      0.095,
+      0.035,
+      0.07,
+      0.147
+     ],
+     "states": 3,
+     "anisotropy": 0.991,
+     "morphology": {
+      "n": 12,
+      "elongation": 8.41,
+      "inner": 1,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 2,
+      "links": 1,
+      "degree": 0.01,
+      "wMean": 0.417
+     }
+    },
+    {
+     "t": 300,
+     "population": 412,
+     "energy": 2.425,
+     "expression": [
+      0.493,
+      0.437,
+      0.149,
+      0.086,
+      0.102,
+      0.123
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 27,
+      "elongation": 10.74,
+      "inner": 0.93,
+      "hollow": 0.48
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 9,
+      "links": 15,
+      "degree": 0.07,
+      "wMean": 0.411
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.741,
+     "expression": [
+      0.494,
+      0.433,
+      0.174,
+      0.14,
+      0.183,
+      0.115
+     ],
+     "states": 3,
+     "anisotropy": 0.968,
+     "morphology": {
+      "n": 49,
+      "elongation": 3.72,
+      "inner": 1,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 5,
+      "compMax": 77,
+      "links": 147,
+      "degree": 0.53,
+      "wMean": 0.388
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.494,
+      0.439,
+      0.146,
+      0.121,
+      0.198,
+      0.13
+     ],
+     "states": 3,
+     "anisotropy": 0.964,
+     "morphology": {
+      "n": 46,
+      "elongation": 3.95,
+      "inner": 1,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 133,
+      "links": 209,
+      "degree": 0.75,
+      "wMean": 0.324
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.494,
+      0.44,
+      0.141,
+      0.116,
+      0.187,
+      0.128
+     ],
+     "states": 3,
+     "anisotropy": 0.97,
+     "morphology": {
+      "n": 47,
+      "elongation": 3.92,
+      "inner": 1,
+      "hollow": 0.45
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 123,
+      "links": 201,
+      "degree": 0.72,
+      "wMean": 0.241
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.496,
+      0.439,
+      0.139,
+      0.114,
+      0.178,
+      0.123
+     ],
+     "states": 3,
+     "anisotropy": 0.968,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.37,
+      "inner": 1,
+      "hollow": 0.48
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 102,
+      "links": 187,
+      "degree": 0.67,
+      "wMean": 0.21
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.497,
+      0.439,
+      0.14,
+      0.115,
+      0.184,
+      0.126
+     ],
+     "states": 3,
+     "anisotropy": 0.969,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.12,
+      "inner": 1,
+      "hollow": 0.45
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 119,
+      "links": 196,
+      "degree": 0.7,
+      "wMean": 0.192
+     }
+    }
+   ],
+   "excitation": {
+    "before": 4,
+    "after": 5,
+    "farBefore": 19.527563810574513,
+    "farAfter": 18.797861315000798,
+    "gain": 1.25
+   }
+  },
+  {
+   "seed": 505,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.496,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.45,
+      "hollow": 0.82
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.681,
+     "expression": [
+      0.183,
+      0.17,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.997,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.76
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 82,
+     "energy": 2.008,
+     "expression": [
+      0.348,
+      0.321,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.999,
+     "morphology": {
+      "n": 16,
+      "elongation": 2.49,
+      "inner": 0.25,
+      "hollow": 0.63
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 101,
+     "energy": 2.167,
+     "expression": [
+      0.467,
+      0.42,
+      0.002,
+      0.014,
+      0.014,
+      0.014
+     ],
+     "states": 3,
+     "anisotropy": 0.993,
+     "morphology": {
+      "n": 13,
+      "elongation": 5.9,
+      "inner": 0.62,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 144,
+     "energy": 2.198,
+     "expression": [
+      0.531,
+      0.433,
+      0.024,
+      0.016,
+      0.03,
+      0.103
+     ],
+     "states": 3,
+     "anisotropy": 0.985,
+     "morphology": {
+      "n": 57,
+      "elongation": 2.04,
+      "inner": 0.58,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 261,
+     "energy": 2.362,
+     "expression": [
+      0.537,
+      0.409,
+      0.098,
+      0.038,
+      0.065,
+      0.134
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 16,
+      "elongation": 9.5,
+      "inner": 0.94,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 458,
+     "energy": 2.358,
+     "expression": [
+      0.534,
+      0.398,
+      0.149,
+      0.089,
+      0.118,
+      0.126
+     ],
+     "states": 3,
+     "anisotropy": 0.981,
+     "morphology": {
+      "n": 23,
+      "elongation": 12.32,
+      "inner": 1,
+      "hollow": 0.61
+     },
+     "connectivity": {
+      "comps": 5,
+      "compMax": 20,
+      "links": 42,
+      "degree": 0.18,
+      "wMean": 0.409
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.905,
+     "expression": [
+      0.53,
+      0.399,
+      0.162,
+      0.143,
+      0.202,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.964,
+     "morphology": {
+      "n": 50,
+      "elongation": 3.88,
+      "inner": 1,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 103,
+      "links": 178,
+      "degree": 0.64,
+      "wMean": 0.386
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.529,
+      0.406,
+      0.144,
+      0.12,
+      0.188,
+      0.118
+     ],
+     "states": 3,
+     "anisotropy": 0.96,
+     "morphology": {
+      "n": 47,
+      "elongation": 4.38,
+      "inner": 1,
+      "hollow": 0.45
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 121,
+      "links": 195,
+      "degree": 0.7,
+      "wMean": 0.309
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.529,
+      0.405,
+      0.145,
+      0.12,
+      0.186,
+      0.118
+     ],
+     "states": 3,
+     "anisotropy": 0.957,
+     "morphology": {
+      "n": 47,
+      "elongation": 4.52,
+      "inner": 1,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 119,
+      "links": 190,
+      "degree": 0.68,
+      "wMean": 0.225
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.53,
+      0.405,
+      0.144,
+      0.12,
+      0.185,
+      0.119
+     ],
+     "states": 3,
+     "anisotropy": 0.957,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.27,
+      "inner": 1,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 118,
+      "links": 189,
+      "degree": 0.68,
+      "wMean": 0.174
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.53,
+      0.405,
+      0.144,
+      0.12,
+      0.186,
+      0.119
+     ],
+     "states": 3,
+     "anisotropy": 0.957,
+     "morphology": {
+      "n": 42,
+      "elongation": 4.61,
+      "inner": 1,
+      "hollow": 0.45
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 118,
+      "links": 191,
+      "degree": 0.68,
+      "wMean": 0.153
+     }
+    }
+   ],
+   "excitation": {
+    "before": 5,
+    "after": 16,
+    "farBefore": 14.324464985921065,
+    "farAfter": 51.211657572337536,
+    "gain": 3.2
+   }
+  },
+  {
+   "seed": 606,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.504,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.45,
+      "hollow": 0.82
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.689,
+     "expression": [
+      0.206,
+      0.147,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.98,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.76
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 83,
+     "energy": 1.991,
+     "expression": [
+      0.392,
+      0.277,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.977,
+     "morphology": {
+      "n": 45,
+      "elongation": 2.37,
+      "inner": 0.62,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 93,
+     "energy": 2.353,
+     "expression": [
+      0.533,
+      0.355,
+      0.001,
+      0.013,
+      0.014,
+      0.013
+     ],
+     "states": 3,
+     "anisotropy": 0.978,
+     "morphology": {
+      "n": 14,
+      "elongation": 8.07,
+      "inner": 0.64,
+      "hollow": 0.57
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 138,
+     "energy": 2.273,
+     "expression": [
+      0.589,
+      0.373,
+      0.025,
+      0.017,
+      0.025,
+      0.093
+     ],
+     "states": 3,
+     "anisotropy": 0.986,
+     "morphology": {
+      "n": 45,
+      "elongation": 2.05,
+      "inner": 0.47,
+      "hollow": 0.38
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 247,
+     "energy": 2.392,
+     "expression": [
+      0.579,
+      0.366,
+      0.094,
+      0.036,
+      0.061,
+      0.13
+     ],
+     "states": 3,
+     "anisotropy": 0.984,
+     "morphology": {
+      "n": 14,
+      "elongation": 7.77,
+      "inner": 1,
+      "hollow": 0.57
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 300,
+     "population": 400,
+     "energy": 2.445,
+     "expression": [
+      0.585,
+      0.348,
+      0.137,
+      0.079,
+      0.1,
+      0.119
+     ],
+     "states": 3,
+     "anisotropy": 0.978,
+     "morphology": {
+      "n": 25,
+      "elongation": 8.95,
+      "inner": 1,
+      "hollow": 0.48
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 10,
+      "links": 24,
+      "degree": 0.12,
+      "wMean": 0.411
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.764,
+     "expression": [
+      0.573,
+      0.354,
+      0.165,
+      0.132,
+      0.169,
+      0.106
+     ],
+     "states": 3,
+     "anisotropy": 0.971,
+     "morphology": {
+      "n": 38,
+      "elongation": 4.07,
+      "inner": 1,
+      "hollow": 0.47
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 71,
+      "links": 134,
+      "degree": 0.48,
+      "wMean": 0.392
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.571,
+      0.363,
+      0.145,
+      0.121,
+      0.192,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.968,
+     "morphology": {
+      "n": 46,
+      "elongation": 4.76,
+      "inner": 1,
+      "hollow": 0.54
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 124,
+      "links": 198,
+      "degree": 0.71,
+      "wMean": 0.321
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.57,
+      0.364,
+      0.146,
+      0.121,
+      0.182,
+      0.109
+     ],
+     "states": 3,
+     "anisotropy": 0.964,
+     "morphology": {
+      "n": 46,
+      "elongation": 4.94,
+      "inner": 1,
+      "hollow": 0.59
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 109,
+      "links": 191,
+      "degree": 0.68,
+      "wMean": 0.244
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.57,
+      0.364,
+      0.145,
+      0.121,
+      0.18,
+      0.107
+     ],
+     "states": 3,
+     "anisotropy": 0.965,
+     "morphology": {
+      "n": 46,
+      "elongation": 4.78,
+      "inner": 1,
+      "hollow": 0.57
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 104,
+      "links": 182,
+      "degree": 0.65,
+      "wMean": 0.195
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.569,
+      0.364,
+      0.145,
+      0.12,
+      0.179,
+      0.11
+     ],
+     "states": 3,
+     "anisotropy": 0.965,
+     "morphology": {
+      "n": 44,
+      "elongation": 4.68,
+      "inner": 1,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 103,
+      "links": 175,
+      "degree": 0.63,
+      "wMean": 0.171
+     }
+    }
+   ],
+   "excitation": {
+    "before": 0,
+    "after": 0,
+    "farBefore": 0,
+    "farAfter": 0,
+    "gain": 1
+   }
+  },
+  {
+   "seed": 707,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.502,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.81
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.687,
+     "expression": [
+      0.172,
+      0.18,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.993,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.41,
+      "hollow": 0.78
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 81,
+     "energy": 2.037,
+     "expression": [
+      0.327,
+      0.341,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.994,
+     "morphology": {
+      "n": 16,
+      "elongation": 3.37,
+      "inner": 0.06,
+      "hollow": 0.44
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 96,
+     "energy": 2.282,
+     "expression": [
+      0.444,
+      0.444,
+      0.001,
+      0.014,
+      0.014,
+      0.017
+     ],
+     "states": 3,
+     "anisotropy": 0.994,
+     "morphology": {
+      "n": 16,
+      "elongation": 5.79,
+      "inner": 0.69,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 133,
+     "energy": 2.296,
+     "expression": [
+      0.533,
+      0.434,
+      0.023,
+      0.016,
+      0.035,
+      0.119
+     ],
+     "states": 2,
+     "anisotropy": 0.985,
+     "morphology": {
+      "n": 54,
+      "elongation": 2.16,
+      "inner": 0.54,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 230,
+     "energy": 2.377,
+     "expression": [
+      0.536,
+      0.413,
+      0.083,
+      0.031,
+      0.067,
+      0.149
+     ],
+     "states": 3,
+     "anisotropy": 0.993,
+     "morphology": {
+      "n": 17,
+      "elongation": 7.26,
+      "inner": 1,
+      "hollow": 0.65
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 2,
+      "links": 1,
+      "degree": 0.01,
+      "wMean": 0.415
+     }
+    },
+    {
+     "t": 300,
+     "population": 391,
+     "energy": 2.44,
+     "expression": [
+      0.54,
+      0.393,
+      0.146,
+      0.081,
+      0.098,
+      0.124
+     ],
+     "states": 4,
+     "anisotropy": 0.988,
+     "morphology": {
+      "n": 23,
+      "elongation": 10.57,
+      "inner": 0.96,
+      "hollow": 0.48
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 3,
+      "links": 4,
+      "degree": 0.02,
+      "wMean": 0.415
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.773,
+     "expression": [
+      0.536,
+      0.391,
+      0.17,
+      0.139,
+      0.183,
+      0.116
+     ],
+     "states": 3,
+     "anisotropy": 0.978,
+     "morphology": {
+      "n": 46,
+      "elongation": 3.83,
+      "inner": 1,
+      "hollow": 0.57
+     },
+     "connectivity": {
+      "comps": 4,
+      "compMax": 81,
+      "links": 142,
+      "degree": 0.51,
+      "wMean": 0.392
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.534,
+      0.4,
+      0.146,
+      0.121,
+      0.202,
+      0.134
+     ],
+     "states": 3,
+     "anisotropy": 0.978,
+     "morphology": {
+      "n": 41,
+      "elongation": 4.8,
+      "inner": 1,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 129,
+      "links": 211,
+      "degree": 0.75,
+      "wMean": 0.325
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.4,
+      0.146,
+      0.122,
+      0.21,
+      0.138
+     ],
+     "states": 3,
+     "anisotropy": 0.98,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.51,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 140,
+      "links": 228,
+      "degree": 0.81,
+      "wMean": 0.244
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.401,
+      0.145,
+      0.121,
+      0.209,
+      0.137
+     ],
+     "states": 3,
+     "anisotropy": 0.982,
+     "morphology": {
+      "n": 40,
+      "elongation": 4.33,
+      "inner": 1,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 141,
+      "links": 235,
+      "degree": 0.84,
+      "wMean": 0.191
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.533,
+      0.4,
+      0.147,
+      0.122,
+      0.207,
+      0.136
+     ],
+     "states": 3,
+     "anisotropy": 0.983,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.24,
+      "inner": 1,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 128,
+      "links": 223,
+      "degree": 0.8,
+      "wMean": 0.167
+     }
+    }
+   ],
+   "excitation": {
+    "before": 7,
+    "after": 9,
+    "farBefore": 19.47577688942354,
+    "farAfter": 34.77294355017269,
+    "gain": 1.2857142857142858
+   }
+  },
+  {
+   "seed": 808,
+   "genome_id": "ancestral",
+   "steps": 1400,
+   "parameters": {
+    "resourceTarget": 1.5,
+    "resourceRegen": 0.15,
+    "uptake": 0.04,
+    "uptakeK": 0.4,
+    "energyYield": 1.6,
+    "energyCost": 0.02,
+    "expressionCost": 0.006,
+    "energyCap": 3,
+    "divisionEnergy": 2,
+    "divisionCrowd": 7,
+    "divisionRate": 0.01,
+    "deathThreshold": 0,
+    "minPopulation": 40,
+    "maxCells": 560,
+    "gradient": 1,
+    "plasticity": 1,
+    "adhesionScale": 1,
+    "linkEnabled": true
+   },
+   "series": [
+    {
+     "t": 0,
+     "population": 80,
+     "energy": 1.497,
+     "expression": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.47,
+      "hollow": 0.81
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 10,
+     "population": 80,
+     "energy": 1.682,
+     "expression": [
+      0.173,
+      0.18,
+      0,
+      0.005,
+      0.005,
+      0
+     ],
+     "states": 1,
+     "anisotropy": 0.999,
+     "morphology": {
+      "n": 80,
+      "elongation": 1.09,
+      "inner": 0.46,
+      "hollow": 0.78
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 25,
+     "population": 84,
+     "energy": 1.96,
+     "expression": [
+      0.326,
+      0.342,
+      0,
+      0.01,
+      0.01,
+      0
+     ],
+     "states": 3,
+     "anisotropy": 0.994,
+     "morphology": {
+      "n": 18,
+      "elongation": 3.38,
+      "inner": 0.22,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 50,
+     "population": 99,
+     "energy": 2.217,
+     "expression": [
+      0.448,
+      0.44,
+      0.002,
+      0.013,
+      0.014,
+      0.016
+     ],
+     "states": 3,
+     "anisotropy": 0.998,
+     "morphology": {
+      "n": 12,
+      "elongation": 8.24,
+      "inner": 0.75,
+      "hollow": 0.5
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 100,
+     "population": 149,
+     "energy": 2.162,
+     "expression": [
+      0.504,
+      0.461,
+      0.025,
+      0.017,
+      0.029,
+      0.109
+     ],
+     "states": 2,
+     "anisotropy": 0.972,
+     "morphology": {
+      "n": 68,
+      "elongation": 2.22,
+      "inner": 0.6,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 0,
+      "compMax": 0,
+      "links": 0,
+      "degree": 0,
+      "wMean": 0
+     }
+    },
+    {
+     "t": 200,
+     "population": 244,
+     "energy": 2.4,
+     "expression": [
+      0.503,
+      0.444,
+      0.092,
+      0.034,
+      0.076,
+      0.16
+     ],
+     "states": 3,
+     "anisotropy": 0.979,
+     "morphology": {
+      "n": 15,
+      "elongation": 10.56,
+      "inner": 0.93,
+      "hollow": 0.53
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 2,
+      "links": 2,
+      "degree": 0.02,
+      "wMean": 0.409
+     }
+    },
+    {
+     "t": 300,
+     "population": 432,
+     "energy": 2.346,
+     "expression": [
+      0.511,
+      0.42,
+      0.157,
+      0.088,
+      0.109,
+      0.128
+     ],
+     "states": 4,
+     "anisotropy": 0.969,
+     "morphology": {
+      "n": 27,
+      "elongation": 11.01,
+      "inner": 0.96,
+      "hollow": 0.52
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 10,
+      "links": 19,
+      "degree": 0.09,
+      "wMean": 0.408
+     }
+    },
+    {
+     "t": 400,
+     "population": 560,
+     "energy": 2.862,
+     "expression": [
+      0.506,
+      0.42,
+      0.176,
+      0.154,
+      0.209,
+      0.118
+     ],
+     "states": 3,
+     "anisotropy": 0.964,
+     "morphology": {
+      "n": 57,
+      "elongation": 3.45,
+      "inner": 1,
+      "hollow": 0.56
+     },
+     "connectivity": {
+      "comps": 6,
+      "compMax": 104,
+      "links": 175,
+      "degree": 0.63,
+      "wMean": 0.389
+     }
+    },
+    {
+     "t": 600,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.505,
+      0.429,
+      0.144,
+      0.119,
+      0.192,
+      0.127
+     ],
+     "states": 3,
+     "anisotropy": 0.968,
+     "morphology": {
+      "n": 43,
+      "elongation": 4.39,
+      "inner": 1,
+      "hollow": 0.51
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 129,
+      "links": 198,
+      "degree": 0.71,
+      "wMean": 0.322
+     }
+    },
+    {
+     "t": 900,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.505,
+      0.428,
+      0.146,
+      0.121,
+      0.196,
+      0.129
+     ],
+     "states": 3,
+     "anisotropy": 0.969,
+     "morphology": {
+      "n": 40,
+      "elongation": 4.59,
+      "inner": 1,
+      "hollow": 0.4
+     },
+     "connectivity": {
+      "comps": 1,
+      "compMax": 130,
+      "links": 211,
+      "degree": 0.75,
+      "wMean": 0.253
+     }
+    },
+    {
+     "t": 1200,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.506,
+      0.427,
+      0.146,
+      0.121,
+      0.186,
+      0.117
+     ],
+     "states": 3,
+     "anisotropy": 0.967,
+     "morphology": {
+      "n": 42,
+      "elongation": 4.88,
+      "inner": 1,
+      "hollow": 0.38
+     },
+     "connectivity": {
+      "comps": 2,
+      "compMax": 107,
+      "links": 194,
+      "degree": 0.69,
+      "wMean": 0.196
+     }
+    },
+    {
+     "t": 1400,
+     "population": 560,
+     "energy": 3,
+     "expression": [
+      0.506,
+      0.427,
+      0.146,
+      0.121,
+      0.186,
+      0.116
+     ],
+     "states": 3,
+     "anisotropy": 0.966,
+     "morphology": {
+      "n": 42,
+      "elongation": 4.98,
+      "inner": 1,
+      "hollow": 0.43
+     },
+     "connectivity": {
+      "comps": 3,
+      "compMax": 105,
+      "links": 190,
+      "degree": 0.68,
+      "wMean": 0.175
+     }
+    }
+   ],
+   "excitation": {
+    "before": 0,
+    "after": 0,
+    "farBefore": 0,
+    "farAfter": 0,
+    "gain": 1
+   }
+  }
+ ]
+}

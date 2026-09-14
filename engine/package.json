@@ -1,0 +1,14 @@
+{
+  "name": "digital-life-engine",
+  "version": "0.3.0",
+  "description": "Цифровой биологический движок: агенты, поля, геном как правила. Структуры не программируются, а измеряются.",
+  "main": "src/world.js",
+  "type": "commonjs",
+  "scripts": {
+    "run": "node bin/run.js",
+    "test": "node test/parity.js",
+    "sweep": "node bin/sweep.js 100",
+    "report": "node bin/report.js"
+  },
+  "license": "MIT"
+}

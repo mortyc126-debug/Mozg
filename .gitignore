@@ -5,3 +5,4 @@ data/
 run/
 __pycache__/
 *.pyc
+engine/node_modules/
