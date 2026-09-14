@@ -41,6 +41,17 @@ const { measure, curvature, shape } = require('../src/measure');
    мал (агенты лежат НА кривой), у облака остаток сопоставим с его
    шириной. Отношение прогиб/остаток и есть различитель:
    заметно больше 1 -- дуга, около 1 и меньше -- облако. */
+/* НАПРАВЛЕНИЕ ИЗГИБА.
+   Знак коэффициента параболы сам по себе бессмыслен: перпендикуляр в
+   собственных осях облака определён с точностью до знака, и от сида к
+   сиду он произволен. Нужна ВНЕШНЯЯ опора.
+   Опора -- собственная ориентация агента q. Деформация делает точку по
+   направлению q больше, противоположную меньше (bodyRadii), поэтому
+   пласт должен гнуться в сторону УЗКОЙ стороны, как биметалл. Ось v
+   ориентируется так, чтобы v.q_среднее > 0; тогда знак a сравним
+   между сидами.
+   Если среднее q близко к нулю (ориентации не согласованы), опоры нет
+   и направление не определено -- это сообщается отдельно. */
 function fitResidual(group) {
   const n = group.length;
   if (n < 12) return { rms: 0, len: 0 };
@@ -53,7 +64,12 @@ function fitResidual(group) {
   const l1 = tr / 2 + Math.sqrt(Math.max(0, tr * tr / 4 - det));
   let ux = sxy, uy = l1 - sxx;
   const nl = Math.hypot(ux, uy) || 1; ux /= nl; uy /= nl;
-  const vx = -uy, vy = ux;
+  let vx = -uy, vy = ux;
+  // опора: среднее направление ориентации агентов
+  let qx = 0, qy = 0;
+  for (const c of group) { qx += c.qx; qy += c.qy; }
+  const qm = Math.hypot(qx, qy) / n;          // модуль среднего q: согласованность
+  if (qx * vx + qy * vy < 0) { vx = -vx; vy = -vy; }   // v сонаправлена с q
   const P = group.map((c) => {
     const dx = c.x - mx, dy = c.y - my;
     return [dx * ux + dy * uy, dx * vx + dy * vy];
@@ -84,7 +100,7 @@ function fitResidual(group) {
     ss += (v - pred) * (v - pred);
     if (u < lo) lo = u; if (u > hi) hi = u;
   }
-  return { rms: Math.sqrt(ss / n), len: hi - lo };
+  return { rms: Math.sqrt(ss / n), len: hi - lo, a, qm };
 }
 const { ancestral } = require('../src/genome');
 
@@ -118,6 +134,7 @@ function run(seed, rows, strength, genes) {
     elong: sh.elong, wid: sh.wid, len: cu.len,
     sagitta: cu.sagitta, bend: cu.bend, along,
     rms: fr.rms, arc: fr.rms > 1e-9 ? cu.sagitta / fr.rms : 0,
+    aSign: Math.sign(fr.a || 0), qm: fr.qm,
     nb: w.cells.reduce((s2, c) => s2 + c.nb, 0) / w.cells.length,
     profiles: m.types.map((t) => `${t.bits}:${t.n}`).join(' '),
   };
@@ -145,6 +162,13 @@ for (const rows of ROWS) {
   console.log(`  ОСТАТОК подгонки: ${f(mn('a', (r) => r.rms), 1)} → ${f(mn('b', (r) => r.rms), 1)}`);
   console.log(`  ПРОГИБ/ОСТАТОК:   ${f(mn('a', (r) => r.arc), 2)} → ${f(mn('b', (r) => r.arc), 2)}   (>>1 дуга, ~1 облако)`);
   console.log(`  соседей:      ${f(mn('a', (r) => r.nb), 2)} → ${f(mn('b', (r) => r.nb), 2)}`);
+  const pos = recs.filter((r) => r.b.aSign > 0).length;
+  const neg = recs.filter((r) => r.b.aSign < 0).length;
+  const posOff = recs.filter((r) => r.a.aSign > 0).length;
+  console.log(`  НАПРАВЛЕНИЕ изгиба (знак относительно ориентации q):`);
+  console.log(`    с деформацией : в сторону q ${pos}, против ${neg} из ${recs.length}`);
+  console.log(`    без деформации: в сторону q ${posOff}, против ${recs.length - posOff} (контроль)`);
+  console.log(`    согласованность ориентаций |q| среднее: ${f(mn('b', (r) => r.qm), 3)}`);
   console.log(`  длина:        ${f(mn('a', (r) => r.len), 1)} → ${f(mn('b', (r) => r.len), 1)}`);
   console.log(`  агентов:      ${f(mn('a', (r) => r.pop), 0)} → ${f(mn('b', (r) => r.pop), 0)}`);
   console.log(`  состояний:    ${f(mn('a', (r) => r.states), 1)} → ${f(mn('b', (r) => r.states), 1)}`);
