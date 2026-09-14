@@ -27,6 +27,14 @@ const SEEDS = (process.argv[3] || '5,77').split(',').map(Number);
 /* сетка жёсткости закреплённого контакта объявлена заранее, кривая
    сообщается целиком -- отбор "удачного" значения запрещён. */
 const JN = (process.argv[4] || '0,0.05,0.1,0.2,0.4').split(',').map(Number);
+/* КОГДА включать механизм:
+     'dev'   -- с самого начала (тогда он влияет и на РАЗВИТИЕ ткани);
+     'probe' -- только на время замера, после одинакового развития.
+   Режим 'dev' даёт РАЗНЫЕ ткани у разных жёсткостей и потому мерит
+   вместе и различие ткани, и различие сопротивления -- это спутывание
+   (та же ошибка, что ловушка №13 в Mozg). Режим 'probe' изолирует
+   механизм: развитие идентично, различие ровно одно. */
+const MODE = process.argv[5] || 'probe';
 
 function neighbourSets(w) {
   const m = new Map();
@@ -71,9 +79,12 @@ for (const seed of SEEDS) {
   const w = createWorld({
     seed, genome: g,
     params: { twoPoint: true, align: 1, alignSelf: 1, alignRate: 0.10,
-              polarity: GENE === null ? 0 : 0.35, junction: jn },
+              polarity: GENE === null ? 0 : 0.35,
+              junction: MODE === 'dev' ? jn : 0 },
   });
   for (let i = 0; i < DEV; i++) step(w);
+  // в режиме probe механизм включается ПОСЛЕ одинакового развития
+  if (MODE !== 'dev') w.p.junction = jn;
 
   const before = neighbourSets(w);
   const nCells0 = w.cells.length;
@@ -94,7 +105,7 @@ for (const seed of SEEDS) {
     CHECKS.map((c) => `${c}ш ${(100 * row['k' + c]).toFixed(0)}%`).join(' '));
 }
 }
-console.log('\n=== СВОДКА: сохранность соседей по жёсткости ===');
+console.log(`\n=== СВОДКА (режим ${MODE}${MODE === 'probe' ? ': развитие ОДИНАКОВОЕ, механизм включён только на замер' : ': механизм влиял и на развитие'}) ===`);
 console.log('жёсткость | закреплённых | соседей |  50ш  | 100ш  | 400ш  | агентов');
 for (const jn of JN) {
   const rs = out.filter((r) => r.jn === jn);
