@@ -109,6 +109,18 @@ function integrity(w) {
   return best / w.cells.length;
 }
 
+/* ПОДВИЖНОСТЬ. Высокая сохранность соседей достижима двумя способами:
+   ткань упруга (агенты движутся, но сохраняют взаимное расположение)
+   ИЛИ ткань застыла (агенты не движутся вовсе). Второе -- не успех:
+   застывшая ткань не сможет и менять форму, ради чего всё затевалось.
+   Меряются путь (сумма перемещений за шаг) и снос (расстояние между
+   начальным и конечным положением). */
+function positions(w) {
+  const m = new Map();
+  for (const c of w.cells) m.set(c, [c.x, c.y]);
+  return m;
+}
+
 function meanNb(w) {
   return w.cells.reduce((s2, c) => s2 + c.nb, 0) / w.cells.length;
 }
@@ -136,11 +148,21 @@ for (const seed of SEEDS) {
 
   const before = neighbourSets(w);
   const beforeK = knnSets(w);
+  const pos0 = positions(w);
+  let prev = positions(w), path = new Map();
+  for (const c of w.cells) path.set(c, 0);
   const nCells0 = w.cells.length;
   const row = { seed, gene: GENE, jn, cells: nCells0, nb0: meanNb(w) };
   let done = 0;
   for (const chk of CHECKS) {
-    while (done < chk) { step(w); done++; }
+    while (done < chk) {
+      step(w); done++;
+      for (const c of w.cells) {
+        const p = prev.get(c); if (!p) continue;
+        path.set(c, (path.get(c) || 0) + Math.hypot(c.x - p[0], c.y - p[1]));
+      }
+      prev = positions(w);
+    }
     const r = retention(before, neighbourSets(w));
     row['k' + chk] = r.frac;
     row['n' + chk] = retention(beforeK, knnSets(w)).frac;
@@ -149,6 +171,14 @@ for (const seed of SEEDS) {
   row.nbEnd = meanNb(w);
   row.jnMean = w.cells.reduce((s2, c) => s2 + c.jn.size, 0) / w.cells.length;
   row.intg = integrity(w);
+  {
+    let sp = 0, sd = 0, n = 0;
+    for (const c of w.cells) {
+      const p0 = pos0.get(c); if (!p0) continue;
+      sp += path.get(c) || 0; sd += Math.hypot(c.x - p0[0], c.y - p0[1]); n++;
+    }
+    row.path = n ? sp / n : 0; row.drift = n ? sd / n : 0;
+  }
   out.push(row);
   console.log(`жёсткость ${String(jn).padStart(5)} | сид ${String(seed).padStart(4)} | ` +
     `агентов ${nCells0}->${row.cellsEnd} | соседей ${row.nbEnd.toFixed(1)} | ` +
@@ -159,11 +189,12 @@ for (const seed of SEEDS) {
 console.log(`\n=== СВОДКА (режим ${MODE}${MODE === 'probe' ? ': развитие ОДИНАКОВОЕ, механизм включён только на замер' : ': механизм влиял и на развитие'}) ===`);
 console.log('сохранность: по РАДИУСУ / по k БЛИЖАЙШИМ (контроль против сжатия)');
 console.log(`сцепление только через закреплённые контакты: ${JADH ? 'ДА' : 'нет'}`);
-console.log('жёсткость | соседей | целост. |     50ш     |    100ш     |    400ш');
+console.log('жёсткость | соседей | целост. |  путь | снос |     50ш     |    100ш     |    400ш');
 for (const jn of JN) {
   const rs = out.filter((r) => r.jn === jn);
   const m = (k) => rs.reduce((s2, r) => s2 + r[k], 0) / rs.length;
   console.log(`${String(jn).padStart(9)} | ${m('nbEnd').toFixed(2).padStart(7)} | ` +
     `${(100 * m('intg')).toFixed(0).padStart(6)}% | ` +
+    `${m('path').toFixed(1).padStart(5)} | ${m('drift').toFixed(1).padStart(4)} | ` +
     CHECKS.map((c) => `${(100 * m('k' + c)).toFixed(1)}% / ${(100 * m('n' + c)).toFixed(1)}%`.padStart(11)).join(' | '));
 }
