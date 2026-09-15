@@ -38,6 +38,14 @@
     контакты, но метки переставлены между узлами. Тогда "через границу"
     -- это адрес, ничего не значащий. Если разница держится и там,
     значит меряется не разметка, а расстояние или что-то ещё;
+  * третье условие -- ТОНКИЙ МОСТИК: места СВОЕЙ области, но связи между
+    ними случайно прорежены до того же числа, что у мостика через
+    границу. Оно отвечает на вопрос, что именно делает граница: если
+    прорежённый мостик работает так же плохо, как пограничный, дело в
+    ЧИСЛЕ связей; если пограничный хуже -- дело ещё и в том, КАКИЕ это
+    связи. Контроль обязателен: измерено, что мостик своей области -- 7.5
+    связей из 9 возможных, пограничный -- 1.67, и без выравнивания
+    сравнивалась бы толщина, а не место;
   * ЗАСЧИТЫВАЕТСЯ только если: попадание в СВОЕЙ области выше, чем
     ЧЕРЕЗ ГРАНИЦУ, по знаку у большинства сидов (биномиальный p < 0.05)
     И на перемешанной разметке этого нет;
@@ -180,6 +188,24 @@ def hits(net, W, A, B, seed):
     return float(np.mean(got))
 
 
+def bridge(C, A, B):
+    return int(C[np.ix_(A, B)].sum())
+
+
+def thinned(C, A, B, keep, seed):
+    """Копия сети, где мостик A-B прорежен наугад до keep связей."""
+    C2 = C.copy()
+    ij = [(i, j) for i in A for j in B if C[i, j]]
+    extra = len(ij) - keep
+    if extra <= 0:
+        return C2
+    rng = np.random.default_rng(seed + 303)
+    for k in rng.choice(len(ij), size=extra, replace=False):
+        i, j = ij[k]
+        C2[i, j] = C2[j, i] = 0.0
+    return C2
+
+
 def path_len(C, A, B):
     """Длина пути по связям между множествами A и B (волной)."""
     seen = np.zeros(N, dtype=bool); seen[A] = True
@@ -199,7 +225,8 @@ def main():
           f"мест по {SITE} узла, проб {TRIALS}\n")
     verdicts = []
     for band in BANDS:
-        real = {"same": [], "cross": [], "dsame": [], "dcross": []}
+        real = {"same": [], "cross": [], "dsame": [], "dcross": [],
+                "thin": [], "bsame": [], "bcross": [], "bthin": []}
         perm = {"same": [], "cross": []}
         skipped = 0
         for seed in SEEDS:
@@ -220,6 +247,12 @@ def main():
                                       seed + 70))
             real["dsame"].append(path_len(C, sa, sb))
             real["dcross"].append(path_len(C, ca, cb))
+            nb_s, nb_c = bridge(C, sa, sb), bridge(C, ca, cb)
+            real["bsame"].append(nb_s); real["bcross"].append(nb_c)
+            Ct = thinned(C, sa, sb, nb_c, seed)
+            real["thin"].append(hits(net, train(net, Ct, sa, sb, seed),
+                                     sa, sb, seed + 70))
+            real["bthin"].append(bridge(Ct, sa, sb))
             (_, pa, pb), (_, qa, qb), _ = pick_p
             perm["same"].append(hits(net, train(net, C, pa, pb, seed), pa, pb,
                                      seed + 70))
@@ -238,9 +271,18 @@ def main():
               f"{c_.mean():14.3f} | {(s_ - c_).mean() * 100:+.2f} п.п.")
         print(f"  {'перемешанная':<20} | {ps.mean():8.3f} | "
               f"{pc.mean():14.3f} | {(ps - pc).mean() * 100:+.2f} п.п.")
+        t_ = np.array(real["thin"])
+        print(f"  {'тонкий мостик':<20} | {t_.mean():8.3f} | "
+              f"{'':>14} | {(s_ - t_).mean() * 100:+.2f} п.п. от своей")
         print(f"  {'длина пути':<20} | "
               f"{np.mean(np.array(real['dsame'], dtype=float)):8.2f} | "
               f"{np.mean(np.array(real['dcross'], dtype=float)):14.2f} |")
+        print(f"  {'связей в мостике':<20} | {np.mean(real['bsame']):8.2f} | "
+              f"{np.mean(real['bcross']):14.2f} | "
+              f"тонкий {np.mean(real['bthin']):.2f}")
+        kt = int((t_ > c_).sum())
+        print(f"  тонкий выше пограничного: {kt} из {n}, "
+              f"p = {p_ge(kt, n):.4f}")
         k, kp = int((s_ > c_).sum()), int((ps > pc).sum())
         print(f"  настоящая:    {k} из {n}, p = {p_ge(k, n):.4f}")
         print(f"  перемешанная: {kp} из {n}, p = {p_ge(kp, n):.4f}")
@@ -250,7 +292,14 @@ def main():
             print("  пол или потолок -- вердикт не выносится\n")
         else:
             ok = p_ge(k, n) < 0.05 and p_ge(kp, n) >= 0.05
-            print(f"  {'место имеет значение' if ok else 'разницы нет либо она есть и на перемешанной'}\n")
+            print(f"  {'место имеет значение' if ok else 'разницы нет либо она есть и на перемешанной'}")
+            if ok:
+                print("  механизм: " + ("граница режет больше, чем число связей -- "
+                      "прорежённый мостик своей области работает лучше пограничного"
+                      if p_ge(kt, n) < 0.05 else
+                      "вся разница в ЧИСЛЕ связей мостика -- прорежённый мостик "
+                      "работает не лучше пограничного"))
+            print()
         verdicts.append((band, ok, float(s_.mean()), float(c_.mean())))
 
     print("ЧТЕНИЕ ПО ДВУМ ПОЯСАМ:")
