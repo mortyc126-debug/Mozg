@@ -12,6 +12,7 @@ def simulate(
     gradual_growth=True,
     positions=None,
     contact_radius=0.25,
+    drive=None,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -25,6 +26,13 @@ def simulate(
     Вынесен в параметр, чтобы выравнивать ПЛОТНОСТЬ связей при сравнении
     разных расположений (ловушка №13: иначе сравнивалась бы плотность,
     а не организация).
+
+    drive -- собственный ток узла. None -- как прежде, rng.uniform(1.10,
+    1.25, N), то есть различие между узлами ВЫДАНО готовым. Скаляр или
+    массив позволяет сделать узлы одинаковыми и проверить, возникает ли
+    различие само (пункт 2 дорожной карты, требование Ф10). Жеребьёвка,
+    как и для позиций, выполняется в любом случае: иначе сдвинулся бы
+    весь последующий поток случайных чисел.
     """
     rng = np.random.default_rng(seed)
 
@@ -59,7 +67,9 @@ def simulate(
 
     W = np.zeros((N, N))
     contacts = np.zeros((N, N), dtype=bool)
-    drive = rng.uniform(1.10, 1.25, N)
+    drawn_drive = rng.uniform(1.10, 1.25, N)       # жеребьёвка не пропускается
+    drive = drawn_drive if drive is None else np.broadcast_to(
+        np.asarray(drive, dtype=float), (N,)).copy()
 
     spikes = np.zeros((steps, N), dtype=bool)
     logs = []
