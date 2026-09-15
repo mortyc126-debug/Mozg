@@ -86,7 +86,8 @@ sys.path.insert(0, "code")
 from sim_core import simulate
 
 N = 80
-SEEDS = list(range(101, 125))     # свежие, с прежними 11..22 не пересекаются
+import os
+SEEDS = [int(x) for x in os.environ.get('SEEDS', ','.join(map(str, range(101, 125)))).split(',')]
 DRIVE = 1.175
 ETA = float(sys.argv[1]) if len(sys.argv) > 1 else 0.2
 EDGE = 0.1
