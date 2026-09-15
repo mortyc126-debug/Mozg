@@ -228,6 +228,7 @@ def simulate(
         "weights": W.copy(),
         "contacts": contacts.copy(),
         "state_s": state_s.copy(),
+        "positions": positions.copy(),
         "metrics": metrics,
         "dt": dt,
 
