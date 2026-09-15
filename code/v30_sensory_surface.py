@@ -1,5 +1,11 @@
 """v0.30: ткань отгораживается от того места, где её касается мир.
 
+ПЕРЕПРОГНАНО после исправления меры отделимости (ошибка №40): первая
+редакция считала ближайший центр с выбрасыванием пробы по одной, а у
+этого способа систематический перекос, полный при разреженных откликах.
+Структурные выводы от этого не зависели -- они стоят на числе связей и
+на нулевом отклике, -- но числа точности пересчитаны честной мерой.
+
 ОТКУДА ВОПРОС. По критерию зачатка, записанному в STAGE_MAP, из пяти
 пунктов закрыты два с половиной, а главный незакрытый -- четвёртый:
 ткань должна ПЕРЕСТРАИВАТЬ СЕБЯ под внешним воздействием так, чтобы это
@@ -57,6 +63,7 @@ from math import comb
 import numpy as np
 
 sys.path.insert(0, "code")
+from readout import separability
 from sim_core import simulate
 
 N = 80
@@ -142,19 +149,8 @@ def readable(net, p1, p2, rest, seed):
     frac = float(X.mean())
     if frac < FLOOR:
         return frac, None, None
-    return frac, loo(X, y), loo(X, rng.permutation(y))
-
-
-def loo(X, y):
-    """Ближайший центр, проба выбрасывается по одной."""
-    ok = 0
-    for i in range(len(y)):
-        m = np.ones(len(y), dtype=bool); m[i] = False
-        c0 = X[m & (y == 0)].mean(axis=0)
-        c1 = X[m & (y == 1)].mean(axis=0)
-        d0 = np.linalg.norm(X[i] - c0); d1 = np.linalg.norm(X[i] - c1)
-        ok += int((d1 < d0) == bool(y[i]))
-    return ok / len(y)
+    return (frac, separability(X, y, seed + 5),
+            separability(X, rng.permutation(y), seed + 6))
 
 
 def main():
