@@ -13,6 +13,7 @@ def simulate(
     positions=None,
     contact_radius=0.25,
     drive=None,
+    differentiation=0.0,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -33,6 +34,19 @@ def simulate(
     различие само (пункт 2 дорожной карты, требование Ф10). Жеребьёвка,
     как и для позиций, выполняется в любом случае: иначе сдвинулся бы
     весь последующий поток случайных чисел.
+
+    differentiation -- скорость соперничества соседей за состояние (0 --
+    механизм выключен). Каждый узел несёт величину s, у ВСЕХ одинаковую
+    в начале (ровно 0.5). Правило локальное: собственная активность
+    поднимает s, среднее s соседей по контактам опускает. Множитель
+    s(1-s) делает края устойчивыми, а середину -- нет, поэтому узлы
+    расходятся, а не сползают к общему значению.
+
+    s НИ НА ЧТО НЕ ВЛИЯЕТ. Это сделано нарочно: при включённом механизме
+    остальной прогон обязан быть ПОБИТОВО тем же, что при выключенном, и
+    тогда любая найденная картина принадлежит самому механизму, а не его
+    побочным следствиям. Функциональное следствие -- отдельный, следующий
+    шаг; пока его нет, и так и записано.
     """
     rng = np.random.default_rng(seed)
 
@@ -67,6 +81,7 @@ def simulate(
 
     W = np.zeros((N, N))
     contacts = np.zeros((N, N), dtype=bool)
+    state_s = np.full(N, 0.5)          # состояние узла; у всех одинаково в начале
     drawn_drive = rng.uniform(1.10, 1.25, N)       # жеребьёвка не пропускается
     drive = drawn_drive if drive is None else np.broadcast_to(
         np.asarray(drive, dtype=float), (N,)).copy()
@@ -155,6 +170,24 @@ def simulate(
 
         np.clip(threshold, 0.7, 1.5, out=threshold)
 
+        # Соперничество соседей за состояние. Обновляется редко: это
+        # медленная величина рядом с электрической динамикой.
+        # Случайных чисел не тратит, на остальной прогон не влияет.
+        if differentiation and step % 50 == 0 and ready.any():
+            nb = contacts | contacts.T
+            deg = nb.sum(axis=1)
+            pressure = np.where(
+                deg > 0,
+                (nb * state_s[None, :]).sum(axis=1) / np.maximum(deg, 1),
+                0.5,                    # без соседей давления нет
+            )
+            r_mean = rate[ready].mean()
+            own = (rate / r_mean - 1.0) if r_mean > 0 else np.zeros(N)
+            ds = (differentiation * state_s * (1.0 - state_s)
+                  * (1.0 * own - 4.0 * (pressure - 0.5)))
+            state_s[ready] += ds[ready]
+            np.clip(state_s, 0.0, 1.0, out=state_s)
+
         if step % 100 == 0:
             logs.append([
                 t,
@@ -194,6 +227,7 @@ def simulate(
         "logs": np.array(logs),
         "weights": W.copy(),
         "contacts": contacts.copy(),
+        "state_s": state_s.copy(),
         "metrics": metrics,
         "dt": dt,
 

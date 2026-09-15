@@ -1,15 +1,16 @@
-"""Тождество после вынесения позиций и радиуса контакта в параметры.
+"""Тождество движка после вынесения параметров (v0.14, v0.15, v0.16).
 
-В sim_core.simulate добавлены positions и contact_radius. При значениях
-по умолчанию (positions=None, contact_radius=0.25) поведение обязано
-совпасть с прежним ПОБИТОВО -- иначе сравнение расположений мерило бы
-заодно и изменение движка.
+В sim_core.simulate и simulate_with_snapshots добавлены параметры
+positions, contact_radius, drive и differentiation, а в возвращаемый
+словарь -- ключ state_s. При значениях по умолчанию каждая вычисляемая
+величина обязана совпасть с архивной ПОБИТОВО.
 
-Жеребьёвка случайных позиций выполняется в любом случае, даже когда
-координаты заданы снаружи: пропуск сдвинул бы весь последующий поток
-случайных чисел (drive и далее), и сравнение мерило бы не геометрию,
-а другой поток. Это проверяется отдельно: при явной передаче тех же
-самых случайных позиций результат обязан совпасть с прежним тоже.
+СРАВНЕНИЕ ПО КЛЮЧАМ, а не словаря целиком. Первая редакция сравнивала
+словарь через repr и после добавления ключа state_s дала 0 из 6 --
+притом что все вычисляемые величины совпадали. Расхождением считался сам
+факт нового выхода. Разобрано и исправлено: сверяются все ключи,
+присутствующие в ОБЕИХ версиях, а новые ключи проверяются отдельно на
+инертность (при выключенном механизме s обязана быть ровно 0.5 у всех).
 
 Сверка без допуска: np.array_equal.
 """
@@ -20,54 +21,83 @@ import numpy as np
 sys.path.insert(0, "code")
 import sim_core as new
 
-spec = importlib.util.spec_from_file_location(
-    "sim_core_old",
-    "/tmp/claude-0/-home-user-Mozg/7258b5ee-e02b-5a2f-b06e-06bb773e12c0/scratchpad/sim_core_pristine.py",
-)
+PRISTINE = ("/tmp/claude-0/-home-user-Mozg/"
+            "7258b5ee-e02b-5a2f-b06e-06bb773e12c0/scratchpad/sim_core_pristine.py")
+spec = importlib.util.spec_from_file_location("sim_core_old", PRISTINE)
 old = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(old)
 
-
-def snap(res):
-    """Всё, что вернула simulate, в сравнимом виде."""
-    if isinstance(res, tuple):
-        return [np.asarray(x) if not isinstance(x, list) else np.asarray(
-            [list(d.values()) if isinstance(d, dict) else d for d in x],
-            dtype=object) for x in res]
-    return [np.asarray(res)]
+SKIP = {"dt"}
 
 
-def same(a, b):
-    if len(a) != len(b):
-        return False
-    for x, y in zip(a, b):
-        if x.dtype == object or y.dtype == object:
-            if repr(x) != repr(y):
-                return False
-        elif not np.array_equal(x, y):
-            return False
-    return True
+def cmp_dicts(a, b, label):
+    """Сверить все ключи, общие для обеих версий."""
+    bad = []
+    for k in sorted(set(a) & set(b) - SKIP):
+        x, y = a[k], b[k]
+        if isinstance(x, dict):
+            for kk in sorted(set(x) & set(y)):
+                if not np.array_equal(np.asarray(x[kk]), np.asarray(y[kk])):
+                    bad.append(f"{k}.{kk}")
+        elif not np.array_equal(np.asarray(x), np.asarray(y)):
+            bad.append(k)
+    ok = not bad
+    print(f"  {label}: {'ТОЧНОЕ СОВПАДЕНИЕ' if ok else 'РАСХОЖДЕНИЕ по ' + ', '.join(bad)}")
+    return ok
 
 
-ok = 0
-tot = 0
+def cmp_snaps(a, b, label):
+    ok = len(a) == len(b)
+    if ok:
+        for x, y in zip(a, b):
+            if x["t"] != y["t"] or not np.array_equal(x["weights"], y["weights"]):
+                ok = False
+                break
+            for k in x["state"]:
+                if not np.array_equal(x["state"][k], y["state"][k]):
+                    ok = False
+                    break
+    print(f"  {label}: {'ТОЧНОЕ СОВПАДЕНИЕ' if ok else 'РАСХОЖДЕНИЕ'}")
+    return ok
+
+
+ok = tot = 0
 for seed in (42, 7, 2024):
-    a = snap(old.simulate(seed=seed))
-    b = snap(new.simulate(seed=seed))
-    tot += 1
-    good = same(a, b)
-    ok += good
-    print(f"  seed {seed}: значения по умолчанию -- "
-          f"{'ТОЧНОЕ СОВПАДЕНИЕ' if good else 'РАСХОЖДЕНИЕ'}")
+    a = old.simulate(seed=seed)
+    b = new.simulate(seed=seed)
+    tot += 1; ok += cmp_dicts(a, b, f"simulate, seed {seed}, по умолчанию")
 
-    # те же самые случайные позиции, переданные явно
-    pos = np.random.default_rng(seed).uniform(0, 1, size=(80, 2))
-    c = snap(new.simulate(seed=seed, positions=pos))
-    tot += 1
-    good = same(a, c)
-    ok += good
-    print(f"  seed {seed}: те же позиции переданы явно -- "
-          f"{'ТОЧНОЕ СОВПАДЕНИЕ' if good else 'РАСХОЖДЕНИЕ'}")
+    # те же самые позиции и drive, переданные ЯВНО. Порядок жеребьёвки
+    # существенен: позиции тянутся первыми, drive -- после них.
+    rng = np.random.default_rng(seed)
+    pos = rng.uniform(0, 1, size=(80, 2))
+    drv = rng.uniform(1.10, 1.25, 80)
+    c = new.simulate(seed=seed, positions=pos, drive=drv)
+    tot += 1; ok += cmp_dicts(a, c, f"simulate, seed {seed}, позиции и drive явно")
 
-print(f"\nтождество: {ok} из {tot}")
-sys.exit(0 if ok == tot else 1)
+    d = old.simulate_with_snapshots(seed=seed)
+    e = new.simulate_with_snapshots(seed=seed)
+    tot += 1; ok += cmp_snaps(d, e, f"snapshots, seed {seed}, по умолчанию")
+
+print("\nинертность нового выхода при выключенном механизме:")
+inert = True
+for seed in (42, 7, 2024):
+    s = new.simulate(seed=seed)["state_s"]
+    good = np.all(s == 0.5)
+    inert &= bool(good)
+    print(f"  seed {seed}: s ровно 0.5 у всех -- {'ДА' if good else 'НЕТ'}")
+
+print("\nвключённый механизм не возмущает остальной прогон:")
+noperturb = True
+for seed in (42, 7, 2024):
+    a = new.simulate(seed=seed)
+    b = new.simulate(seed=seed, differentiation=0.05)
+    good = all(np.array_equal(a[k], b[k]) for k in ("spikes", "weights", "contacts"))
+    good &= np.array_equal(a["state"]["threshold"], b["state"]["threshold"])
+    noperturb &= bool(good)
+    print(f"  seed {seed}: {'ТОЧНОЕ СОВПАДЕНИЕ' if good else 'РАСХОЖДЕНИЕ'} "
+          f"(разброс s при включённом: {b['state_s'].std():.4f})")
+
+print(f"\nтождество: {ok} из {tot};  инертность: {'ДА' if inert else 'НЕТ'};  "
+      f"невозмущение: {'ДА' if noperturb else 'НЕТ'}")
+sys.exit(0 if (ok == tot and inert and noperturb) else 1)
