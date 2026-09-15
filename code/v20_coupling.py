@@ -1,4 +1,15 @@
-"""v0.20: зависит ли АДРЕСУЕМОСТЬ от силы связи.
+"""v0.20 (ПЕРЕПРОГОН с исправленной пробой): зависит ли АДРЕСУЕМОСТЬ
+от силы связи В ЗАНЯТОМ РЕЖИМЕ.
+
+Первый прогон был отозван: множитель силы был вписан только в simulate,
+а probe имеет свою копию строки передачи и всегда работал при силе 1.0
+(запись №34). Здесь сила передаётся и в пробу.
+
+Повод перепрогнать возник из v0.22: там выигрыш от следа опыта дала не
+тишина, а СИЛА СВЯЗИ -- занятый режим с силой 10 дал +43.85 п.п. против
++15.31 у молчащего. Если и адресуемость появляется в занятом режиме при
+большой силе, то тишина не нужна и для неё, и вывод v0.21 придётся
+сузить.
 
 v0.19 дал отрицательный ответ: по активности остальных узлов нельзя
 сказать, какой участок получил импульс (0.559 против 0.562 в контроле
@@ -52,8 +63,8 @@ spec = importlib.util.spec_from_file_location("v19", "code/v19_addressability.py
 v19 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(v19)
 
-SEEDS = list(range(501, 507))
-COUPLINGS = [1, 4, 8, 16, 32]
+SEEDS = list(range(801, 811))
+COUPLINGS = [1, 4, 8, 10, 16]
 ETA = 0.5
 
 
@@ -72,11 +83,11 @@ def main():
             if a is None:
                 continue
             keep = np.setdiff1d(np.arange(80), np.concatenate([a, b]))
-            acc.append(v19.accuracy(r, a, b, keep, np.random.default_rng(seed)))
+            acc.append(v19.accuracy(r, a, b, keep, np.random.default_rng(seed), coupling=c))
             shuf.append(v19.accuracy(r, a, b, keep, np.random.default_rng(seed),
-                                     shuffle=True))
+                                     shuffle=True, coupling=c))
             notr.append(v19.accuracy(r, a, b, keep, np.random.default_rng(seed),
-                                     transmission=False))
+                                     transmission=False, coupling=c))
             rate.append(r["metrics"]["rate_hz"])
             sil.append(r["metrics"]["silent_fraction"])
             h = r["history"]
