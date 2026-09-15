@@ -135,13 +135,14 @@ def cv_nearest_centroid(X, y, groups, folds=5):
     return ok / tot if tot else np.nan
 
 
-def accuracy(net, a, b, keep, rng, transmission=True, shuffle=False):
+def accuracy(net, a, b, keep, rng, transmission=True, shuffle=False, coupling=1.0):
     X, y, g = [], [], []
     steps = int(DUR / DT)
     for trial in range(TRIALS):
         noise = 0.012 * rng.standard_normal((steps, len(net["state"]["v"])))
         for lab, grp in ((0, a), (1, b)):
-            sp = probe(net, noise, grp, transmission=transmission, stimulus=True)
+            sp = probe(net, noise, grp, transmission=transmission,
+                       stimulus=True, coupling=coupling)
             X.append(features(sp, keep)); y.append(lab); g.append(trial)
     X, y, g = np.array(X), np.array(y), np.array(g)
     if shuffle:

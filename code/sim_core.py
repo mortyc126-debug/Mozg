@@ -15,6 +15,7 @@ def simulate(
     drive=None,
     differentiation=0.0,
     state_affinity=0.0,
+    coupling=1.0,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -58,6 +59,17 @@ def simulate(
     ВНИМАНИЕ: правило режет часть контактов, поэтому средняя степень
     падает. Любое сравнение обязано выравнивать плотность по ЧИСЛУ
     СОСЕДЕЙ -- урок №30. Число случайных величин не меняется.
+
+    coupling -- множитель СИЛЫ СВЯЗИ при передаче: syn += coupling * ...
+    При 1.0 поведение прежнее (проверяется тождеством).
+
+    ПЕРВАЯ РЕДАКЦИЯ МАСШТАБИРОВАЛА ПОТОЛОК ВЕСА (0.08) И БЮДЖЕТ ВХОДА
+    (0.6) И НЕ ДЕЙСТВОВАЛА ВОВСЕ: эти пределы не связывают. Вес нового
+    контакта 0.015, при 12 соседях суммарный вход около 0.18 -- ни
+    потолок, ни бюджет не достигаются, и умножение их ничего не меняло
+    (все меры совпадали до знака при силе от 1 до 16). Масштаб связи
+    задают начальный вес и шаг пластичности, а не ограничения сверху.
+    Ручка перенесена туда, где связь входит в динамику.
     """
     rng = np.random.default_rng(seed)
 
@@ -99,7 +111,7 @@ def simulate(
 
     spikes = np.zeros((steps, N), dtype=bool)
     logs = []
-    history = []          # (время, всего контактов, доля узлов у краёв s)
+    history = []   # (время, контактов, доля у краёв s, средний syn, syn/drive)
 
     for step in range(steps):
         t = step * dt
@@ -171,7 +183,7 @@ def simulate(
         )[:, None]
 
         if transmission and np.any(fired):
-            syn += W[:, fired].sum(axis=1)
+            syn += coupling * W[:, fired].sum(axis=1)
 
         v[fired] = 0.0
         refractory[fired] = 0.005
@@ -208,7 +220,9 @@ def simulate(
 
         if step % 100 == 0:
             history.append([t, float(contacts.sum()),
-                            float(np.mean((state_s < 0.1) | (state_s > 0.9)))])
+                            float(np.mean((state_s < 0.1) | (state_s > 0.9))),
+                            float(np.mean(syn)),
+                            float(np.mean(syn / np.maximum(drive, 1e-12)))])
             logs.append([
                 t,
                 rate[ready].mean() if ready.any() else 0.0,
@@ -518,7 +532,15 @@ def probe(
     stimulated_nodes,
     transmission=True,
     stimulus=False,
+    coupling=1.0,
 ):
+    """coupling -- множитель силы связи, тот же, что в simulate().
+
+    У probe СВОЯ копия строки передачи, и первая правка его не затронула:
+    сила влияла на развитие сети, а сама проба всегда шла при 1.0.
+    Обнаружено по тому, что при силе 256 отклик на импульс в молчащей
+    сети оставался ровно нулевым -- чего быть не может.
+    """
     dt = trained["dt"]
     W = trained["weights"]
     state = trained["state"]
@@ -562,7 +584,7 @@ def probe(
         spikes[step] = fired
 
         if transmission and np.any(fired):
-            syn += W[:, fired].sum(axis=1)
+            syn += coupling * W[:, fired].sum(axis=1)
 
         v[fired] = 0.0
         refractory[fired] = 0.005
