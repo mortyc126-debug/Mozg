@@ -16,6 +16,7 @@ def simulate(
     differentiation=0.0,
     state_affinity=0.0,
     coupling=1.0,
+    state_property=0.0,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -62,6 +63,22 @@ def simulate(
 
     coupling -- множитель СИЛЫ СВЯЗИ при передаче: syn += coupling * ...
     При 1.0 поведение прежнее (проверяется тождеством).
+
+    state_property -- насколько состояние s меняет САМ УЗЕЛ, а не его
+    связи: множитель адаптации после разряда,
+        adapt_scale = 1 + state_property * (2*s - 1)
+    Узел с s = 1 адаптируется сильнее (отвечает на начало и замолкает),
+    с s = 0 -- слабее (накапливает). При 0 поведение прежнее.
+
+    Это пункт 6 карты, поставленный по существу: не "у узлов разные
+    метки", а "узлы с разными метками ВЕДУТ СЕБЯ по-разному". Множитель
+    симметричен относительно 1, поэтому при делении состояний примерно
+    пополам средняя адаптация сохраняется -- но это надо ПРОВЕРЯТЬ
+    измерением, а не считать само собой.
+
+    Итоговый множитель кладётся в state["adapt_scale"], и probe его
+    использует: у пробы своя копия строки адаптации, и параметр,
+    вписанный только сюда, на измерение бы не подействовал (урок №34).
 
     ПЕРВАЯ РЕДАКЦИЯ МАСШТАБИРОВАЛА ПОТОЛОК ВЕСА (0.08) И БЮДЖЕТ ВХОДА
     (0.6) И НЕ ДЕЙСТВОВАЛА ВОВСЕ: эти пределы не связывают. Вес нового
@@ -187,7 +204,11 @@ def simulate(
 
         v[fired] = 0.0
         refractory[fired] = 0.005
-        adaptation[fired] += 0.25
+        if state_property:
+            adapt_scale = 1.0 + state_property * (2.0 * state_s - 1.0)
+            adaptation[fired] += 0.25 * adapt_scale[fired]
+        else:
+            adaptation[fired] += 0.25
         trace[fired] += 1.0
         rate[fired] += 1.0
 
@@ -275,6 +296,8 @@ def simulate(
             "refractory": refractory.copy(),
             "threshold": threshold.copy(),
             "drive": drive.copy(),
+            "adapt_scale": (1.0 + state_property * (2.0 * state_s - 1.0)
+                            if state_property else np.ones(N)),
         },
     }
 
@@ -551,6 +574,7 @@ def probe(
     refractory = state["refractory"].copy()
     threshold = state["threshold"].copy()
     drive = state["drive"].copy()
+    ascale = np.asarray(state.get("adapt_scale", 1.0), dtype=float)
 
     # Убираем остаточный синаптический ток во всех вариантах.
     # Затем даём каждому варианту 0.5 с на переходную динамику.
@@ -588,7 +612,8 @@ def probe(
 
         v[fired] = 0.0
         refractory[fired] = 0.005
-        adaptation[fired] += 0.25
+        adaptation[fired] += 0.25 * (
+            ascale[fired] if ascale.ndim else ascale)
 
     return spikes
 
