@@ -753,11 +753,20 @@ def simulate(
                         # (v0.33), указывала на самое большое вместо самого
                         # далёкого (v0.54). Совпадение -- единственное, что
                         # раз за разом различает (v0.31, v0.36, v0.44).
-                        lo = max(0, step - 250)
+                        lo = max(0, step - 1000)
                         rec = spikes[lo:step]
-                        if rec.shape[0] < 10 or not rec.any():
+                        if rec.shape[0] < 40 or not rec.any():
                             continue
-                        co = rec.T.astype(float) @ rec.astype(float)
+                        # СОВПАДЕНИЕ СЧИТАЕТСЯ ПО ОКНУ, а не по одной и той
+                        # же миллисекунде. Первая редакция брала rec.T @ rec
+                        # напрямую, то есть требовала разряда В ТОТ ЖЕ ШАГ;
+                        # при сотне разрядов за все 24 секунды такие
+                        # совпадения почти не случаются, и тропинка не
+                        # прокладывалась вовсе (0.8-3.3 связи при любом
+                        # темпе). Разряды собираются в окна по 20 мс.
+                        nb_ = rec.shape[0] // 20
+                        binned = rec[:nb_ * 20].reshape(nb_, 20, N).any(axis=1)
+                        co = binned.T.astype(float) @ binned.astype(float)
                         np.fill_diagonal(co, 0.0)
                         blocked = (contacts | contacts.T
                                    | (distance <= contact_radius)
