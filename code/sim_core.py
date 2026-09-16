@@ -27,6 +27,29 @@ def _regions(pos, state_s, ready, radius):
     return lab
 
 
+
+def _two_distant(lab, pos):
+    """Центры двух самых ДАЛЁКИХ друг от друга областей.
+
+    Деятельность оказалась плохим признаком для адреса: измерено, что
+    "две самые деятельные" -- это почти всегда господствующая область (54
+    узла из 80) плюс мелкая, их центры отстоят в среднем на 0.351, но у
+    части тканей всего на 0.12, и тракт выходит короче радиуса связи.
+    Тракт обязан соединять ДАЛЁКОЕ, иначе он не тракт.
+    """
+    ids = [k for k in np.unique(lab) if k >= 0 and (lab == k).sum() >= 5]
+    if len(ids) < 2:
+        return None
+    cs = {k: pos[lab == k].mean(axis=0) for k in ids}
+    best, far = None, -1.0
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            d = float(np.linalg.norm(cs[a] - cs[b]))
+            if d > far:
+                far, best = d, (cs[a], cs[b])
+    return best
+
+
 def _two_busiest(lab, rate, pos):
     """Центры двух самых деятельных РАЗНЫХ областей."""
     ids = [k for k in np.unique(lab) if k >= 0 and (lab == k).sum() >= 3]
@@ -73,6 +96,7 @@ def simulate(
     bundle_spread=0.12,
     long_range_weight=None,
     tract_regions=False,
+    tract_pick="busy",
     tract_span=0.15,
     duration=12.0,
     success_from_prediction=0.0,
@@ -343,9 +367,16 @@ def simulate(
     пересматривается: дальний путь может нести больше на волокно.
 
     tract_regions -- вести дальние связи между ДВУМЯ ОБЛАСТЯМИ РАЗМЕТКИ, а
-    не между деятельными узлами где угодно. Концы выбираются однажды: две
-    наиболее деятельные связные области, и все дальние связи идут между
-    ними. tract_span -- насколько широко берутся концы вокруг центров.
+    не между деятельными узлами где угодно. tract_pick выбирает, какие
+    области соединять: "busy" -- две наиболее деятельные, "far" -- две
+    самые далёкие друг от друга.
+
+    Измерено, что "busy" для адреса не годится: две самые деятельные -- это
+    почти всегда господствующая область (54 узла из 80) плюс мелкая, их
+    центры отстоят в среднем на 0.351, а у части тканей всего на 0.12, то
+    есть ближе радиуса связи. Тракт при этом насыщается почти сразу
+    (возможных пар около сотни) и выходит короче собственного назначения:
+    дальних связей 8-9 против 93-466 у рассыпанных. tract_span -- насколько широко берутся концы вокруг центров.
     При False -- прежнее поведение.
 
     Зачем. Измерено (v0.53), что рассыпанные дальние связи проводят сигнал
@@ -701,7 +732,9 @@ def simulate(
                         if tract_ends is None:
                             lab = _regions(positions, state_s, ready,
                                            contact_radius)
-                            best = _two_busiest(lab, rate, positions)
+                            best = (_two_distant(lab, positions)
+                                    if tract_pick == "far"
+                                    else _two_busiest(lab, rate, positions))
                             if best is None:
                                 continue
                             tract_ends = best
