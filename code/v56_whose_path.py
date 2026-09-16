@@ -63,7 +63,8 @@ def main():
     same, rand, sizes = [], [], []
     skipped = 0
     for seed in SEEDS:
-        grown = simulate(seed=seed, div_rate=0.10, coupling=10.0, **BASE)
+        grown = simulate(seed=seed, div_rate=0.10, coupling=10.0,
+                         duration=24.0, **BASE)
         if grown["born"] < N:
             skipped += 1
             continue
