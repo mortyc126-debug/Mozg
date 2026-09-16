@@ -4,6 +4,39 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
+
+def _regions(pos, state_s, ready, radius):
+    """Области разметки: связные пятна узлов с одной стороной s."""
+    n = len(state_s)
+    side = state_s > 0.5
+    lab = np.full(n, -1)
+    d = np.linalg.norm(pos[:, None, :] - pos[None, :, :], axis=2)
+    cur = 0
+    for i in range(n):
+        if not ready[i] or lab[i] >= 0:
+            continue
+        stack = [i]
+        lab[i] = cur
+        while stack:
+            k = stack.pop()
+            near = np.where(ready & (lab < 0) & (d[k] < radius)
+                            & (side == side[k]))[0]
+            lab[near] = cur
+            stack.extend(near.tolist())
+        cur += 1
+    return lab
+
+
+def _two_busiest(lab, rate, pos):
+    """Центры двух самых деятельных РАЗНЫХ областей."""
+    ids = [k for k in np.unique(lab) if k >= 0 and (lab == k).sum() >= 3]
+    if len(ids) < 2:
+        return None
+    busy = sorted(ids, key=lambda k: -float(rate[lab == k].sum()))
+    a, b = busy[0], busy[1]
+    return (pos[lab == a].mean(axis=0), pos[lab == b].mean(axis=0))
+
+
 def simulate(
     seed=42,
     plasticity=True,
@@ -39,6 +72,8 @@ def simulate(
     bundle_bias=0.0,
     bundle_spread=0.12,
     long_range_weight=None,
+    tract_regions=False,
+    tract_span=0.15,
     duration=12.0,
     success_from_prediction=0.0,
     predict_per_link=0.0,
@@ -307,6 +342,21 @@ def simulate(
     PRINCIPLES §2-бис сходство с образцом не довод, и умолчание
     пересматривается: дальний путь может нести больше на волокно.
 
+    tract_regions -- вести дальние связи между ДВУМЯ ОБЛАСТЯМИ РАЗМЕТКИ, а
+    не между деятельными узлами где угодно. Концы выбираются однажды: две
+    наиболее деятельные связные области, и все дальние связи идут между
+    ними. tract_span -- насколько широко берутся концы вокруг центров.
+    При False -- прежнее поведение.
+
+    Зачем. Измерено (v0.53), что рассыпанные дальние связи проводят сигнал
+    УЖЕ разгона (отвечало 0.552 против 0.586), но не ДЕШЕВЛЕ: суммарная
+    активность выше эталонной в 1.6-2.8 раза. Каждая дальняя связь есть
+    сильное волокно в случайном месте, и путь получается рассыпанный -- он
+    доставляет, но попутно греет всё, мимо чего идёт.
+
+    Разметка с управляемым масштабом есть у ткани с v0.28 и до сих пор ни
+    разу не служила АДРЕСОМ. Здесь она им становится.
+
     duration -- длительность развития в секундах. Прежде была зашита
     константой 12.0; вынесена, потому что совпадениям нужно ВРЕМЯ, чтобы
     накопиться, а рост при нынешней скорости деления заканчивается к 8-й
@@ -428,6 +478,7 @@ def simulate(
     # Рост делением. Ткань начинается с ОДНОГО элемента в середине, и всё
     # остальное -- и число элементов, и их расположение -- она строит сама.
     lr_links = []                      # проложенные дальние пути (пучки)
+    tract_ends = None                  # два конца тракта, выбранные однажды
     born_n = N
     if growth_by_division:
         positions = np.full((N, 2), 1e3)     # нерождённые -- бесконечно далеко,
@@ -634,6 +685,43 @@ def simulate(
                     # прокладывается ВДОЛЬ уже существующей: концы берутся
                     # из окрестностей её концов. Так путь утолщается, а не
                     # плодятся одиночки.
+                    # ТРАКТ МЕЖДУ ОБЛАСТЯМИ РАЗМЕТКИ. Прежде дальние связи
+                    # ставились между деятельными узлами ГДЕ УГОДНО, и путь
+                    # выходил рассыпанный: он доставлял сигнал, но попутно
+                    # грел всё, мимо чего шёл (измерено в v0.53: суммарная
+                    # активность выше эталонной в 1.6-2.8 раза при более
+                    # узком отклике).
+                    #
+                    # Здесь концы выбираются ОДНАЖДЫ -- две наиболее
+                    # деятельные области разметки, -- и все дальние связи
+                    # идут между ними. Разметка с управляемым масштабом
+                    # есть у ткани с v0.28 и до сих пор ни разу не
+                    # служила АДРЕСОМ.
+                    if tract_regions:
+                        if tract_ends is None:
+                            lab = _regions(positions, state_s, ready,
+                                           contact_radius)
+                            best = _two_busiest(lab, rate, positions)
+                            if best is None:
+                                continue
+                            tract_ends = best
+                        ca, cb = tract_ends
+                        na = idx[np.linalg.norm(positions[idx] - ca,
+                                                axis=1) < tract_span]
+                        nb = idx[np.linalg.norm(positions[idx] - cb,
+                                                axis=1) < tract_span]
+                        if not len(na) or not len(nb):
+                            continue
+                        a = int(rng.choice(na))
+                        b = int(rng.choice(nb))
+                        if a != b and not contacts[a, b]:
+                            contacts[a, b] = True
+                            W[a, b] = (0.015 if long_range_weight is None
+                                       else long_range_weight)
+                            if distance[a, b] > contact_radius:
+                                lr_links.append((a, b))
+                        continue
+
                     pioneer = None
                     if bundle_bias and lr_links and rng.random() < bundle_bias:
                         pioneer = lr_links[int(rng.integers(len(lr_links)))]
