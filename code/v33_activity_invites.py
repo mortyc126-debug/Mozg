@@ -75,7 +75,7 @@ GROW = dict(drive=0.8, homeostasis=False, gradual_growth=False,
             activity_affinity=1.0)
 
 
-def main():
+def run(GROW=GROW, SEEDS=SEEDS, title=''):
     conds = ("БЕЗ ВХОДА", "СО СТРОЕНИЕМ", "БЕЗ СТРОЕНИЯ")
     res = {c: {"frac": [], "acc": [], "nul": [], "link": [], "deg": [],
                "ds": [], "da": []} for c in conds}
@@ -113,9 +113,8 @@ def main():
                 paired[c].append(row[c])
 
     n = len(paired["БЕЗ ВХОДА"])
-    print(f"{len(SEEDS)} сидов ({n} в счёт, {skipped} без отклика), "
-          f"разметка следует за активностью, различие мешает связи, "
-          f"активность помогает\n")
+    print(f"{len(SEEDS)} сидов ({n} в счёт, {skipped} без отклика). "
+          f"{title}\n")
     print(f"{'условие':<14} | {'связей наружу':>13} | {'соседей':>7} | "
           f"{'расх. s':>7} | {'расх. a':>7} | {'отклик':>7} | "
           f"{'точность':>8} | {'перемеш.':>8}")
@@ -164,4 +163,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run(title="разметка следует за активностью, различие мешает связи, "
+              "активность помогает")
