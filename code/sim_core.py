@@ -36,6 +36,8 @@ def simulate(
     growth_from_activity=0.0,
     growth_from_coincidence=0.0,
     duration=12.0,
+    success_from_prediction=0.0,
+    pred_rate=0.02,
     world=None,
     world_init=0.5,
 ):
@@ -200,6 +202,24 @@ def simulate(
     двигает немногие связи сильно, бессвязная активность -- многие
     понемногу (связей со сдвигом выше 1e-4: 205 против 261).
 
+    success_from_prediction -- сила признака успеха (§2b). Узел держит
+    медленное ожидание своего входа pred и медленный уровень удивления
+    surp_avg; скорость пластичности умножается на
+        1 + success_from_prediction * (surp_avg - |syn - pred|) / surp_avg
+    с обрезкой в [0, 2]. То есть закрепляется то, после чего вход стал
+    ОЖИДАЕМЕЕ обычного, и распускается то, после чего он стал
+    неожиданнее. pred_rate -- скорость ожидания. При 0 множитель не
+    считается вовсе и поведение побитово прежнее.
+
+    Признак ЛОКАЛЕН и внешнего судьи не требует: узел вычисляет его из
+    своего же входа. Это и есть выбор цифрового устройства вместо
+    биологического -- живой ткани такой сигнал доставляют отдельные
+    системы подкрепления, цифровой он даётся даром.
+
+    ГРАНИЦА, которую этот принцип чертит, названа в §2b: ткань будет
+    стремиться к предвидимому миру, то есть искать скуку. Это
+    проверяемое следствие, а не оговорка.
+
     world -- ЗАМЫКАНИЕ ПЕТЛИ. Функция world(u, fired, positions, dt) -> u,
     вызываемая каждый шаг: она получает, КТО РАЗРЯДИЛСЯ, и возвращает новое
     состояние мира. Правило образа, если просит второй довод, получает это
@@ -355,6 +375,8 @@ def simulate(
 
     W = np.zeros((N, N))
     contacts = np.zeros((N, N), dtype=bool)
+    pred = np.zeros(N)                 # ожидаемый вход узла; см. §2b
+    surp_avg = np.zeros(N)             # его же недавний уровень удивления
     state_a = np.zeros(N)              # память об активности; см. activity_memory
     state_s = np.full(N, 0.5)          # состояние узла; у всех одинаково в начале
     if state_jitter:
@@ -538,12 +560,28 @@ def simulate(
             if step % 50 == 0:
                 world_trace.append((t, world_u))
 
+        # Признак успеха: предсказуемость собственного входа (§2b).
+        # Закрепляется тем сильнее, чем меньше узел удивлён тем, что
+        # получил, по сравнению со своим же недавним уровнем удивления.
+        # Величина локальная: узел считает её сам, из своего же входа.
+        if success_from_prediction:
+            surprise = np.abs(syn - pred)
+            gate = np.clip(
+                1.0 + success_from_prediction
+                * (surp_avg - surprise) / np.maximum(surp_avg, 1e-6),
+                0.0, 2.0)
+            pred += pred_rate * (syn - pred)
+            surp_avg += 0.1 * pred_rate * (surprise - surp_avg)
+        else:
+            gate = None
+
         # Пластичность существующих контактов.
         if plasticity and np.any(fired):
-            eta = 0.0002
+            eta = 0.0002 if gate is None else 0.0002 * gate[:, None]
 
             W[fired, :] += (
-                eta * trace[None, :] * contacts[fired, :]
+                (eta if gate is None else eta[fired])
+                * trace[None, :] * contacts[fired, :]
             )
             W[:, fired] -= (
                 1.05 * eta * trace[:, None] * contacts[:, fired]
