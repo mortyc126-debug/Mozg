@@ -25,6 +25,8 @@ def simulate(
     stimulus_amp=0.0,
     stimulus_period=0.4,
     stimulus_dur=0.020,
+    state_from_activity=1.0,
+    activity_memory=0.0,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -108,6 +110,28 @@ def simulate(
     контактов уже стоят, и правило действует на остатки. Поднятием
     скорости это не лечится -- симметрию ломает активность, а в молчащей
     подложке за 12 с случается один спайк.
+
+    state_from_activity -- множитель при собственной активности в правиле
+    соперничества. При 1.0 (по умолчанию) поведение прежнее; при 0.0
+    активность на состояние НЕ ВЛИЯЕТ, и s определяется только
+    соперничеством соседей.
+
+    activity_memory -- скорость отдельной памяти об активности state_a:
+        a += activity_memory * (clip(rate / (2 * средний rate), 0, 1) - a)
+    При 0 (по умолчанию) величина остаётся нулевой и ни на что не
+    влияет; случайных чисел не тратится ни при каком значении.
+
+    ЗАЧЕМ ЭТИ ДВА ВМЕСТЕ. Измерено (v0.30), что величина s несёт две
+    несовместимые службы: "насколько я был активен" и "с кем мне можно
+    связываться". Пока это одна переменная, всякое воздействие извне
+    автоматически переводится в запрет на связь: узлы, которых касается
+    вход, уходят к полюсу состояния, и правило близости отрезает
+    сенсорную поверхность от ткани (40.0 связей -> 0.6).
+
+    Развести службы -- значит отдать первую отдельной величине state_a, а
+    s оставить только вторую. В ткани так нельзя: у клетки активность и
+    поверхностные свойства завязаны на одну биохимию. В цифровой системе
+    это два числа, и разделение ничего не стоит (PRINCIPLES §3).
 
     stimulus -- ВНЕШНЕЕ ВОЗДЕЙСТВИЕ: список наборов узлов (образов),
     которые по очереди получают добавку к входу. stimulus_amp -- величина
@@ -199,6 +223,7 @@ def simulate(
 
     W = np.zeros((N, N))
     contacts = np.zeros((N, N), dtype=bool)
+    state_a = np.zeros(N)              # память об активности; см. activity_memory
     state_s = np.full(N, 0.5)          # состояние узла; у всех одинаково в начале
     if state_jitter:
         state_s += state_jitter * (rng.random(N) - 0.5)
@@ -334,9 +359,13 @@ def simulate(
             r_mean = rate[ready].mean()
             own = (rate / r_mean - 1.0) if r_mean > 0 else np.zeros(N)
             ds = (differentiation * state_s * (1.0 - state_s)
-                  * (1.0 * own - 4.0 * (pressure - 0.5)))
+                  * (state_from_activity * own - 4.0 * (pressure - 0.5)))
             state_s[ready] += ds[ready]
             np.clip(state_s, 0.0, 1.0, out=state_s)
+            if activity_memory:
+                target = (np.clip(rate / (2.0 * r_mean), 0.0, 1.0)
+                          if r_mean > 0 else np.zeros(N))
+                state_a += activity_memory * (target - state_a)
 
         if step % 100 == 0:
             history.append([t, float(contacts.sum()),
@@ -382,6 +411,7 @@ def simulate(
         "weights": W.copy(),
         "contacts": contacts.copy(),
         "state_s": state_s.copy(),
+        "state_a": state_a.copy(),
         "positions": positions.copy(),
         "history": np.array(history),
         "metrics": metrics,
