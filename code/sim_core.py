@@ -123,7 +123,8 @@ def simulate(
     активность на состояние НЕ ВЛИЯЕТ, и s определяется только
     соперничеством соседей.
 
-    activity_memory -- скорость отдельной памяти об активности state_a:
+    activity_memory -- скорость отдельной памяти об активности state_a.
+    Считается СВОИМ блоком и от differentiation не зависит:
         a += activity_memory * (clip(rate / (2 * средний rate), 0, 1) - a)
     При 0 (по умолчанию) величина остаётся нулевой и ни на что не
     влияет; случайных чисел не тратится ни при каком значении.
@@ -200,8 +201,11 @@ def simulate(
     иначе они попадали бы в соседи по расстоянию и портили и рост
     контактов, и соперничество состояний.
 
-    stimulus -- ВНЕШНЕЕ ВОЗДЕЙСТВИЕ: список наборов узлов (образов),
-    которые по очереди получают добавку к входу. stimulus_amp -- величина
+    stimulus -- ВНЕШНЕЕ ВОЗДЕЙСТВИЕ: список образов, которые по очереди
+    получают добавку к входу. Образ -- либо готовый набор номеров узлов,
+    либо ПРАВИЛО: функция от координат, возвращающая маску или номера.
+    Правило пересчитывается, когда ткань подросла: при росте делением
+    узлов в начале ещё нет, и задать образ списком номеров нельзя. stimulus_amp -- величина
     добавки, stimulus_period -- как часто, stimulus_dur -- как долго.
     При stimulus_amp = 0 или stimulus = None не добавляется ни одной
     операции и поведение побитово прежнее.
@@ -328,8 +332,27 @@ def simulate(
     # служит для картинок развития и стимуляции не знает. Если
     # воздействие когда-нибудь понадобится там, вписывать придётся
     # отдельно, само оно туда не попадёт.
-    stim_on = None if not (stimulus and stimulus_amp) else [
-        np.asarray(g, dtype=int) for g in stimulus]
+    def _stim_sets():
+        """Образы: готовые наборы узлов ИЛИ правила по положению.
+
+        При росте делением узлов в начале ещё нет, и задать образ списком
+        номеров нельзя. Поэтому образ можно задать ПРАВИЛОМ: функцией от
+        координат, возвращающей маску или номера. Правило пересчитывается
+        всякий раз, когда ткань подросла, -- так мир касается МЕСТА, а не
+        заранее названных узлов.
+        """
+        if not (stimulus and stimulus_amp):
+            return None
+        out = []
+        for g in stimulus:
+            v = g(positions) if callable(g) else g
+            v = np.asarray(v)
+            out.append(np.where(v)[0] if v.dtype == bool
+                       else v.astype(int))
+        return out
+
+    stim_on = _stim_sets()
+    stim_by_rule = bool(stimulus) and any(callable(g) for g in stimulus)
     stim_per = max(1, int(round(stimulus_period / dt)))
     stim_len = max(1, int(round(stimulus_dur / dt)))
 
@@ -374,6 +397,8 @@ def simulate(
             if grew:
                 distance = np.linalg.norm(
                     positions[:, None, :] - positions[None, :, :], axis=2)
+                if stim_by_rule:
+                    stim_on = _stim_sets()
 
         if step % 250 == 0:
             eligible = (
@@ -490,10 +515,17 @@ def simulate(
                   * (state_from_activity * own - 4.0 * (pressure - 0.5)))
             state_s[ready] += ds[ready]
             np.clip(state_s, 0.0, 1.0, out=state_s)
-            if activity_memory:
-                target = (np.clip(rate / (2.0 * r_mean), 0.0, 1.0)
-                          if r_mean > 0 else np.zeros(N))
-                state_a += activity_memory * (target - state_a)
+
+        # Память об активности. СВОЙ блок, а не ветка внутри соперничества:
+        # первая редакция держала её там, и при выключенной дифференцировке
+        # величина молча оставалась нулевой, обесточивая всё, что от неё
+        # зависит (запись об ошибке №45). Величины не изменились -- блок
+        # идёт сразу следом и считает то же самое.
+        if activity_memory and step % 50 == 0 and ready.any():
+            r_mean_a = rate[ready].mean()
+            target = (np.clip(rate / (2.0 * r_mean_a), 0.0, 1.0)
+                      if r_mean_a > 0 else np.zeros(N))
+            state_a += activity_memory * (target - state_a)
 
         if step % 100 == 0:
             history.append([t, float(contacts.sum()),
