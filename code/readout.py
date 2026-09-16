@@ -57,3 +57,52 @@ def separability(X, y, seed, repeats=REPEATS):
                 pred[tie] = rng.integers(0, 2, size=int(tie.sum()))
             got.append((pred == k).astype(float))
     return float(np.concatenate(got).mean())
+
+
+# --- Проба пачкой -------------------------------------------------------
+#
+# Пробы независимы между собой, и считать их по одной -- чистая потеря:
+# шаг работает с вектором длины N, а мог бы работать с матрицей
+# (проб, N). Ускорение нужно не ради скорости самой по себе, а потому что
+# измерено (v0.35): разброс точности от ОДНОГО ТОЛЬКО шума пробы -- 4.18
+# п.п. при эффектах в 3-8 п.п. Чтобы читать такие эффекты, проб нужно
+# вчетверо больше, и без пачки это не по карману.
+#
+# ВНИМАНИЕ: это вторая реализация той же пробы, и по уроку №34 она обязана
+# совпадать с первой ПОБИТОВО при том же шуме. Проверяется функцией
+# check_batch ниже, а не предполагается.
+
+def probe_batch(W, st0, noises, pat, read, coupling, dt, pulse_at, deadline,
+                thr, asc):
+    """Отклик на импульс, все пробы разом.
+
+    st0 -- словарь начальных состояний (векторы длины N), общий для всех
+    проб; noises -- массив (проб, шагов, N).
+    """
+    import numpy as np
+    T, steps, N = noises.shape
+    v = np.tile(st0["v"], (T, 1))
+    syn = np.zeros((T, N))
+    adapt = np.tile(st0["adapt"], (T, 1))
+    refr = np.tile(st0["refr"], (T, 1))
+    drive = st0["drive"][None, :]
+    got = np.zeros((T, N), dtype=bool)
+    Wt = W.T.copy()
+    for t in range(steps):
+        syn *= np.exp(-dt / 0.010); adapt *= np.exp(-dt / 0.200)
+        refr = np.maximum(0.0, refr - dt)
+        avail = refr == 0.0
+        cur = drive + syn - adapt
+        dv = (dt / 0.020) * (-v + cur)
+        v += np.where(avail, dv + noises[:, t, :], 0.0)
+        fired = avail & (v >= thr[None, :])
+        if t == pulse_at:
+            fired[:, pat] = True
+        if fired.any():
+            syn += coupling * (fired.astype(float) @ Wt)
+        v[fired] = 0.0
+        refr[fired] = 0.005
+        adapt += 0.25 * asc[None, :] * fired
+        if pulse_at < t <= pulse_at + deadline:
+            got |= fired
+    return got[:, read]

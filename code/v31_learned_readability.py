@@ -52,7 +52,7 @@ from math import comb
 import numpy as np
 
 sys.path.insert(0, "code")
-from readout import separability
+from readout import probe_batch, separability
 from sim_core import simulate
 
 N = 80
@@ -64,7 +64,7 @@ DT = 0.001
 PROBE_MS = 400
 PULSE_AT = 300
 DEADLINE = 30
-TRIALS = 40
+TRIALS = 160        # поднято вчетверо: шум пробы 4.18 п.п. при эффектах 3-8 (v0.35)
 FLOOR = 0.005
 PERIOD = 0.2
 
@@ -124,14 +124,19 @@ def response(net, pat, read, noise):
 
 
 def measure(net, p1, p2, read, seed):
+    """Пробы считаются пачкой; совпадение с пробой по одной проверено
+    побитово (scratch/checkbatch, урок №34)."""
     rng = np.random.default_rng(seed)
+    W = net["weights"] * net["contacts"]
+    st = fresh(net)
     X, y = [], []
     for lab, pat in ((0, p1), (1, p2)):
-        for _ in range(TRIALS):
-            nz = 0.012 * rng.standard_normal((PROBE_MS, N))
-            X.append(response(net, pat, read, nz).astype(float))
-            y.append(lab)
-    X = np.array(X); y = np.array(y)
+        nz = np.array([0.012 * rng.standard_normal((PROBE_MS, N))
+                       for _ in range(TRIALS)])
+        X.append(probe_batch(W, st, nz, pat, read, COUPLING, DT, PULSE_AT,
+                             DEADLINE, st["thr"], st["asc"]).astype(float))
+        y += [lab] * TRIALS
+    X = np.vstack(X); y = np.array(y)
     frac = float(X.mean())
     if frac < FLOOR:
         return frac, None, None

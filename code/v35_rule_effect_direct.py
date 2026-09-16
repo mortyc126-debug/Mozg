@@ -40,16 +40,17 @@ sys.path.insert(0, "code")
 import v33_activity_invites as v33
 
 
-def main():
+def compare(SEEDS=None):
+    SEEDS = v33.SEEDS if SEEDS is None else SEEDS
     on = dict(v33.GROW)
     off = dict(v33.GROW); off["state_affinity"] = 0.0
 
     print("=" * 70)
     print("ПРАВИЛО ВКЛЮЧЕНО")
-    a = v33.run(GROW=on, SEEDS=v33.SEEDS, title="правило границы ВКЛЮЧЕНО")
+    a = v33.run(GROW=on, SEEDS=SEEDS, title="правило границы ВКЛЮЧЕНО")
     print("\n" + "=" * 70)
     print("ПРАВИЛО ВЫКЛЮЧЕНО")
-    b = v33.run(GROW=off, SEEDS=v33.SEEDS, title="правило границы ВЫКЛЮЧЕНО")
+    b = v33.run(GROW=off, SEEDS=SEEDS, title="правило границы ВЫКЛЮЧЕНО")
 
     if a is None or b is None:
         print("\nодин из прогонов без отклика -- сравнивать нечего")
@@ -79,4 +80,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    compare()
