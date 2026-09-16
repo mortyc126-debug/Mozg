@@ -123,9 +123,20 @@ def response(net, pat, read, noise):
     return got[read]
 
 
-def measure(net, p1, p2, read, seed):
+def measure(net, p1, p2, read, seed, coupling=None):
     """Пробы считаются пачкой; совпадение с пробой по одной проверено
-    побитово (scratch/checkbatch, урок №34)."""
+    побитово (scratch/checkbatch, урок №34).
+
+    coupling -- сила связи ПРИ ПРОБЕ. None означает ту же, при которой
+    развивалась ткань (net["coupling"]), а если её нет -- прежнюю
+    постоянную. Первая редакция брала постоянную ВСЕГДА, и когда развитие
+    пошло при силе 14 (замкнутая петля, v0.46), проба осталась при 10 --
+    то есть в режиме, где сигнал не путешествует. Отклик у дальних узлов
+    выходил 0.004-0.011, и 15-17 сидов из 20 отбрасывались как
+    неразличимые. Это семейство ошибки №34.
+    """
+    if coupling is None:
+        coupling = float(net.get("coupling", COUPLING))
     rng = np.random.default_rng(seed)
     W = net["weights"] * net["contacts"]
     st = fresh(net)
@@ -133,7 +144,7 @@ def measure(net, p1, p2, read, seed):
     for lab, pat in ((0, p1), (1, p2)):
         nz = np.array([0.012 * rng.standard_normal((PROBE_MS, N))
                        for _ in range(TRIALS)])
-        X.append(probe_batch(W, st, nz, pat, read, COUPLING, DT, PULSE_AT,
+        X.append(probe_batch(W, st, nz, pat, read, coupling, DT, PULSE_AT,
                              DEADLINE, st["thr"], st["asc"]).astype(float))
         y += [lab] * TRIALS
     X = np.vstack(X); y = np.array(y)

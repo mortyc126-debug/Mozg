@@ -658,6 +658,7 @@ def simulate(
         "born": int(born_n),
         "birth": birth.copy(),
         "world": np.array(world_trace),
+        "coupling": float(coupling),
         "positions": positions.copy(),
         "history": np.array(history),
         "metrics": metrics,
