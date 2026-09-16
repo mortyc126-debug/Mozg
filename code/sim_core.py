@@ -28,6 +28,11 @@ def simulate(
     state_from_activity=1.0,
     activity_memory=0.0,
     activity_affinity=0.0,
+    growth_by_division=False,
+    div_rate=0.12,
+    div_spacing=0.10,
+    div_crowd=5,
+    growth_from_activity=0.0,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -158,6 +163,32 @@ def simulate(
     двух. При min поощрялись бы только связи внутри активной области, и
     наружу она бы по-прежнему не росла.
 
+    growth_by_division -- ткань начинается с ОДНОГО элемента в середине и
+    строит остальное делением. div_rate -- вероятность деления за один
+    медленный шаг (250 мс); div_spacing -- расстояние, на которое отходит
+    дочерний элемент; div_crowd -- сколько соседей уже достаточно, чтобы
+    элемент перестал делиться; growth_from_activity -- насколько пережитая
+    активность УСКОРЯЕТ деление.
+
+    При growth_by_division = False ничего не добавляется и поведение
+    побитово прежнее. При True параметр gradual_growth не действует:
+    время рождения задаётся делением, а не расписанием.
+
+    Зачем. STAGE_MAP говорит об этом прямее всего: пункт 1 дорожной карты
+    был не просто не выполнен, а ОБОЙДЁН -- пространственная организация
+    выдавалась системе готовой (rng.uniform), а число элементов было
+    константой. Для проекта, чья суть -- приход к сложному из простого,
+    это значит, что стартовое состояние сложнее, чем должно быть.
+
+    Дочерний элемент садится не в случайную сторону, а туда, где
+    СВОБОДНЕЕ (из восьми проб выбирается наименее тесная, слишком тесная
+    отвергается вовсе). Отсюда ткань растёт наружу и обретает ФОРМУ, а не
+    сгущается в точке. Это пункт 5 карты, и он же закрывает обход пункта 1.
+
+    Нерождённые элементы стоят бесконечно далеко (1e3), а не в нуле:
+    иначе они попадали бы в соседи по расстоянию и портили и рост
+    контактов, и соперничество состояний.
+
     stimulus -- ВНЕШНЕЕ ВОЗДЕЙСТВИЕ: список наборов узлов (образов),
     которые по очереди получают добавку к входу. stimulus_amp -- величина
     добавки, stimulus_period -- как часто, stimulus_dur -- как долго.
@@ -237,6 +268,18 @@ def simulate(
         else np.zeros(N)
     )
 
+    # Рост делением. Ткань начинается с ОДНОГО элемента в середине, и всё
+    # остальное -- и число элементов, и их расположение -- она строит сама.
+    born_n = N
+    if growth_by_division:
+        positions = np.full((N, 2), 1e3)     # нерождённые -- бесконечно далеко,
+        positions[0] = (0.5, 0.5)            # чтобы не попадать в соседи
+        birth = np.full(N, np.inf)
+        birth[0] = 0.0
+        born_n = 1
+        distance = np.linalg.norm(
+            positions[:, None, :] - positions[None, :, :], axis=2)
+
     v = np.zeros(N)
     syn = np.zeros(N)
     adaptation = np.zeros(N)
@@ -282,6 +325,39 @@ def simulate(
         ready = alive & (maturity >= 0.6)
 
         # Медленная структурная динамика.
+        if step % 250 == 0 and growth_by_division and born_n < N:
+            live = np.where(np.isfinite(birth) & (t >= birth))[0]
+            near = (distance[np.ix_(live, live)]
+                    < 1.5 * div_spacing).sum(axis=1) - 1
+            chance = div_rate * (1.0 + growth_from_activity * state_a[live])
+            pick = live[(rng.random(len(live)) < chance) & (near < div_crowd)]
+            angles = rng.random((len(pick), 8)) * 2.0 * np.pi
+            grew = False
+            for row, i in enumerate(pick):
+                if born_n >= N:
+                    break
+                cand = positions[i] + div_spacing * np.stack(
+                    [np.cos(angles[row]), np.sin(angles[row])], axis=1)
+                inside = np.all((cand >= 0.0) & (cand <= 1.0), axis=1)
+                if not inside.any():
+                    continue
+                d = np.linalg.norm(
+                    cand[:, None, :] - positions[None, :born_n, :], axis=2)
+                # дочерний элемент садится ТУДА, ГДЕ СВОБОДНЕЕ: отсюда
+                # ткань растёт наружу, а не сгущается в точке
+                crowding = (d < div_spacing).sum(axis=1).astype(float)
+                crowding[~inside] = np.inf
+                j = int(np.argmin(crowding))
+                if d[j].min() < 0.7 * div_spacing:
+                    continue
+                positions[born_n] = cand[j]
+                birth[born_n] = t
+                born_n += 1
+                grew = True
+            if grew:
+                distance = np.linalg.norm(
+                    positions[:, None, :] - positions[None, :, :], axis=2)
+
         if step % 250 == 0:
             eligible = (
                 ready[:, None]
@@ -447,6 +523,8 @@ def simulate(
         "contacts": contacts.copy(),
         "state_s": state_s.copy(),
         "state_a": state_a.copy(),
+        "born": int(born_n),
+        "birth": birth.copy(),
         "positions": positions.copy(),
         "history": np.array(history),
         "metrics": metrics,
