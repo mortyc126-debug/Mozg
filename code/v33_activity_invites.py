@@ -80,6 +80,7 @@ def run(GROW=GROW, SEEDS=SEEDS, title=''):
     res = {c: {"frac": [], "acc": [], "nul": [], "link": [], "deg": [],
                "ds": [], "da": []} for c in conds}
     paired = {c: [] for c in conds}
+    kept = []
     skipped = 0
     for seed in SEEDS:
         pos = simulate(seed=seed, **GROW)["positions"]
@@ -109,6 +110,7 @@ def run(GROW=GROW, SEEDS=SEEDS, title=''):
         if any(row[c] is None for c in conds):
             skipped += 1
         else:
+            kept.append(seed)
             for c in conds:
                 paired[c].append(row[c])
 
@@ -135,7 +137,7 @@ def run(GROW=GROW, SEEDS=SEEDS, title=''):
           f"(порог 10%)")
     if n == 0:
         print("  отклика нет ни у одного сида -- мерить не на чем")
-        return
+        return None
     b = np.array(paired["БЕЗ ВХОДА"])
     s_ = np.array(paired["СО СТРОЕНИЕМ"])
     u = np.array(paired["БЕЗ СТРОЕНИЯ"])
@@ -160,6 +162,7 @@ def run(GROW=GROW, SEEDS=SEEDS, title=''):
               "поверхность связана, читаемость растёт")
     else:
         print("  прибавка читаемости не держится и при встречном правиле")
+    return {"seeds": kept, "no": b, "str": s_, "uns": u}
 
 
 if __name__ == "__main__":
