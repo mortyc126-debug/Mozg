@@ -36,6 +36,8 @@ def simulate(
     growth_from_activity=0.0,
     growth_from_coincidence=0.0,
     duration=12.0,
+    world=None,
+    world_init=0.5,
 ):
     """positions -- готовые координаты (N,2) вместо случайных; None -- как прежде.
 
@@ -197,6 +199,20 @@ def simulate(
     против 0.379, то есть +16.6% при 49 из 60. Повторяющийся образ
     двигает немногие связи сильно, бессвязная активность -- многие
     понемногу (связей со сдвигом выше 1e-4: 205 против 261).
+
+    world -- ЗАМЫКАНИЕ ПЕТЛИ. Функция world(u, fired, positions, dt) -> u,
+    вызываемая каждый шаг: она получает, КТО РАЗРЯДИЛСЯ, и возвращает новое
+    состояние мира. Правило образа, если просит второй довод, получает это
+    состояние -- и тогда то, ЧТО ТКАНЬ ПОЛУЧАЕТ, зависит от того, ЧТО ОНА
+    ДЕЛАЕТ. world_init -- начальное состояние. При world = None ничего не
+    добавляется и поведение побитово прежнее.
+
+    Зачем. До сих пор воздействие приходило, но НИЧЕГО НЕ ЗАВИСЕЛО от
+    ответа ткани: пункт 11 карты ("обучается взаимодействовать со средой")
+    не имел предмета. Замыкание -- наименьшее, что делает его осмысленным.
+
+    Образ пересчитывается в начале каждого предъявления, а не только при
+    росте: иначе сдвиг мира не доходил бы до ткани.
 
     duration -- длительность развития в секундах. Прежде была зашита
     константой 12.0; вынесена, потому что совпадениям нужно ВРЕМЯ, чтобы
@@ -372,14 +388,20 @@ def simulate(
             return None
         out = []
         for g in stimulus:
-            v = g(positions) if callable(g) else g
+            # правило может читать и состояние мира, если просит его вторым
+            # доводом; иначе вызывается по-старому
+            v = (g(positions, world_u)
+                 if callable(g) and g.__code__.co_argcount >= 2
+                 else (g(positions) if callable(g) else g))
             v = np.asarray(v)
             out.append(np.where(v)[0] if v.dtype == bool
                        else v.astype(int))
         return out
 
-    stim_on = _stim_sets()
+    world_u = float(world_init)
+    world_trace = []
     stim_by_rule = bool(stimulus) and any(callable(g) for g in stimulus)
+    stim_on = _stim_sets()
     stim_per = max(1, int(round(stimulus_period / dt)))
     stim_len = max(1, int(round(stimulus_dur / dt)))
 
@@ -499,6 +521,8 @@ def simulate(
         available = alive & (refractory == 0.0)
 
         current = maturity * drive + syn - adaptation
+        if world is not None and stim_by_rule and (step % stim_per) == 0:
+            stim_on = _stim_sets()      # мир сдвинулся -- образ пересчитан
         if stim_on is not None and (step % stim_per) < stim_len:
             current[stim_on[(step // stim_per) % len(stim_on)]] += stimulus_amp
         noise = 0.012 * rng.standard_normal(N)
@@ -508,6 +532,11 @@ def simulate(
 
         fired = available & (v >= threshold)
         spikes[step] = fired
+
+        if world is not None:
+            world_u = float(world(world_u, fired, positions, dt))
+            if step % 50 == 0:
+                world_trace.append((t, world_u))
 
         # Пластичность существующих контактов.
         if plasticity and np.any(fired):
@@ -628,6 +657,7 @@ def simulate(
         "state_a": state_a.copy(),
         "born": int(born_n),
         "birth": birth.copy(),
+        "world": np.array(world_trace),
         "positions": positions.copy(),
         "history": np.array(history),
         "metrics": metrics,
