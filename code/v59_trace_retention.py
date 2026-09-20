@@ -134,6 +134,15 @@ def one_tissue(seed, log):
         floor.append(a)
 
     d = [wmat(e) - wmat(n) for e, n in zip(exp, nai)]
+    # СКОЛЬКО ИМПУЛЬСОВ ТКАНЬ ДАЛА ЗА СВОБОДНЫЙ ПЕРИОД -- прямо, а не через
+    # частоту в последние 2 с. Эта строка добавлена ПОСЛЕ первого прогона:
+    # частота в хвосте показывала ровный ноль, и по ней нельзя было отличить
+    # «ткань замолкла» от «мера смотрит не туда». Добавление названо в
+    # записи; оно способно только ОТМЕНИТЬ вердикт, но не выдать его.
+    train_steps = int(round(TRAIN / exp[0]["dt"]))
+    free_spikes = [int(net["spikes"][train_steps:].sum()) for net in exp]
+    train_spikes = [int(net["spikes"][:train_steps].sum()) for net in exp]
+    w0 = wmat(exp[0])
     rec = dict(
         seed=seed,
         acc=acc, shuf=shuf, acc_naive=[(-1.0 if a is None else a) for a in acc_nai],
@@ -143,6 +152,10 @@ def one_tissue(seed, log):
         n_long=[v58.n_long(net, far) for net in exp],
         rate=[float(net["metrics"]["rate_hz"]) for net in exp],
         silent=[float(net["metrics"]["silent_fraction"]) for net in exp],
+        free_spikes=free_spikes, train_spikes=train_spikes,
+        w_changed=[int((wmat(net) != w0).sum()) for net in exp],
+        new_contacts=[int(net["contacts"].sum() - exp[0]["contacts"].sum())
+                      for net in exp],
         d0=d[0], dT=[dt for dt in d],
     )
     log(f"  seed {seed}: умение {[round(a,3) for a in acc]} "
@@ -179,7 +192,8 @@ def main():
         "data/v59_trace_retention.npz",
         **{k: np.array([r[k] for r in recs]) for k in
            ("seed", "acc", "shuf", "acc_naive", "floor_spread", "r",
-            "dnorm", "n_long", "rate", "silent")})
+            "dnorm", "n_long", "rate", "silent", "free_spikes",
+            "train_spikes", "w_changed", "new_contacts")})
 
     # ---- стражи ----
     shuf_all = np.array([s for r in recs for s in r["shuf"]])
@@ -243,30 +257,56 @@ def main():
         o = keep[(j + 1) % len(keep)]
         other.append([proj(dt, o["d0"]) for dt in r_["dT"]])
     other = np.array(other)
+    # У ткани, чьи веса совпали с близнецом, следа нет вовсе: D(0) = 0, и
+    # доля от нуля не определена. Такие ткани считаются отдельно, а не
+    # портят среднее молчком (первая редакция печатала nan по всей строке).
+    zero = np.isnan(r[:, 0])
+    log(f"тканей без следа вовсе (веса опыта совпали с близнецом): "
+        f"{int(zero.sum())} из {len(keep)} -- считаются отдельно")
+    good = ~np.isnan(r).any(axis=1) & ~np.isnan(other).any(axis=1)
     log(f"{'T, с':>6} | {'r(T)':>8} | {'чужой':>8} | {'r-чужой':>8} | "
         f"{'выше':>5} | {'p':>8} | {'|D|/|D0|':>8} | вердикт")
     verdicts_b = {}
     for i, t in enumerate(TS):
-        diff = r[:, i] - other[:, i]
+        diff = (r[:, i] - other[:, i])[good]
         hi = int((diff > 0).sum())
-        p = p_ge(hi, len(diff))
+        p = p_ge(hi, len(diff)) if len(diff) else 1.0
         v = "держится" if p < 0.05 else "РАСПАЛСЯ до чужого уровня"
         if i == 0:
             v = "точка отсчёта"
         verdicts_b[t] = v
-        log(f"{t:>6.0f} | {r[:, i].mean():>8.4f} | {other[:, i].mean():>8.4f} | "
+        log(f"{t:>6.0f} | {np.nanmean(r[good, i]):>8.4f} | "
+            f"{np.nanmean(other[good, i]):>8.4f} | "
             f"{diff.mean():>+8.4f} | {hi:>5} | {p:>8.5f} | "
-            f"{(dn[:, i]/dn[:, 0]).mean():>8.4f} | {v}")
+            f"{np.nanmean(dn[good, i]/dn[good, 0]):>8.4f} | {v}")
 
     # ---- путь C: здоровье ----
-    log("\n=== ПУТЬ C3: здоровье ткани ===")
+    log("\n=== ПУТЬ C3: жила ли ткань в свободный период ===")
     nl = np.array([r_["n_long"] for r_ in keep], dtype=float)
     rt = np.array([r_["rate"] for r_ in keep])
     si = np.array([r_["silent"] for r_ in keep])
-    log(f"{'T, с':>6} | {'дальних связей':>14} | {'частота, Гц':>11} | {'молчат':>7}")
+    fs = np.array([r_["free_spikes"] for r_ in keep], dtype=float)
+    ts_ = np.array([r_["train_spikes"] for r_ in keep], dtype=float)
+    wc = np.array([r_["w_changed"] for r_ in keep], dtype=float)
+    nc = np.array([r_["new_contacts"] for r_ in keep], dtype=float)
+    log(f"{'T, с':>6} | {'имп. обучение':>13} | {'имп. свободно':>13} | "
+        f"{'весов изм.':>10} | {'связей +':>8} | {'дальних':>7} | "
+        f"{'Гц (посл. 2 с)':>14} | {'молчат':>6}")
     for i, t in enumerate(TS):
-        log(f"{t:>6.0f} | {nl[:, i].mean():>14.1f} | {rt[:, i].mean():>11.4f} | "
-            f"{si[:, i].mean():>7.3f}")
+        log(f"{t:>6.0f} | {ts_[:, i].mean():>13.1f} | {fs[:, i].mean():>13.2f} | "
+            f"{wc[:, i].mean():>10.1f} | {nc[:, i].mean():>8.1f} | "
+            f"{nl[:, i].mean():>7.1f} | {rt[:, i].mean():>14.4f} | "
+            f"{si[:, i].mean():>6.3f}")
+
+    # СТРАЖ, ДОБАВЛЕННЫЙ ПОСЛЕ ПЕРВОГО ПРОГОНА И НАЗВАННЫЙ В ЗАПИСИ.
+    # Он способен только ОТМЕНИТЬ вердикт, но никогда его не выдать:
+    # если свободной активности не было, то вопрос "переживает ли след
+    # свободную активность" не задан, и любой ответ на него -- о другом.
+    alive = fs[:, 1:].mean() >= 1.0
+    log(f"\nСТРАЖ СВОБОДНОЙ АКТИВНОСТИ: за свободный период ткань даёт в "
+        f"среднем {fs[:, 1:].mean():.2f} импульса "
+        f"против {ts_[:, 0].mean():.0f} за обучение -- "
+        f"{'активность есть' if alive else 'АКТИВНОСТИ НЕТ, ВОПРОС НЕ ЗАДАН'}")
 
     # ---- согласие путей ----
     log("\n=== СОГЛАСИЕ ПУТЕЙ (условие вывода) ===")
@@ -274,7 +314,11 @@ def main():
         a, b = verdicts_a[t], verdicts_b[t]
         a_weak = a == "СЛЕД ОСЛАБЕВАЕТ"
         b_weak = b.startswith("РАСПАЛСЯ")
-        if a == "НЕ РАЗРЕШЕНО":
+        if not alive:
+            s = ("ВЕРДИКТ НЕ ВЫНОСИТСЯ: свободной активности не было, "
+                 f"и «{a.lower()}» относится к ткани, с которой ничего не "
+                 "происходило")
+        elif a == "НЕ РАЗРЕШЕНО":
             s = "A не разрешил -- вывод не выносится"
         elif a_weak == b_weak:
             s = f"СОГЛАСНЫ: {a.lower()} / структурно {b.lower()}"
