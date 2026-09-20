@@ -42,7 +42,8 @@ function fp(w) {
 }
 
 function load(file, env) {
-  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY']) delete process.env[k];
+  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W'])
+    delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
   return require(file);
@@ -76,6 +77,32 @@ for (const base of ['0.5', '0.05']) {
   check('снятый потолок различим: без CAP частей больше, чем с CAP=400',
     wf.parts.length > wc.parts.length,
     `с потолком ${wc.parts.length}, без потолка ${wf.parts.length}`);
+}
+
+/* --- налог на расхождение: тождество при нуле и пустые отсчёты к нему --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64' };
+  for (const seed of [1, 2, 3]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({}, base)).run(seed, 400));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ TAX: '0' }, base)).run(seed, 400));
+    check(`налог: сид ${seed}, при TAX=0 мир тот же, побитово`, a === b);
+
+    const c = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ TAX: '1' }, base)).run(seed, 400));
+    check(`налог: сид ${seed}, при TAX=1 мир РАСХОДИТСЯ`, a !== c);
+
+    // перестановка обязана что-то менять, иначе нуль пустой (ошибка №49)
+    const d = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ TAX: '1' }, base)).run(seed, 400, 200, true));
+    check(`налог: сид ${seed}, перемешанный мир расходится со своим`, c !== d);
+
+    // при TAX=0 перемешивать нечего: перестановка не смеет ничего менять
+    const e = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({}, base)).run(seed, 400, 200, true));
+    check(`налог: сид ${seed}, при TAX=0 перестановка ни на что не влияет`, a === e);
+  }
 }
 
 console.log(fails ? `\nпровалено проверок: ${fails}` : '\nвсе проверки пройдены');

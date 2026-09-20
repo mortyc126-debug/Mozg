@@ -89,6 +89,9 @@ const C_HOLD = num('HOLD', 0.1);       // плата за держание св�
 const USED_DECAY = num('DECAY', 0.98); // затухание памяти о пользовании связью
 const CAP = num('CAP', Infinity);      // потолок населения; по умолчанию СНЯТ
 const SAFETY = num('SAFETY', 20000);   // аварийная черта, не правило мира
+const TAX = num('TAX', 0);         // налог на расхождение; 0 -- как было
+const LEARN = num('LEARN', 0.1);   // скорость, с какой ожидание идёт к прочитанному
+const W = num('W', 20);            // окно для меры «внутри жизни связи»
 const MAX_READS = 4;               // сколько соседей часть осилит за круг
 
 function makePart(id, rnd, parent) {
@@ -100,15 +103,54 @@ function makePart(id, rnd, parent) {
         greed: clamp01(parent.par.greed + (rnd() - 0.5) * 0.15),
         urge: clamp01(parent.par.urge + (rnd() - 0.5) * 0.15) }
     : { mix: 0.3, greed: 0.5, urge: 0.5 };
-  return { id, x, par, links: [], credit: 0, read: 0, readPrev: 0,
-    steps: 0, frozen: 0, born: 0, kids: 0, dropped: 0 };
+  return { id, x, prev: Float64Array.from(x), par, links: [], credit: 0,
+    read: 0, readPrev: 0, steps: 0, frozen: 0, born: 0, kids: 0, dropped: 0 };
 }
 const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
 
-function createSeed(seed) {
+/* Связь. При TAX = 0 всё, что ниже ожидания, не заводится вовсе и не
+   считается: мир обязан совпасть с прежним побитово.
+
+   `e` -- ОЖИДАНИЕ: каким часть считает состояние соседа. Заводится
+   равным собственному состоянию: самое дешёвое предположение, а не
+   подсказка. Запись бесплатна -- память в цифре бесплатна; платно
+   только чтение, уже оплаченное отдельно.
+
+   Учёт для меры «внутри жизни связи»: первые W расхождений и последние
+   W (кольцом). Рядом -- ДВИЖЕНИЕ соседа в тот же миг: если расхождение
+   упало вместе с движением, упало не предсказание, а мир замер. */
+function makeLink(j, p) {
+  const l = { j, used: 0 };
+  if (TAX > 0) {
+    l.e = Float64Array.from(p.x);
+    l.err = 0; l.errPay = 0; l.cost = 0;
+    l.nr = 0;
+    l.fSum = 0; l.fMov = 0;
+    l.lBuf = new Float64Array(W); l.lMov = new Float64Array(W); l.lPos = 0;
+  }
+  return l;
+}
+
+/* одно прочтение: расхождение, память о нём, движение ожидания к факту */
+function observe(l, o) {
+  let m = 0;
+  for (let k = 0; k < K; k++) m += Math.abs(l.e[k] - o.x[k]);
+  m /= K;
+  let mov = 0;
+  for (let k = 0; k < K; k++) mov += Math.abs(o.x[k] - o.prev[k]);
+  mov /= K;
+  l.err = 0.9 * l.err + 0.1 * m;
+  if (l.nr < W) { l.fSum += m; l.fMov += mov; }
+  l.lBuf[l.lPos] = m; l.lMov[l.lPos] = mov; l.lPos = (l.lPos + 1) % W;
+  l.nr++;
+  for (let k = 0; k < K; k++) l.e[k] += LEARN * (o.x[k] - l.e[k]);
+}
+
+function createSeed(seed, shuffle) {
   const rnd = makeRNG(seed);
   const w = { rnd, round: 0, parts: [], nextId: 0, log: [],
-    dropsLast: 0, dropsTotal: 0, hitSafety: false };
+    dropsLast: 0, dropsTotal: 0, hitSafety: false,
+    shuffle: !!shuffle, aux: makeRNG((seed * 7919 + 13) >>> 0) };
   w.parts.push(makePart(w.nextId++, rnd, null));
   return w;
 }
@@ -119,6 +161,7 @@ function createSeed(seed) {
    с плавающей точкой в другом порядке. */
 function upkeep(p) {
   if (!(C_HOLD > 0) || p.links.length === 0) return 0;
+  if (TAX > 0) return upkeepTaxed(p);
   // самые используемые -- вперёд; отбрасываем с конца
   p.links.sort((a, b) => (b.used - a.used) || (a.j - b.j));
   const afford = Math.floor(p.credit / C_HOLD);
@@ -133,6 +176,47 @@ function upkeep(p) {
   return dropped;
 }
 
+/* Держание связи стоит HOLD * (1 + TAX * err): плохо предсказанная связь
+   дорога, предсказуемая дёшева. Не хватает кредита -- сбрасываются
+   самые дорогие. Отдельной веткой от беспошлинного случая нарочно: там
+   плата считалась одним умножением, здесь -- сложением по связям, и это
+   разные числа с плавающей точкой. Смешав их, я потерял бы побитовое
+   тождество при TAX = 0, то есть возможность сказать, что изменилось
+   именно от налога. */
+function upkeepTaxed(p) {
+  for (const l of p.links) l.cost = C_HOLD * (1 + TAX * l.errPay);
+  p.links.sort((a, b) => (a.cost - b.cost) || (b.used - a.used) || (a.j - b.j));
+  let paid = 0, keep = 0;
+  for (const l of p.links) {
+    if (paid + l.cost > p.credit) break;
+    paid += l.cost; keep++;
+  }
+  const dropped = p.links.length - keep;
+  if (dropped > 0) { p.links.length = keep; p.dropped += dropped; }
+  p.credit -= paid;
+  for (const l of p.links) l.used *= USED_DECAY;
+  return dropped;
+}
+
+/* ПУСТОЙ ОТСЧЁТ. Те же значения ошибки, разложенные по ДРУГИМ связям:
+   распределение издержек то же, а связь с тем, что действительно плохо
+   предсказано, разорвана. Решение «что сбросить» становится
+   неосведомлённым. Числа для перестановки берутся из ОТДЕЛЬНОГО потока,
+   чтобы собственный поток мира остался нетронутым и миры были сравнимы
+   (иначе мерилась бы разная случайность, а не разное правило). */
+function assignErrForPay(w) {
+  if (!(TAX > 0)) return;
+  const all = [];
+  for (const p of w.parts) for (const l of p.links) all.push(l);
+  if (!w.shuffle) { for (const l of all) l.errPay = l.err; return; }
+  const v = all.map((l) => l.err);
+  for (let i = v.length - 1; i > 0; i--) {
+    const j = Math.floor(w.aux() * (i + 1));
+    const t = v[i]; v[i] = v[j]; v[j] = t;
+  }
+  for (let i = 0; i < all.length; i++) all[i].errPay = v[i];
+}
+
 function round(w) {
   const P = w.parts;
 
@@ -143,6 +227,7 @@ function round(w) {
   for (const p of P) { p.readPrev = p.read; p.read = 0; }
 
   // 1-бис) плата за держание связей -- со всех, включая замерших
+  assignErrForPay(w);
   let drops = 0;
   for (const p of P) drops += upkeep(p);
   w.dropsLast = drops;
@@ -168,6 +253,7 @@ function round(w) {
       budgetLeft -= C_READ;
       c.o.read++;                       // прочитанный зарабатывает
       c.l.used += 1;                    // связью воспользовались
+      if (TAX > 0) observe(c.l, c.o);   // чем ожидание разошлось с фактом
       got.push(c.o);
     }
 
@@ -179,6 +265,7 @@ function round(w) {
       s = got.length ? s / got.length : p.x[k];
       nx[k] = Math.tanh((1 - p.par.mix) * p.x[k] + p.par.mix * s + 0.03 * (w.rnd() * 2 - 1));
     }
+    p.prev.set(p.x);
     p.x.set(nx);
     p.credit = budgetLeft;
     p.steps++;
@@ -187,7 +274,7 @@ function round(w) {
     if (p.credit >= C_LINK && w.rnd() < p.par.urge * 0.25) {
       const j = Math.floor(w.rnd() * P.length);
       if (j !== p.id && !p.links.some((l) => l.j === j)) {
-        p.links.push({ j, used: 0 });
+        p.links.push(makeLink(j, p));
         p.credit -= C_LINK;
       }
     }
@@ -198,9 +285,9 @@ function round(w) {
       p.credit -= C_DIVIDE;
       const kid = makePart(w.nextId, w.rnd, p);
       kid.born = w.round;
-      kid.links.push({ j: p.id, used: 0 });
+      kid.links.push(makeLink(p.id, kid));
       newborns.push(kid);
-      p.links.push({ j: w.nextId, used: 0 });
+      p.links.push(makeLink(w.nextId, p));
       p.kids++;
       w.nextId++;
     }
@@ -216,8 +303,8 @@ function dist(a, b) {
   return s / K;
 }
 
-function run(seed, rounds, every) {
-  const w = createSeed(seed);
+function run(seed, rounds, every, shuffle) {
+  const w = createSeed(seed, shuffle);
   const step = every || 200;
   for (let r = 0; r < rounds; r++) {
     round(w);
@@ -248,7 +335,8 @@ function snapshot(w) {
   };
 }
 
-module.exports = { createSeed, round, run, snapshot, BUDGET, CAP, C_HOLD, BASE_SHARE };
+module.exports = { createSeed, round, run, snapshot, dist,
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, K };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
