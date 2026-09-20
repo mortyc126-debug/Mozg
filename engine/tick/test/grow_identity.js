@@ -42,7 +42,7 @@ function fp(w) {
 }
 
 function load(file, env) {
-  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD'])
+  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -102,6 +102,24 @@ for (const base of ['0.5', '0.05']) {
     const e = fp(load(path.resolve(__dirname, '../grow.js'),
       Object.assign({}, base)).run(seed, 400, 200, true));
     check(`налог: сид ${seed}, при TAX=0 перестановка ни на что не влияет`, a === e);
+  }
+}
+
+/* --- перевёрнутое правило: обязано быть различимо и не трогать нуля --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64' };
+  for (const seed of [1, 2]) {
+    const norm = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ TAX: '40' }, base)).run(seed, 400));
+    const inv = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ TAX: '40', INVERT: '1' }, base)).run(seed, 400));
+    check(`переворот: сид ${seed}, перевёрнутое правило расходится с обычным`, norm !== inv);
+
+    const zero = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({}, base)).run(seed, 400));
+    const invZero = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ INVERT: '1' }, base)).run(seed, 400));
+    check(`переворот: сид ${seed}, при TAX=0 переворот ни на что не влияет`, zero === invZero);
   }
 }
 

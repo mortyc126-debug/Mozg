@@ -93,6 +93,15 @@ const TAX = num('TAX', 0);         // налог на расхождение; 0 
 const LEARN = num('LEARN', 0.1);   // скорость, с какой ожидание идёт к прочитанному
 const W = num('W', 20);            // окно для меры «внутри жизни связи»
 const HEAD = num('HEAD', 20);      // сколько первых прочтений помнить порознь
+/* ПЕРЕВЁРНУТОЕ правило: держать дорого ХОРОШО предсказанную связь, а
+   плохо предсказанную -- дёшево. Нужно не само по себе, а как
+   вмешательство: если однородность мира берётся из того, что налог
+   оставляет предсказуемых соседей, то при перевороте знак обязан
+   перемениться. EREF -- удвоенная измеренная медиана ошибки, взята
+   так, чтобы СРЕДНЯЯ цена осталась прежней, а порядок перевернулся:
+   иначе сравнивалась бы дороговизна, а не направление правила. */
+const INVERT = num('INVERT', 0);
+const EREF = num('EREF', 0.0406);
 const MAX_READS = 4;               // сколько соседей часть осилит за круг
 
 function makePart(id, rnd, parent) {
@@ -120,8 +129,8 @@ const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
    Учёт для меры «внутри жизни связи»: первые W расхождений и последние
    W (кольцом). Рядом -- ДВИЖЕНИЕ соседа в тот же миг: если расхождение
    упало вместе с движением, упало не предсказание, а мир замер. */
-function makeLink(j, p) {
-  const l = { j, used: 0 };
+function makeLink(j, p, w) {
+  const l = { j, used: 0, born: w ? w.round : 0 };
   if (TAX > 0) {
     l.e = Float64Array.from(p.x);
     l.err = 0; l.errPay = 0; l.cost = 0;
@@ -156,24 +165,44 @@ function createSeed(seed, shuffle) {
   const rnd = makeRNG(seed);
   const w = { rnd, round: 0, parts: [], nextId: 0, log: [],
     dropsLast: 0, dropsTotal: 0, hitSafety: false,
-    shuffle: !!shuffle, aux: makeRNG((seed * 7919 + 13) >>> 0) };
+    shuffle: !!shuffle, aux: makeRNG((seed * 7919 + 13) >>> 0),
+    /* Наблюдение, и только: ни одно из этих чисел не участвует в ходе
+       мира, не расходует случайных чисел и не создаёт развилок. Поэтому
+       тождество при TAX = 0 обязано устоять -- и проверяется. */
+    stat: null };
   w.parts.push(makePart(w.nextId++, rnd, null));
   return w;
+}
+
+/* Начать вести счёт (обнуляет накопленное). Опыт включает его на той
+   части прогона, которую меряет, чтобы разогрев не попадал в числа. */
+function watch(w) {
+  w.stat = { readDist: 0, readN: 0, lifeSum: 0, lifeN: 0, madeN: 0 };
+}
+
+/* сколько прожила сброшенная связь */
+function noteDrops(w, p, from) {
+  if (!w.stat) return;
+  for (let i = from; i < p.links.length; i++) {
+    w.stat.lifeSum += w.round - p.links[i].born;
+    w.stat.lifeN++;
+  }
 }
 
 /* плата за держание связей. Возвращает, сколько связей отброшено.
    При C_HOLD <= 0 не делает НИЧЕГО -- даже не трогает порядок связей,
    иначе тождество с первым черновиком сломалось бы на сложении чисел
    с плавающей точкой в другом порядке. */
-function upkeep(p) {
+function upkeep(w, p) {
   if (!(C_HOLD > 0) || p.links.length === 0) return 0;
-  if (TAX > 0) return upkeepTaxed(p);
+  if (TAX > 0) return upkeepTaxed(w, p);
   // самые используемые -- вперёд; отбрасываем с конца
   p.links.sort((a, b) => (b.used - a.used) || (a.j - b.j));
   const afford = Math.floor(p.credit / C_HOLD);
   let dropped = 0;
   if (afford < p.links.length) {
     dropped = p.links.length - afford;
+    noteDrops(w, p, afford);
     p.links.length = afford;
     p.dropped += dropped;
   }
@@ -189,7 +218,7 @@ function upkeep(p) {
    разные числа с плавающей точкой. Смешав их, я потерял бы побитовое
    тождество при TAX = 0, то есть возможность сказать, что изменилось
    именно от налога. */
-function upkeepTaxed(p) {
+function upkeepTaxed(w, p) {
   for (const l of p.links) l.cost = C_HOLD * (1 + TAX * l.errPay);
   p.links.sort((a, b) => (a.cost - b.cost) || (b.used - a.used) || (a.j - b.j));
   let paid = 0, keep = 0;
@@ -198,7 +227,7 @@ function upkeepTaxed(p) {
     paid += l.cost; keep++;
   }
   const dropped = p.links.length - keep;
-  if (dropped > 0) { p.links.length = keep; p.dropped += dropped; }
+  if (dropped > 0) { noteDrops(w, p, keep); p.links.length = keep; p.dropped += dropped; }
   p.credit -= paid;
   for (const l of p.links) l.used *= USED_DECAY;
   return dropped;
@@ -214,13 +243,14 @@ function assignErrForPay(w) {
   if (!(TAX > 0)) return;
   const all = [];
   for (const p of w.parts) for (const l of p.links) all.push(l);
-  if (!w.shuffle) { for (const l of all) l.errPay = l.err; return; }
+  const put = INVERT > 0 ? (v) => (EREF - v > 0 ? EREF - v : 0) : (v) => v;
+  if (!w.shuffle) { for (const l of all) l.errPay = put(l.err); return; }
   const v = all.map((l) => l.err);
   for (let i = v.length - 1; i > 0; i--) {
     const j = Math.floor(w.aux() * (i + 1));
     const t = v[i]; v[i] = v[j]; v[j] = t;
   }
-  for (let i = 0; i < all.length; i++) all[i].errPay = v[i];
+  for (let i = 0; i < all.length; i++) all[i].errPay = put(v[i]);
 }
 
 function round(w) {
@@ -235,7 +265,7 @@ function round(w) {
   // 1-бис) плата за держание связей -- со всех, включая замерших
   assignErrForPay(w);
   let drops = 0;
-  for (const p of P) drops += upkeep(p);
+  for (const p of P) drops += upkeep(w, p);
   w.dropsLast = drops;
   w.dropsTotal += drops;
 
@@ -260,6 +290,7 @@ function round(w) {
       c.o.read++;                       // прочитанный зарабатывает
       c.l.used += 1;                    // связью воспользовались
       if (TAX > 0) observe(c.l, c.o);   // чем ожидание разошлось с фактом
+      if (w.stat) { w.stat.readDist += c.novelty; w.stat.readN++; }
       got.push(c.o);
     }
 
@@ -280,8 +311,9 @@ function round(w) {
     if (p.credit >= C_LINK && w.rnd() < p.par.urge * 0.25) {
       const j = Math.floor(w.rnd() * P.length);
       if (j !== p.id && !p.links.some((l) => l.j === j)) {
-        p.links.push(makeLink(j, p));
+        p.links.push(makeLink(j, p, w));
         p.credit -= C_LINK;
+        if (w.stat) w.stat.madeN++;
       }
     }
     // 5) разделиться. Потолка населения нет: удерживает только бюджет.
@@ -291,9 +323,9 @@ function round(w) {
       p.credit -= C_DIVIDE;
       const kid = makePart(w.nextId, w.rnd, p);
       kid.born = w.round;
-      kid.links.push(makeLink(p.id, kid));
+      kid.links.push(makeLink(p.id, kid, w));
       newborns.push(kid);
-      p.links.push(makeLink(w.nextId, p));
+      p.links.push(makeLink(w.nextId, p, w));
       p.kids++;
       w.nextId++;
     }
@@ -341,8 +373,8 @@ function snapshot(w) {
   };
 }
 
-module.exports = { createSeed, round, run, snapshot, dist,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K };
+module.exports = { createSeed, round, run, snapshot, dist, watch,
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
