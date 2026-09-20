@@ -92,6 +92,7 @@ const SAFETY = num('SAFETY', 20000);   // аварийная черта, не п
 const TAX = num('TAX', 0);         // налог на расхождение; 0 -- как было
 const LEARN = num('LEARN', 0.1);   // скорость, с какой ожидание идёт к прочитанному
 const W = num('W', 20);            // окно для меры «внутри жизни связи»
+const HEAD = num('HEAD', 20);      // сколько первых прочтений помнить порознь
 const MAX_READS = 4;               // сколько соседей часть осилит за круг
 
 function makePart(id, rnd, parent) {
@@ -125,6 +126,10 @@ function makeLink(j, p) {
     l.e = Float64Array.from(p.x);
     l.err = 0; l.errPay = 0; l.cost = 0;
     l.nr = 0;
+    /* первые HEAD расхождений порознь, а не суммой: в первой постановке
+       хранилась только сумма по первым W, и всё научение оказалось
+       ВНУТРИ окна -- мера не могла его увидеть (шаг 6). */
+    l.head = new Float64Array(HEAD); l.headMov = new Float64Array(HEAD);
     l.fSum = 0; l.fMov = 0;
     l.lBuf = new Float64Array(W); l.lMov = new Float64Array(W); l.lPos = 0;
   }
@@ -141,6 +146,7 @@ function observe(l, o) {
   mov /= K;
   l.err = 0.9 * l.err + 0.1 * m;
   if (l.nr < W) { l.fSum += m; l.fMov += mov; }
+  if (l.nr < HEAD) { l.head[l.nr] = m; l.headMov[l.nr] = mov; }
   l.lBuf[l.lPos] = m; l.lMov[l.lPos] = mov; l.lPos = (l.lPos + 1) % W;
   l.nr++;
   for (let k = 0; k < K; k++) l.e[k] += LEARN * (o.x[k] - l.e[k]);
@@ -336,7 +342,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, K };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
