@@ -28,7 +28,8 @@ process.env.HEAD = '20';
 const G = require('../grow.js');
 
 const ROUNDS = 20000;
-const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+const SEEDS = (process.env.FRESH ? Array.from({ length: 32 }, (_, i) => 101 + i)
+  : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
 const W = G.W, TAX = G.TAX, HOLD = G.C_HOLD;
 const LIVE_READS = 20, LIVE_DEG = 0.5, LIVE_LINKS = 30;
 const SPREAD_MIN = 0.20;
@@ -162,4 +163,4 @@ if (!live.length || avgSpread < SPREAD_MIN) {
 }
 
 fs.mkdirSync('results', { recursive: true });
-fs.writeFileSync('results/tax2.jsonl', rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+fs.writeFileSync(`results/tax2${process.env.FRESH ? '_fresh' : ''}.jsonl`, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
