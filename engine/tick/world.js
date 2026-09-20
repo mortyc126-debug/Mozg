@@ -66,6 +66,12 @@ function createTickWorld(opt = {}) {
     mix: opt.mix !== undefined ? opt.mix : 0.25,
     noise: opt.noise !== undefined ? opt.noise : 0.02,
     given: 0,                        // сколько кредита роздано всего
+    /* потолок переносимого остатка. Бесконечность -- как было: кто мало
+       заработал, копит и рано или поздно ходит. Это отрицательная
+       обратная связь, и strata.js показал, что она ВЫРАВНИВАЕТ части
+       сильнее случая. Потолок позволяет проверить это вмешательством:
+       при carryCap = 0 неистраченное пропадает, и накопить нельзя. */
+    carryCap: opt.carryCap !== undefined ? opt.carryCap : Infinity,
   };
 }
 
@@ -98,6 +104,42 @@ const EARN = {
   поровну: () => 1,
 };
 
+/* раздать бюджет ГОТОВЫМИ весами и исполнить оплаченное.
+   Отдельно от round() нарочно: так можно дать те же самые веса, но
+   ПЕРЕМЕШАННЫЕ между частями. Это перестановочный пустой отсчёт --
+   распределение весов то же, а связь с состоянием разорвана. Первая
+   редакция сравнивала правило с равномерным жребием, у которого разброс
+   весов 0.577 против 0.22 у правил, и потому всякое правило выглядело
+   "выравнивающим": мерился мой выбор нуля, а не мир. */
+function roundWithWeights(w, wts) {
+  let sum = 0;
+  for (let i = 0; i < w.n; i++) sum += wts[i];
+  if (!(sum > 0)) { wts = new Array(w.n).fill(1); sum = w.n; }
+  for (let i = 0; i < w.n; i++) {
+    w.parts[i].credit += w.budget * wts[i] / sum;
+    w.given += w.budget * wts[i] / sum;
+  }
+  for (const p of w.parts) {
+    const take = Math.floor(p.credit);
+    if (take <= 0) {
+      p.frozen++; p.rounds++;
+      if (p.credit > w.carryCap) p.credit = w.carryCap;
+      continue;
+    }
+    for (let s = 0; s < take; s++) updatePart(w, p);
+    p.credit -= take;
+    if (p.credit > w.carryCap) p.credit = w.carryCap;
+    p.delta = delta(p);
+    p.rounds++;
+  }
+  w.round++;
+}
+
+/* веса, которые правило назначило бы сейчас */
+function weightsOf(w, earn) {
+  return w.parts.map((p) => earn(p, w));
+}
+
 /* один круг: раздать бюджет, затем исполнить оплаченное */
 function round(w, earn) {
   let sum = 0;
@@ -110,9 +152,14 @@ function round(w, earn) {
   // исполнение: порядок фиксирован, состояния соседей читаются по ходу
   for (const p of w.parts) {
     const take = Math.floor(p.credit);
-    if (take <= 0) { p.frozen++; p.rounds++; continue; }
+    if (take <= 0) {
+      p.frozen++; p.rounds++;
+      if (p.credit > w.carryCap) p.credit = w.carryCap;
+      continue;
+    }
     for (let s = 0; s < take; s++) updatePart(w, p);
     p.credit -= take;
+    if (p.credit > w.carryCap) p.credit = w.carryCap;
     p.delta = delta(p);
     p.rounds++;
   }
@@ -138,4 +185,4 @@ function fingerprint(w) {
 /* скорость части: обновлений на круг */
 const speed = (p) => (p.rounds ? p.steps / p.rounds : 0);
 
-module.exports = { createTickWorld, run, round, EARN, fingerprint, speed, updatePart, K };
+module.exports = { createTickWorld, run, round, roundWithWeights, weightsOf, EARN, fingerprint, speed, updatePart, K };
