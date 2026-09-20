@@ -42,7 +42,7 @@ function fp(w) {
 }
 
 function load(file, env) {
-  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF'])
+  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -120,6 +120,20 @@ for (const base of ['0.5', '0.05']) {
     const invZero = fp(load(path.resolve(__dirname, '../grow.js'),
       Object.assign({ INVERT: '1' }, base)).run(seed, 400));
     check(`переворот: сид ${seed}, при TAX=0 переворот ни на что не влияет`, zero === invZero);
+  }
+}
+
+/* --- отсрочка: тождество при нуле и различимость при ненуле --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 400));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ GRACE: '0' }, base)).run(seed, 400));
+    check(`отсрочка: сид ${seed}, при GRACE=0 мир тот же, побитово`, a === b);
+    const c = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ GRACE: '5' }, base)).run(seed, 400));
+    check(`отсрочка: сид ${seed}, при GRACE=5 мир РАСХОДИТСЯ`, a !== c);
   }
 }
 

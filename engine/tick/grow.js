@@ -100,6 +100,23 @@ const HEAD = num('HEAD', 20);      // сколько первых прочтен
    перемениться. EREF -- удвоенная измеренная медиана ошибки, взята
    так, чтобы СРЕДНЯЯ цена осталась прежней, а порядок перевернулся:
    иначе сравнивалась бы дороговизна, а не направление правила. */
+/* ОТСРОЧКА. Плата за держание была устроена как аренда, вносимая
+   целиком или никак: не хватило кредита В ЭТОМ КРУГЕ -- связи нет.
+   Доход части колеблется, и шаг 8 показал, чем это кончилось: граф
+   переписывается каждые 70-80 кругов, ни одна связь из двадцати пяти
+   тысяч не доживает до тысячи, и отбирать по чему бы то ни было
+   попросту нечего.
+
+   Я называл замирание цифровой роскошью -- «кто не платит, замирает, а
+   не гибнет», -- но применил это к частям и не применил к связям.
+   GRACE -- та же роскошь для связи: неоплаченное копится ДОЛГОМ, и
+   связь сбрасывается, лишь когда долг перевалит за GRACE её цен, то
+   есть когда за неё не платили GRACE кругов подряд. Уплата долг
+   обнуляет.
+
+   При GRACE = 0 исполняется прежняя ветка, слово в слово, и мир обязан
+   совпасть побитово. */
+const GRACE = num('GRACE', 0);
 const INVERT = num('INVERT', 0);
 const EREF = num('EREF', 0.0406);
 const MAX_READS = 4;               // сколько соседей часть осилит за круг
@@ -130,7 +147,7 @@ const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
    W (кольцом). Рядом -- ДВИЖЕНИЕ соседа в тот же миг: если расхождение
    упало вместе с движением, упало не предсказание, а мир замер. */
 function makeLink(j, p, w) {
-  const l = { j, used: 0, born: w ? w.round : 0 };
+  const l = { j, used: 0, born: w ? w.round : 0, debt: 0 };
   if (TAX > 0) {
     l.e = Float64Array.from(p.x);
     l.err = 0; l.errPay = 0; l.cost = 0;
@@ -226,8 +243,28 @@ function upkeepTaxed(w, p) {
     if (paid + l.cost > p.credit) break;
     paid += l.cost; keep++;
   }
-  const dropped = p.links.length - keep;
-  if (dropped > 0) { noteDrops(w, p, keep); p.links.length = keep; p.dropped += dropped; }
+  let dropped;
+  if (!(GRACE > 0)) {
+    dropped = p.links.length - keep;
+    if (dropped > 0) { noteDrops(w, p, keep); p.links.length = keep; p.dropped += dropped; }
+  } else {
+    // оплаченные -- долг долой; неоплаченные -- долг растёт; гибнут лишь
+    // те, за кого не платили GRACE кругов подряд. Порядок связей при
+    // этом сохраняется: выживший не переставляется.
+    const stay = [];
+    for (let i = 0; i < p.links.length; i++) {
+      const l = p.links[i];
+      if (i < keep) { l.debt = 0; stay.push(l); continue; }
+      l.debt += l.cost;
+      if (l.debt <= GRACE * l.cost) stay.push(l);
+      else {
+        if (w.stat) { w.stat.lifeSum += w.round - l.born; w.stat.lifeN++; }
+        p.dropped++;
+      }
+    }
+    dropped = p.links.length - stay.length;
+    p.links = stay;
+  }
   p.credit -= paid;
   for (const l of p.links) l.used *= USED_DECAY;
   return dropped;
@@ -374,7 +411,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
