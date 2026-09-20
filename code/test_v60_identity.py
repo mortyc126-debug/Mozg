@@ -37,17 +37,17 @@ for seed in (1, 2, 3):
     N = g["weights"].shape[0]
 
     a = free_run_snapshots(g, seed=5000)
-    b = free_run_tick(g, seed=5000, budget=float(N), earn="поровну")
+    b = free_run_tick(g, seed=5000, budget=float(N), earn="поровну", coupling=1.0)
     check(f"сид {seed} (N={N}): при полном бюджете и дележе поровну -- та же ткань, побитово",
           same(a, b))
 
     # пустой отсчёт к тождеству: при скудном бюджете миры обязаны разойтись,
     # иначе тождество доказывает лишь, что бюджет ни на что не влияет (№49)
-    c = free_run_tick(g, seed=5000, budget=float(N) / 4, earn="поровну")
+    c = free_run_tick(g, seed=5000, budget=float(N) / 4, earn="поровну", coupling=1.0)
     check(f"сид {seed}: при бюджете вчетверо меньшем миры РАСХОДЯТСЯ", not same(a, c))
 
     # воздействие при нулевой амплитуде не смеет менять ничего
-    d = free_run_tick(g, seed=5000, budget=float(N), earn="поровну",
+    d = free_run_tick(g, seed=5000, budget=float(N), earn="поровну", coupling=1.0,
                       touch=[np.arange(min(8, N))], touch_amp=0.0)
     check(f"сид {seed}: касание нулевой силы ни на что не влияет", same(b, d))
 
@@ -55,8 +55,21 @@ for seed in (1, 2, 3):
     # Правило «слышно» делит такты по тому, сколько нейрон доставил другим.
     # Если ткань молчит, доставлять нечего, доли у всех равны, и правило
     # вырождается в «поровну». Печатается как факт, в обе стороны.
-    e = free_run_tick(g, seed=5000, budget=float(N), earn="слышно", base=0.05)
-    degenerate = same(b, e)
+    # Сила передачи. Сверять её в НЕТРОНУТОЙ ткани нельзя: там нет ни
+    # одного спайка, строка передачи не исполняется, и множителю нечего
+    # менять -- проверка была бы пустой (ошибка №49). Поэтому сверка
+    # идёт под касанием, где спайки есть.
+    tn = [np.arange(min(8, N))]
+    f1 = free_run_tick(g, seed=5000, budget=float(N), earn="поровну", coupling=1.0,
+                       touch=tn, touch_amp=3.0)
+    f10 = free_run_tick(g, seed=5000, budget=float(N), earn="поровну", coupling=10.0,
+                        touch=tn, touch_amp=3.0)
+    check(f"сид {seed}: под касанием сила передачи 10 расходится с силой 1",
+          not same(f1, f10))
+
+    e = free_run_tick(g, seed=5000, budget=float(N), earn="слышно", base=0.05, coupling=10.0)
+    b10 = free_run_tick(g, seed=5000, budget=float(N), earn="поровну", coupling=10.0)
+    degenerate = same(b10, e)
     print(f"       измерение: правило 'слышно' "
           f"{'ВЫРОЖДАЕТСЯ в поровну -- ткань молчит, слышать некого' if degenerate else 'отличается от поровну'}")
 

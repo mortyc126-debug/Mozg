@@ -54,6 +54,7 @@ def free_run_tick(
     earn="поровну",       # 'поровну' | 'слышно' | 'жребий'
     base=0.0,             # базовая доля при делёжке
     max_take=MAX_TAKE,
+    coupling=None,        # сила передачи; None -- взять ту, при которой сеть росла
     touch=None,           # список образов: массивы номеров нейронов
     touch_amp=0.0,        # величина добавки к току; 0 -- воздействия нет
     touch_period=0.2,     # как часто приходит касание, с
@@ -81,7 +82,17 @@ def free_run_tick(
     threshold = state["threshold"].copy()
     drive = state["drive"].copy()
 
-    wout = W.sum(axis=0)            # сколько веса нейрон доставляет, когда стреляет
+    # СИЛА ПЕРЕДАЧИ. simulate() и probe() умножают доставленный вес на
+    # coupling, а free_run_snapshots -- НЕТ. Это та же ошибка, которую
+    # v0.21 однажды поймал у probe и описал: "сила влияла на развитие
+    # сети, а сама проба всегда шла при 1.0". У свободного прогона она
+    # уцелела. До v0.20 сила была 1, и множитель был бы пустым, поэтому
+    # ранние результаты не задеты; бьёт она того, кто зовёт свободный
+    # прогон при силе 10 -- то есть этот файл.
+    # coupling=1.0 воспроизводит free_run_snapshots побитово.
+    if coupling is None:
+        coupling = float(developed.get("coupling", 1.0))
+    wout = coupling * W.sum(axis=0)  # сколько веса нейрон доставляет, когда стреляет
     credit = np.zeros(N)
     heard = np.zeros(N)
 
@@ -140,7 +151,7 @@ def free_run_tick(
             fired = available & (v >= threshold)
 
             if np.any(fired):
-                syn += W[:, fired].sum(axis=1)
+                syn += coupling * W[:, fired].sum(axis=1)
                 heard[fired] += wout[fired]
 
             v[fired] = 0.0
