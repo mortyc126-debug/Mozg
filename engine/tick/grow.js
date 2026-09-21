@@ -149,6 +149,11 @@ const MISS = num('MISS', FAULT);
 const ROT = num('ROT', FAULT);
 const SLIP = num('SLIP', FAULT);
 const GHOST = num('GHOST', FAULT);
+/* До какого круга приходит порча записи. Дальше мир живёт сам:
+   всё остальное идёт как шло, но впрыска различий больше нет. Ровно
+   тот же приём, что stimulus_until в ядре Python-линии. Бесконечность
+   -- как было, поэтому тождество цело. */
+const ROT_UNTIL = num('ROT_UNTIL', Infinity);
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
 
 const GRACE = num('GRACE', 0);
@@ -390,7 +395,7 @@ function round(w) {
     p.prev.set(p.x);
     p.x.set(nx);
     // СБОЙ: порча записи -- одна координата состояния испортилась
-    if (ROT > 0 && w.rnd() < ROT) {
+    if (ROT > 0 && w.round < ROT_UNTIL && w.rnd() < ROT) {
       p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
       w.faults.rot++;
     }
@@ -472,7 +477,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
