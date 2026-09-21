@@ -313,6 +313,28 @@ const KIN_S = num('KIN_S', 4);     // сколько встречных част
    При KIN_NEAR = 0 всё как было, и мир идёт побитово прежним путём. */
 const KIN_NEAR = num('KIN_NEAR', 0);
 
+/* ============ НАЛОГ ПЕРЕВЕДЁН НА РАССТОЯНИЕ ПО АДРЕСУ ============
+
+   Шаг 20 нашёл течь: связь заводится к ближайшему по адресу, потом оба
+   адреса уплывают, а связь держится. У свежих связей расстояние по
+   порядку адреса 12, у старых 73; половина графа -- окаменелость
+   прежнего соседства.
+
+   Машинерия для починки уже построена и простаивает. Держание связи
+   платное (HOLD), и цена умеет зависеть от чего угодно: TAX брал её с
+   ошибки предсказания -- и, по шагам 7 и 11, до устройства мира не
+   доходил. Здесь основание цены меняется:
+
+     держать связь с тем, кто уплыл далеко по адресу, стоит дороже.
+
+   Ничего нового не вводится. Налог перенаправлен с того, что не
+   работало, на то, что, по измерению шага 20, решает всё.
+
+   При TAX_ADDR = 0 цена берётся с ошибки, как была, и мир идёт
+   побитово прежним путём. */
+const TAX_ADDR = num('TAX_ADDR', 0);
+const TAX_D = num('TAX_D', 40);
+
 /* ============ ЗАМЫКАНИЕ ПЕТЛИ ============
 
    Шаг 17: лицо решает, с кем связаться, -- но граф обратно на лицо не
@@ -544,7 +566,15 @@ function upkeep(w, p) {
    тождество при TAX = 0, то есть возможность сказать, что изменилось
    именно от налога. */
 function upkeepTaxed(w, p) {
-  for (const l of p.links) l.cost = C_HOLD * (1 + TAX * l.errPay);
+  if (TAX_ADDR > 0) {
+    const mine = addrOf(w, p);
+    for (const l of p.links) {
+      const o = w.parts[l.j];
+      l.cost = C_HOLD * (1 + TAX_D * (o ? Math.abs(addrOf(w, o) - mine) : 0));
+    }
+  } else {
+    for (const l of p.links) l.cost = C_HOLD * (1 + TAX * l.errPay);
+  }
   p.links.sort((a, b) => (a.cost - b.cost) || (b.used - a.used) || (a.j - b.j));
   let paid = 0, keep = 0;
   for (const l of p.links) {
@@ -794,7 +824,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN, KIN, LOOP, KIN_NEAR, addrOf };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN, KIN, LOOP, KIN_NEAR, TAX_ADDR, addrOf };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
