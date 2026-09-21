@@ -43,7 +43,7 @@ function fp(w) {
 
 function load(file, env) {
   for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
-    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL'])
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];

@@ -27,7 +27,7 @@ if (process.env.CHILD) {
   process.env.ROT = sterile ? '0' : '0.05';
   process.env.ROT_UNTIL = String(BUILD);
   const G = require('../grow.js');
-  const { makeRNG } = require('../src/rng');
+  const { makeRNG } = require('../../src/rng');
   const seed = +process.env.SEED, perm = process.env.PERM === '1';
 
   const spread = (w) => {

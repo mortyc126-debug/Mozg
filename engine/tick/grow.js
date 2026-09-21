@@ -154,6 +154,13 @@ const GHOST = num('GHOST', FAULT);
    тот же приём, что stimulus_until в ядре Python-линии. Бесконечность
    -- как было, поэтому тождество цело. */
 const ROT_UNTIL = num('ROT_UNTIL', Infinity);
+/* Кого бьёт порча. По умолчанию -- только того, кто в этом круге
+   ходил: порча случается при записи, а замерший не пишет. Но это
+   сцепляет отклонение с деятельностью, и тогда «сеть стирает различие»
+   может оказаться просто «порча достаётся деятельным, а деятельные
+   быстрее возвращаются». ROT_ALL = 1 бьёт всех подряд и позволяет эти
+   два объяснения развести. Умолчание -- как было, тождество цело. */
+const ROT_ALL = num('ROT_ALL', 0);
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
 
 const GRACE = num('GRACE', 0);
@@ -351,6 +358,14 @@ function round(w) {
   for (const p of P) drops += upkeep(w, p);
   w.dropsLast = drops;
   w.dropsTotal += drops;
+
+  // СБОЙ: порча записи, бьющая ВСЕХ -- и ходящих, и замерших
+  if (ROT_ALL > 0 && ROT > 0 && w.round < ROT_UNTIL) {
+    for (const p of P) if (w.rnd() < ROT) {
+      p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
+      w.faults.rot++;
+    }
+  }
 
   // 2) действия. Порядок фиксирован; состояния читаются по ходу.
   const newborns = [];
