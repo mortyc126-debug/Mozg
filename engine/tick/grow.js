@@ -229,6 +229,41 @@ const MIX0 = num('MIX0', 0.3);
 
 const MARKS = num('MARKS', 0);
 const HOPS = num('HOPS', 2);
+
+/* ============ ПРИВЯЗКА СОСТОЯНИЯ К ПАМЯТИ ============
+
+   Шаг 15: отталкивание держит РАЗБРОС, но не держит ЛИЦО -- состояние
+   части перемешивается за тысячу-пять тысяч кругов, потому что его
+   нечем удержать на месте. Шаг 14: память меток дрейфует в полтораста
+   раз медленнее состояния -- и нарочно оставлена ни на что не влияющей.
+
+   Здесь они связываются. У метки появляется ЦВЕТ -- вектор, выданный
+   ей при рождении. ПОДПИСЬ части -- взвешенное среднее цветов тех
+   меток, что до неё дошли; вес метки тем больше, чем ближе случилось
+   событие (по остатку переходов). Состояние притягивается к своей
+   подписи с силой ANCHOR.
+
+   Почему это привязка, а не ещё одно усреднение: подпись считается по
+   набору, который НЕ УБЫВАЕТ. Состояние может дрейфовать куда угодно,
+   но тянуть его будет туда же, куда тянуло вчера, пока к части не
+   пришли новые события. Лицо держится не тем, что часть его помнит, а
+   тем, что его нечем стереть.
+
+   Цвета берутся из ОТДЕЛЬНОГО потока случайных чисел, поэтому при
+   ANCHOR = 0 мир идёт побитово так же, как шёл при одной памяти.
+   При ANCHOR = 0 подпись не считается вовсе. */
+const ANCHOR = num('ANCHOR', 0);
+/* Чем считать подпись. 0 -- по ВСЕЙ памяти, как было сперва; и это
+   оказалось негодно: наборы меток у частей перекрываются на 78%, и
+   среднее по ним у всех почти одно -- разброс подписей 0.006 против
+   0.139 у состояний. Тяга к такой подписи стягивает мир в шарик
+   радиусом 0.006. Усреднение по перекрывающимся наборам -- то же
+   сжатие, только в новом платье.
+   1 -- по СВОИМ меткам, родившимся у этой части. Такие наборы у разных
+   частей не пересекаются ВОВСЕ, значит подписи не стягиваются. И смысл
+   другой: лицо части -- то, что случилось С НЕЙ, а не то, что она
+   услышала. */
+const ANCHOR_OWN = num('ANCHOR_OWN', 0);
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
 
 const GRACE = num('GRACE', 0);
@@ -249,7 +284,14 @@ function makePart(id, rnd, parent) {
     read: 0, readPrev: 0, steps: 0, frozen: 0, born: 0, kids: 0, dropped: 0,
     // память меток: метка -> сколько переходов ей ещё осталось.
     // Убавляться не может: записи отсюда не удаляются нигде.
-    mem: MARKS > 0 ? new Map() : null };
+    mem: MARKS > 0 ? new Map() : null,
+    // передаваемые метки (те, у кого остались переходы). Отдельно от
+    // всей памяти нарочно: при чтении обходить надо только их, а память
+    // растёт тысячами и обходить её каждый раз нельзя.
+    hot: MARKS > 0 ? new Map() : null,
+    // накопители подписи: сумма цветов с весами и сам вес.
+    // Ведутся приращением, чтобы не обходить память на каждом шаге.
+    sigSum: ANCHOR > 0 ? new Float64Array(K) : null, sigW: 0 };
 }
 const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
 /* mix может уходить в минус только при PUSH: тогда часть отталкивается
@@ -285,6 +327,34 @@ function makeLink(j, p, w) {
   return l;
 }
 
+/* цвет метки -- вектор, выданный при рождении. Отдельный поток, чтобы
+   собственный поток мира не сдвинулся и тождество устояло. */
+function colorOf(w, mk) {
+  let c = w.colors.get(mk);
+  if (!c) {
+    c = new Float64Array(K);
+    for (let k = 0; k < K; k++) c[k] = w.col() * 2 - 1;
+    w.colors.set(mk, c);
+  }
+  return c;
+}
+
+/* положить метку в память с весом по остатку переходов. Вес меняется
+   только вверх: метка, пришедшая более коротким путём, весит больше. */
+function remember(w, p, mk, h) {
+  const have = p.mem.get(mk);
+  if (have !== undefined && have >= h) return;
+  p.mem.set(mk, h);
+  if (h > 0) p.hot.set(mk, h);
+  if (ANCHOR <= 0) return;
+  if (ANCHOR_OWN > 0 && h !== HOPS) return;   // подпись -- только по своим событиям
+  const c = colorOf(w, mk);
+  const wOld = have === undefined ? 0 : have + 1;
+  const dw = (h + 1) - wOld;
+  for (let k = 0; k < K; k++) p.sigSum[k] += dw * c[k];
+  p.sigW += dw;
+}
+
 /* одно прочтение: расхождение, память о нём, движение ожидания к факту */
 function observe(l, o) {
   let m = 0;
@@ -311,7 +381,9 @@ function createSeed(seed, shuffle) {
        тождество при TAX = 0 обязано устоять -- и проверяется. */
     stat: null,
     faults: { miss: 0, rot: 0, slip: 0, ghost: 0 },
-    nextMark: 0 };
+    nextMark: 0,
+    colors: ANCHOR > 0 ? new Map() : null,
+    col: makeRNG((seed * 15485863 + 11) >>> 0) };
   w.parts.push(makePart(w.nextId++, rnd, null));
   return w;
 }
@@ -441,7 +513,7 @@ function round(w) {
     for (const p of P) if (w.rnd() < ROT) {
       p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
       w.faults.rot++;
-      if (MARKS > 0) p.mem.set(w.nextMark++, HOPS);
+      if (MARKS > 0) remember(w, p, w.nextMark++, HOPS);
     }
   }
 
@@ -476,11 +548,7 @@ function round(w) {
       // ПАМЯТЬ: объединение. Метки прочитанного переходят к
       // прочитавшему, теряя один переход. Ничего не удаляется.
       if (MARKS > 0) {
-        for (const [mk, h] of c.o.mem) {
-          if (h <= 0) continue;
-          const have = p.mem.get(mk);
-          if (have === undefined || have < h - 1) p.mem.set(mk, h - 1);
-        }
+        for (const [mk, h] of c.o.hot) remember(w, p, mk, h - 1);
       }
       if (w.stat) { w.stat.readDist += c.novelty; w.stat.readN++; }
       got.push(c.o);
@@ -493,7 +561,12 @@ function round(w) {
       for (const o of got) s += o.x[k];
       s = got.length ? s / got.length : p.x[k];
       const self = PUSH > 0 ? 1 - Math.abs(p.par.mix) : 1 - p.par.mix;
-      nx[k] = Math.tanh(self * p.x[k] + p.par.mix * s + 0.03 * (w.rnd() * 2 - 1));
+      // ПРИВЯЗКА: тяга к собственной подписи -- к среднему цвету того,
+      // что до этой части дошло. Набор не убывает, значит и тяга
+      // никуда не денется, пока не придут новые события.
+      const pull = (ANCHOR > 0 && p.sigW > 0)
+        ? ANCHOR * (p.sigSum[k] / p.sigW - p.x[k]) : 0;
+      nx[k] = Math.tanh(self * p.x[k] + p.par.mix * s + pull + 0.03 * (w.rnd() * 2 - 1));
     }
     p.prev.set(p.x);
     p.x.set(nx);
@@ -501,7 +574,7 @@ function round(w) {
     if (ROT > 0 && w.round < ROT_UNTIL && w.rnd() < ROT) {
       p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
       w.faults.rot++;
-      if (MARKS > 0) p.mem.set(w.nextMark++, HOPS);
+      if (MARKS > 0) remember(w, p, w.nextMark++, HOPS);
     }
     p.credit = budgetLeft;
     p.steps++;
@@ -529,7 +602,7 @@ function round(w) {
         && w.rnd() < p.par.urge * 0.5) {
       p.credit -= C_DIVIDE;
       const kid = makePart(w.nextId, w.rnd, p);
-      if (MARKS > 0) for (const [mk, h] of p.mem) kid.mem.set(mk, h);
+      if (MARKS > 0) for (const [mk, h] of p.mem) remember(w, kid, mk, h);
       kid.born = w.round;
       kid.links.push(makeLink(p.id, kid, w));
       newborns.push(kid);
@@ -582,7 +655,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0 };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);

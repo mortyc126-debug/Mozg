@@ -43,7 +43,7 @@ function fp(w) {
 
 function load(file, env) {
   for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
-    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0'])
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0', 'ANCHOR', 'ANCHOR_OWN'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -201,6 +201,38 @@ for (const base of ['0.5', '0.05']) {
     const d = fp(load(path.resolve(__dirname, '../grow.js'),
       Object.assign({ PUSH: '1', MIX0: '-0.3' }, base)).run(seed, 300));
     check(`отталкивание: сид ${seed}, при MIX0=-0.3 мир РАСХОДИТСЯ`, a !== d);
+  }
+}
+
+/* --- привязка состояния к памяти --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40', GRACE: '30',
+    ROT: '0.05', PUSH: '1', MIX0: '-0.3', MARKS: '1', HOPS: '1' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 300));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ ANCHOR: '0' }, base)).run(seed, 300));
+    check(`привязка: сид ${seed}, при ANCHOR=0 мир тот же, побитово`, a === b);
+    const c = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ ANCHOR: '0.2' }, base)).run(seed, 300));
+    check(`привязка: сид ${seed}, при ANCHOR=0.2 мир РАСХОДИТСЯ`, a !== c);
+
+    // подпись обязана быть РАЗНОЙ у разных частей, иначе привязка
+    // тянет всех в одну точку и это просто ещё одно усреднение
+    const G = load(path.resolve(__dirname, '../grow.js'), Object.assign({ ANCHOR: '0.2' }, base));
+    const w = G.createSeed(seed);
+    for (let r = 0; r < 800; r++) G.round(w);
+    const sig = w.parts.filter((p) => p.sigW > 0)
+      .map((p) => Array.from(p.sigSum).map((v) => v / p.sigW));
+    let far = 0, n = 0;
+    for (let i = 0; i < sig.length; i++) for (let j = i + 1; j < sig.length; j++) {
+      let d = 0;
+      for (let k = 0; k < sig[i].length; k++) d += Math.abs(sig[i][k] - sig[j][k]);
+      if (d / sig[i].length > 0.02) far++;
+      n++;
+    }
+    check(`привязка: сид ${seed}, подписи у частей РАЗНЫЕ`, n > 0 && far / n > 0.5,
+      `подписей ${sig.length}, различных пар ${n ? (100 * far / n).toFixed(0) : 0}%`);
   }
 }
 
