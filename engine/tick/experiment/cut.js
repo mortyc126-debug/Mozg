@@ -27,7 +27,9 @@
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const BUILD = 6000, GAP = 2000, SHARE = 0.5;
-const SEEDS = [1201, 1202, 1203, 1204, 1205, 1206];
+const SEEDS = process.env.FRESH
+  ? Array.from({ length: 32 }, (_, i) => 1301 + i)
+  : [1201, 1202, 1203, 1204, 1205, 1206];
 
 if (process.env.CHILD) {
   Object.assign(process.env, { CAP: '64', BASE: '0.05', HOLD: '0.1', TAX: '40',
@@ -115,6 +117,17 @@ for (const ll of [0, 1]) {
   console.log(`  у нетронутых частей адрес разошёлся на ${mean(cutOther).toFixed(4)}`);
 }
 
+function signFlip(d) {
+  const obs = Math.abs(d.reduce((x, y) => x + y, 0) / d.length);
+  let ge = 0;
+  for (let t = 0; t < 10000; t++) {
+    let s = 0;
+    for (const v of d) s += Math.random() < 0.5 ? v : -v;
+    if (Math.abs(s / d.length) >= obs - 1e-15) ge++;
+  }
+  return (ge + 1) / 10001;
+}
+
 const a = rows[0], b = rows[1];
 console.log(`\nадрес после подмены круга: без петли ${mean(a.cutA).toFixed(4)}, с петлёй ${mean(b.cutA).toFixed(4)}` +
   `  -- в ${(mean(b.cutA) / mean(a.cutA)).toFixed(1)} раза`);
@@ -122,6 +135,33 @@ console.log(`состояние после подмены:   без петли $
   `  -- в ${(mean(b.cutSt) / mean(a.cutSt)).toFixed(1)} раза`);
 console.log('\nсостояние обязано разойтись в обоих случаях: круг решает, кого часть читает.');
 console.log('Адрес -- только если петля замкнута: иначе подпись набирается не встречами.');
-console.log('\nПравил чтения не объявлено, вердиктов нет. Это описание прогона.');
+// --- основная мера по CUT_SPEC.md ---
+const dA = a.cutA.map((v, i) => v - a.cutOther[i]);
+const dB = b.cutA.map((v, i) => v - b.cutOther[i]);
+const dd = dB.map((v, i) => v - dA[i]);
+const sd = Math.sqrt(dd.reduce((x, y) => x + (y - mean(dd)) ** 2, 0) / (dd.length - 1));
+console.log(`\nПРОВЕРКИ ПРИБОРА: пустышка ${mean(a.shamA) === 0 && mean(b.shamA) === 0 ? 'РОВНО НОЛЬ во всех сидах' : 'НЕ НОЛЬ -- вердикта нет'};`);
+console.log(`  расхождение у нетронутых ${mean(b.cutOther).toFixed(4)} > 0 -- вычитать есть что`);
+console.log(`\nразница «тронутые минус нетронутые»: без петли ${mean(dA).toFixed(4)}, с петлёй ${mean(dB).toFixed(4)}`);
+if (process.env.FRESH) {
+  const p = signFlip(dd);
+  console.log(`\nОСНОВНАЯ МЕРА, знакопеременная перестановка:`);
+  console.log(`  разность ${mean(dd).toFixed(4)}, разброс ${sd.toFixed(4)}, ` +
+    `больше с петлёй на ${dd.filter((v) => v > 0).length} из ${dd.length}, p = ${p.toFixed(5)}`);
+  if (p < 0.05 && mean(dd) > 0) {
+    console.log('\nПЕТЛЯ ЗАМКНУТА: подмена круга меняет то, чем часть станет, и меняет');
+    console.log('именно через встречи, а не через общее возмущение мира.');
+    console.log('ПРЕДСКАЗАНИЕ (CUT_SPEC §6) СБЫЛОСЬ.');
+  } else if (p < 0.05) {
+    console.log('\nПЕТЛЯ ЗАЩИЩАЕТ, А НЕ СВЯЗЫВАЕТ: подмена круга сказывается МЕНЬШЕ.');
+    console.log('ПРЕДСКАЗАНИЕ (CUT_SPEC §6) НЕ СБЫЛОСЬ.');
+  } else {
+    console.log('\nЗАМЫКАНИЕ НЕ ОБНАРУЖИВАЕТСЯ: связь, верная по построению кода,');
+    console.log('до устройства мира не доходит. ПРЕДСКАЗАНИЕ (CUT_SPEC §6) НЕ СБЫЛОСЬ.');
+  }
+  console.log('\nНи одной строки RUDIMENT_SPEC это не закрывает (CUT_SPEC §7).');
+} else {
+  console.log('\nразведка: вердикта нет, правило чтения требует свежих сидов.');
+}
 fs.mkdirSync('results', { recursive: true });
 fs.writeFileSync('results/cut.jsonl', rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
