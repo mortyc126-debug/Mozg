@@ -42,7 +42,8 @@ function fp(w) {
 }
 
 function load(file, env) {
-  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE'])
+  for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -134,6 +135,22 @@ for (const base of ['0.5', '0.05']) {
     const c = fp(load(path.resolve(__dirname, '../grow.js'),
       Object.assign({ GRACE: '5' }, base)).run(seed, 400));
     check(`отсрочка: сид ${seed}, при GRACE=5 мир РАСХОДИТСЯ`, a !== c);
+  }
+}
+
+/* --- сбои: тождество при нуле и различимость каждого порознь --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40', GRACE: '30' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 300));
+    const z = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ FAULT: '0' }, base)).run(seed, 300));
+    check(`сбои: сид ${seed}, при FAULT=0 мир тот же, побитово`, a === z);
+    for (const f of ['MISS', 'ROT', 'SLIP', 'GHOST']) {
+      const env = Object.assign({}, base); env[f] = '0.05';
+      const b = fp(load(path.resolve(__dirname, '../grow.js'), env).run(seed, 300));
+      check(`сбои: сид ${seed}, ${f} поодиночке уводит мир`, a !== b);
+    }
   }
 }
 

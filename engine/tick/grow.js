@@ -116,6 +116,41 @@ const HEAD = num('HEAD', 20);      // сколько первых прочтен
 
    При GRACE = 0 исполняется прежняя ветка, слово в слово, и мир обязан
    совпасть побитово. */
+/* ============ СБОИ: МИР, КОТОРЫЙ НЕ БЕЗУПРЕЧЕН ============
+
+   До сих пор эта среда была стерильной: адреса точны, память
+   нерушима, такт не теряется, связь заводится только за плату. Это
+   МОЙ выбор, а не свойство цифрового, и он ничем не обоснован: живого
+   мозга в стерильности не бывает, а эталона, с которым сверяться, у
+   нас нет вовсе.
+
+   Здесь вводятся четыре сбоя. Все ЦИФРОВЫЕ по природе -- это отказы
+   ровно тех даровых благ, на которых стояла среда:
+
+     MISS  -- ПРОМАХ АДРЕСА. Читаешь не того, кого выбрал. Адрес без
+              расстояния был даровым; теперь он неточен.
+     ROT   -- ПОРЧА ЗАПИСИ. Одна координата состояния испортилась.
+              Память была бесплатной и нерушимой; теперь нерушимой нет.
+     SLIP  -- ПОТЕРЯ ТАКТА. Начисление за круг пропало целиком.
+              Бухгалтерия была точной; теперь нет.
+     GHOST -- САМОЗВАНАЯ СВЯЗЬ. Связь завелась сама, без платы.
+              Проводка была подконтрольной; теперь нет.
+
+   FAULT -- общая ручка: задаёт все четыре разом, если не заданы
+   порознь. При FAULT = 0 не тратится ни одного случайного числа, и
+   мир обязан совпасть с прежним ПОБИТОВО -- иначе нельзя будет
+   сказать, что изменилось именно от сбоев.
+
+   Никакого вердикта об их пользе здесь нет и быть не может: что
+   делают сбои -- неизвестно никому, и это и есть причина смотреть.
+   ============================================================ */
+const FAULT = num('FAULT', 0);
+const MISS = num('MISS', FAULT);
+const ROT = num('ROT', FAULT);
+const SLIP = num('SLIP', FAULT);
+const GHOST = num('GHOST', FAULT);
+const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
+
 const GRACE = num('GRACE', 0);
 const INVERT = num('INVERT', 0);
 const EREF = num('EREF', 0.0406);
@@ -186,7 +221,8 @@ function createSeed(seed, shuffle) {
     /* Наблюдение, и только: ни одно из этих чисел не участвует в ходе
        мира, не расходует случайных чисел и не создаёт развилок. Поэтому
        тождество при TAX = 0 обязано устоять -- и проверяется. */
-    stat: null };
+    stat: null,
+    faults: { miss: 0, rot: 0, slip: 0, ghost: 0 } };
   w.parts.push(makePart(w.nextId++, rnd, null));
   return w;
 }
@@ -296,7 +332,12 @@ function round(w) {
   // 1) начисление: доля пропорциональна тому, сколько тебя читали
   let sum = 0;
   for (const p of P) sum += p.readPrev + BASE_SHARE;
-  for (const p of P) p.credit += BUDGET * (p.readPrev + BASE_SHARE) / sum;
+  for (const p of P) {
+    const share = BUDGET * (p.readPrev + BASE_SHARE) / sum;
+    // СБОЙ: такт потерян -- начисление за этот круг не дошло
+    if (SLIP > 0 && w.rnd() < SLIP) { w.faults.slip++; continue; }
+    p.credit += share;
+  }
   for (const p of P) { p.readPrev = p.read; p.read = 0; }
 
   // 1-бис) плата за держание связей -- со всех, включая замерших
@@ -324,6 +365,13 @@ function round(w) {
     for (const c of cand) {
       if (got.length >= wantReads || budgetLeft < C_READ) break;
       budgetLeft -= C_READ;
+      let o = c.o;
+      // СБОЙ: промах адреса -- прочтён не тот, кого выбрали
+      if (MISS > 0 && w.rnd() < MISS) {
+        const j = Math.floor(w.rnd() * P.length);
+        if (P[j] && j !== p.id) { o = P[j]; w.faults.miss++; }
+      }
+      c.o = o;
       c.o.read++;                       // прочитанный зарабатывает
       c.l.used += 1;                    // связью воспользовались
       if (TAX > 0) observe(c.l, c.o);   // чем ожидание разошлось с фактом
@@ -341,6 +389,11 @@ function round(w) {
     }
     p.prev.set(p.x);
     p.x.set(nx);
+    // СБОЙ: порча записи -- одна координата состояния испортилась
+    if (ROT > 0 && w.rnd() < ROT) {
+      p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
+      w.faults.rot++;
+    }
     p.credit = budgetLeft;
     p.steps++;
 
@@ -351,6 +404,14 @@ function round(w) {
         p.links.push(makeLink(j, p, w));
         p.credit -= C_LINK;
         if (w.stat) w.stat.madeN++;
+      }
+    }
+    // СБОЙ: самозваная связь -- завелась сама, без платы
+    if (GHOST > 0 && w.rnd() < GHOST) {
+      const j = Math.floor(w.rnd() * P.length);
+      if (j !== p.id && !p.links.some((l) => l.j === j)) {
+        p.links.push(makeLink(j, p, w));
+        w.faults.ghost++;
       }
     }
     // 5) разделиться. Потолка населения нет: удерживает только бюджет.
@@ -411,7 +472,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
