@@ -198,6 +198,35 @@ const ROT_ALL = num('ROT_ALL', 0);
 
    При MARKS = 0 не заводится ни одной метки, не тратится ни одного
    случайного числа, и мир идёт ПОБИТОВО как прежде. */
+/* ============ ЧЕМ РАЗОЙТИСЬ ============
+
+   Шаг 14 назвал недостающее точно: всякая операция, через которую
+   части влияют друг на друга, есть СЖАТИЕ НА РАЗЛИЧИИ. Усреднение
+   сближает, объединение памяти сближает. Разойтись в этом мире нечем,
+   кроме случайного впрыска, -- а случайный впрыск это не действие
+   части, это погода.
+
+   Наименьшее действие, которым можно разойтись, -- то же самое чтение
+   с обратным знаком: часть не подмешивает прочитанное к себе, а
+   ОТТАЛКИВАЕТСЯ от него. Ничего нового не заводится: у части уже есть
+   число mix, доля прочитанного в её обновлении. Раньше оно было
+   заперто в [0.02, 0.98]. PUSH = 1 открывает ему отрицательную
+   сторону.
+
+   Почему это действие, а не шум: mix -- СВОЁ число части, оно
+   наследуется потомком с отклонением, и у разных частей оно разное.
+   Отталкивание направлено на того, кого прочли, а не куда попало.
+
+   ОПАСНОСТЬ, НАЗВАННАЯ ДО ПОСТРОЙКИ. Расхождение легко вырождается в
+   насыщение: все прижаты к краям tanh и стоят. Это тоже "различие", и
+   оно мёртвое -- ровно ловушка band.js, где мера структуры награждала
+   замёрзшие узоры. Поэтому рядом всегда меряется доля координат у
+   края и то, шевелится ли мир вообще.
+
+   При PUSH = 0 mix запирается как прежде и мир идёт ПОБИТОВО так же. */
+const PUSH = num('PUSH', 0);
+const MIX0 = num('MIX0', 0.3);
+
 const MARKS = num('MARKS', 0);
 const HOPS = num('HOPS', 2);
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
@@ -212,10 +241,10 @@ function makePart(id, rnd, parent) {
   for (let k = 0; k < K; k++) x[k] = parent ? parent.x[k] + (rnd() - 0.5) * 0.2 : rnd() * 2 - 1;
   // правила части -- данные: наследуются с отклонением
   const par = parent
-    ? { mix: clamp01(parent.par.mix + (rnd() - 0.5) * 0.15),
+    ? { mix: clampMix(parent.par.mix + (rnd() - 0.5) * 0.15),
         greed: clamp01(parent.par.greed + (rnd() - 0.5) * 0.15),
         urge: clamp01(parent.par.urge + (rnd() - 0.5) * 0.15) }
-    : { mix: 0.3, greed: 0.5, urge: 0.5 };
+    : { mix: clampMix(MIX0), greed: 0.5, urge: 0.5 };
   return { id, x, prev: Float64Array.from(x), par, links: [], credit: 0,
     read: 0, readPrev: 0, steps: 0, frozen: 0, born: 0, kids: 0, dropped: 0,
     // память меток: метка -> сколько переходов ей ещё осталось.
@@ -223,6 +252,11 @@ function makePart(id, rnd, parent) {
     mem: MARKS > 0 ? new Map() : null };
 }
 const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
+/* mix может уходить в минус только при PUSH: тогда часть отталкивается
+   от прочитанного вместо того, чтобы к нему подмешиваться. */
+const clampMix = PUSH > 0
+  ? (v) => (v < -0.98 ? -0.98 : v > 0.98 ? 0.98 : v)
+  : clamp01;
 
 /* Связь. При TAX = 0 всё, что ниже ожидания, не заводится вовсе и не
    считается: мир обязан совпасть с прежним побитово.
@@ -458,7 +492,8 @@ function round(w) {
       let s = 0;
       for (const o of got) s += o.x[k];
       s = got.length ? s / got.length : p.x[k];
-      nx[k] = Math.tanh((1 - p.par.mix) * p.x[k] + p.par.mix * s + 0.03 * (w.rnd() * 2 - 1));
+      const self = PUSH > 0 ? 1 - Math.abs(p.par.mix) : 1 - p.par.mix;
+      nx[k] = Math.tanh(self * p.x[k] + p.par.mix * s + 0.03 * (w.rnd() * 2 - 1));
     }
     p.prev.set(p.x);
     p.x.set(nx);
@@ -547,7 +582,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0 };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);

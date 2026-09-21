@@ -43,7 +43,7 @@ function fp(w) {
 
 function load(file, env) {
   for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
-    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS'])
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -180,6 +180,27 @@ for (const base of ['0.5', '0.05']) {
     }
     check(`метки: сид ${seed}, память ни разу не убыла`, shrank === 0 && grew > 0,
       `убыло ${shrank}, приросло ${grew}`);
+  }
+}
+
+/* --- отталкивание: тождество при нуле, различимость, и что знак работает --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40', GRACE: '30' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 300));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ PUSH: '0' }, base)).run(seed, 300));
+    check(`отталкивание: сид ${seed}, при PUSH=0 мир тот же, побитово`, a === b);
+
+    // при PUSH=1 и прежнем MIX0 мир тоже обязан совпасть: знак не тронут,
+    // а (1 - |mix|) при mix > 0 равно (1 - mix). Пустой отсчёт к следующей проверке.
+    const c = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ PUSH: '1', MIX0: '0.3' }, base)).run(seed, 300));
+    check(`отталкивание: сид ${seed}, PUSH=1 при том же MIX0 ничего не меняет`, a === c);
+
+    const d = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ PUSH: '1', MIX0: '-0.3' }, base)).run(seed, 300));
+    check(`отталкивание: сид ${seed}, при MIX0=-0.3 мир РАСХОДИТСЯ`, a !== d);
   }
 }
 
