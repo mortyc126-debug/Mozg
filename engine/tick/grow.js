@@ -264,6 +264,29 @@ const ANCHOR = num('ANCHOR', 0);
    другой: лицо части -- то, что случилось С НЕЙ, а не то, что она
    услышала. */
 const ANCHOR_OWN = num('ANCHOR_OWN', 0);
+
+/* ============ ЛИЦО КАК АДРЕС ============
+
+   Шаг 16 дал части лицо -- состояние, которое держится тысячи кругов.
+   Но лицо ни на что не влияло: выбор, с кем связаться, оставался
+   чистой лотереей -- случайный номер. Шаг 12 это и померил: промах
+   адреса почти ничего в мире не менял, то есть адрес не нёс сведений.
+
+   Здесь подпись части становится её АДРЕСОМ: число, вычисленное из
+   собственной истории. Связываясь, часть смотрит на несколько
+   случайных встречных и выбирает из них по адресу.
+
+   Это возможно только в цифровой среде и только потому, что адрес в
+   ней ПУБЛИЧЕН по построению -- «адреса без расстояния» записаны в
+   замысле среды с самого начала. Вещество так не умеет: там, чтобы
+   узнать, кто ты, надо к тебе прийти.
+
+   KIN -- своё дело части, и оно двустороннее:
+     > 0  искать ПОХОЖЕГО по прошлому;
+     < 0  искать НЕПОХОЖЕГО;
+       0  как было -- жребий, и мир идёт побитово прежним путём. */
+const KIN = num('KIN', 0);
+const KIN_S = num('KIN_S', 4);     // сколько встречных часть осмотрит
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
 
 const GRACE = num('GRACE', 0);
@@ -327,6 +350,20 @@ function makeLink(j, p, w) {
   return l;
 }
 
+/* АДРЕС части -- число, вычисленное из её подписи. Направление снятия
+   одно на весь мир и берётся из отдельного потока, поэтому при KIN = 0
+   не тратится ни одного случайного числа мира и тождество цело. */
+function addrOf(w, p) {
+  if (!p.sigW) return 0;
+  if (!w.dir) {
+    w.dir = new Float64Array(K);
+    for (let k = 0; k < K; k++) w.dir[k] = w.col() * 2 - 1;
+  }
+  let a = 0;
+  for (let k = 0; k < K; k++) a += (p.sigSum[k] / p.sigW) * w.dir[k];
+  return Math.tanh(a);
+}
+
 /* цвет метки -- вектор, выданный при рождении. Отдельный поток, чтобы
    собственный поток мира не сдвинулся и тождество устояло. */
 function colorOf(w, mk) {
@@ -382,7 +419,7 @@ function createSeed(seed, shuffle) {
     stat: null,
     faults: { miss: 0, rot: 0, slip: 0, ghost: 0 },
     nextMark: 0,
-    colors: ANCHOR > 0 ? new Map() : null,
+    colors: ANCHOR > 0 ? new Map() : null, dir: null,
     col: makeRNG((seed * 15485863 + 11) >>> 0) };
   w.parts.push(makePart(w.nextId++, rnd, null));
   return w;
@@ -581,7 +618,20 @@ function round(w) {
 
     // 4) связаться -- адрес без расстояния, с кем угодно
     if (p.credit >= C_LINK && w.rnd() < p.par.urge * 0.25) {
-      const j = Math.floor(w.rnd() * P.length);
+      let j;
+      if (KIN === 0) {
+        j = Math.floor(w.rnd() * P.length);      // жребий, как было
+      } else {
+        // осмотреть несколько встречных и выбрать по адресу
+        const mine = addrOf(w, p);
+        let best = -1, bestD = 0;
+        for (let t = 0; t < KIN_S; t++) {
+          const c = Math.floor(w.rnd() * P.length);
+          const d = Math.abs(addrOf(w, P[c]) - mine);
+          if (best < 0 || (KIN > 0 ? d < bestD : d > bestD)) { best = c; bestD = d; }
+        }
+        j = best;
+      }
       if (j !== p.id && !p.links.some((l) => l.j === j)) {
         p.links.push(makeLink(j, p, w));
         p.credit -= C_LINK;
@@ -655,7 +705,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN, KIN, addrOf };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);

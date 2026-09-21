@@ -43,7 +43,7 @@ function fp(w) {
 
 function load(file, env) {
   for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
-    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0', 'ANCHOR', 'ANCHOR_OWN'])
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0', 'ANCHOR', 'ANCHOR_OWN', 'KIN', 'KIN_S'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -233,6 +233,33 @@ for (const base of ['0.5', '0.05']) {
     }
     check(`привязка: сид ${seed}, подписи у частей РАЗНЫЕ`, n > 0 && far / n > 0.5,
       `подписей ${sig.length}, различных пар ${n ? (100 * far / n).toFixed(0) : 0}%`);
+  }
+}
+
+/* --- лицо как адрес --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40', GRACE: '30',
+    ROT: '0.01', PUSH: '1', MIX0: '-0.3', MARKS: '1', HOPS: '1',
+    ANCHOR: '0.2', ANCHOR_OWN: '1' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 400));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ KIN: '0' }, base)).run(seed, 400));
+    check(`адрес: сид ${seed}, при KIN=0 мир тот же, побитово`, a === b);
+    for (const k of ['1', '-1']) {
+      const c = fp(load(path.resolve(__dirname, '../grow.js'),
+        Object.assign({ KIN: k }, base)).run(seed, 400));
+      check(`адрес: сид ${seed}, при KIN=${k} мир РАСХОДИТСЯ`, a !== c);
+    }
+    // адреса обязаны быть РАЗНЫМИ, иначе выбирать не из чего
+    const G = load(path.resolve(__dirname, '../grow.js'), Object.assign({ KIN: '1' }, base));
+    const w = G.createSeed(seed);
+    for (let r = 0; r < 1200; r++) G.round(w);
+    const ad = w.parts.map((p) => G.addrOf(w, p));
+    const m = ad.reduce((x, y) => x + y, 0) / ad.length;
+    const sd = Math.sqrt(ad.reduce((x, y) => x + (y - m) ** 2, 0) / ad.length);
+    check(`адрес: сид ${seed}, адреса у частей РАЗНЫЕ`, sd > 0.02,
+      `разброс адресов ${sd.toFixed(4)}`);
   }
 }
 
