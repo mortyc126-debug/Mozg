@@ -43,7 +43,7 @@ function fp(w) {
 
 function load(file, env) {
   for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
-    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0', 'ANCHOR', 'ANCHOR_OWN', 'KIN', 'KIN_S'])
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS', 'PUSH', 'MIX0', 'ANCHOR', 'ANCHOR_OWN', 'KIN', 'KIN_S', 'LOOP', 'MEET'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -260,6 +260,34 @@ for (const base of ['0.5', '0.05']) {
     const sd = Math.sqrt(ad.reduce((x, y) => x + (y - m) ** 2, 0) / ad.length);
     check(`адрес: сид ${seed}, адреса у частей РАЗНЫЕ`, sd > 0.02,
       `разброс адресов ${sd.toFixed(4)}`);
+  }
+}
+
+/* --- замкнутая петля --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40', GRACE: '30',
+    ROT: '0.01', PUSH: '1', MIX0: '-0.3', MARKS: '1', HOPS: '1',
+    ANCHOR: '0.5', ANCHOR_OWN: '1', KIN: '1' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 400));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ LOOP: '0' }, base)).run(seed, 400));
+    check(`петля: сид ${seed}, при LOOP=0 мир тот же, побитово`, a === b);
+    const c = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ LOOP: '1' }, base)).run(seed, 400));
+    check(`петля: сид ${seed}, при LOOP=1 мир РАСХОДИТСЯ`, a !== c);
+
+    // петля обязана быть ЗАМКНУТОЙ: подпись должна набираться встречами
+    const G = load(path.resolve(__dirname, '../grow.js'), Object.assign({ LOOP: '1' }, base));
+    const w = G.createSeed(seed);
+    for (let r = 0; r < 1500; r++) G.round(w);
+    const got = w.parts.filter((p) => p.sigW > 0).length;
+    const ad = w.parts.map((p) => G.addrOf(w, p));
+    const m = ad.reduce((x, y) => x + y, 0) / ad.length;
+    const sd = Math.sqrt(ad.reduce((x, y) => x + (y - m) ** 2, 0) / ad.length);
+    check(`петля: сид ${seed}, встречи набраны и адреса разные`,
+      got > w.parts.length / 2 && sd > 0.02,
+      `с подписью ${got} из ${w.parts.length}, встреч ${w.faults.met}, разброс адресов ${sd.toFixed(4)}`);
   }
 }
 

@@ -287,6 +287,34 @@ const ANCHOR_OWN = num('ANCHOR_OWN', 0);
        0  как было -- жребий, и мир идёт побитово прежним путём. */
 const KIN = num('KIN', 0);
 const KIN_S = num('KIN_S', 4);     // сколько встречных часть осмотрит
+
+/* ============ ЗАМЫКАНИЕ ПЕТЛИ ============
+
+   Шаг 17: лицо решает, с кем связаться, -- но граф обратно на лицо не
+   влияет ничем. Причина названа там же: события (порча) сыплются на
+   часть НЕЗАВИСИМО от её связей, поэтому её история не зависит от её
+   выбора. История была погодой.
+
+   LOOP = 1 делает событием саму ВСТРЕЧУ. Прочитав кого-то, часть с
+   вероятностью MEET заносит эту встречу в свою подпись: прибавляет
+   метку встреченного. Тогда
+
+       выбор -> встречи -> история -> адрес -> выбор
+
+   и петля замкнута: с кем часть связалась, то и войдёт в то, чем она
+   станет, а чем она станет -- решит, с кем она свяжется дальше.
+
+   ЧЕСТНАЯ ОГОВОРКА. Метка части -- произвольные координаты, выданные
+   при рождении, вроде имени. Построенного в ней нет ничего. Строится
+   другое и только оно: КОГО часть встречала и как часто. Подпись есть
+   взвешенное среднее имён тех, с кем она имела дело.
+
+   ОПАСНОСТЬ, НАЗВАННАЯ ДО ПОСТРОЙКИ. Петля с положительной обратной
+   связью либо схлопывается (все встречают всех, подписи сходятся к
+   общему среднему), либо разносит мир по углам. И то и другое
+   проверяется мерами, а не доводом. */
+const LOOP = num('LOOP', 0);
+const MEET = num('MEET', 0.01);
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
 
 const GRACE = num('GRACE', 0);
@@ -314,7 +342,10 @@ function makePart(id, rnd, parent) {
     hot: MARKS > 0 ? new Map() : null,
     // накопители подписи: сумма цветов с весами и сам вес.
     // Ведутся приращением, чтобы не обходить память на каждом шаге.
-    sigSum: ANCHOR > 0 ? new Float64Array(K) : null, sigW: 0 };
+    sigSum: ANCHOR > 0 ? new Float64Array(K) : null, sigW: 0,
+    // ИМЯ части -- произвольные координаты, выданные при рождении.
+    // Построенного в нём нет; строится то, чьи имена часть набрала.
+    label: null };
 }
 const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
 /* mix может уходить в минус только при PUSH: тогда часть отталкивается
@@ -348,6 +379,23 @@ function makeLink(j, p, w) {
     l.lBuf = new Float64Array(W); l.lMov = new Float64Array(W); l.lPos = 0;
   }
   return l;
+}
+
+/* имя части: произвольные координаты, из отдельного потока */
+function labelOf(w, p) {
+  if (!p.label) {
+    p.label = new Float64Array(K);
+    for (let k = 0; k < K; k++) p.label[k] = w.col() * 2 - 1;
+  }
+  return p.label;
+}
+
+/* ВСТРЕЧА заносится в подпись: часть прибавляет имя того, кого прочла.
+   Чем чаще встречает -- тем больше вес. */
+function meet(w, p, o) {
+  const lb = labelOf(w, o);
+  for (let k = 0; k < K; k++) p.sigSum[k] += lb[k];
+  p.sigW += 1;
 }
 
 /* АДРЕС части -- число, вычисленное из её подписи. Направление снятия
@@ -384,6 +432,7 @@ function remember(w, p, mk, h) {
   p.mem.set(mk, h);
   if (h > 0) p.hot.set(mk, h);
   if (ANCHOR <= 0) return;
+  if (LOOP > 0) return;                        // при замкнутой петле подпись набирается встречами
   if (ANCHOR_OWN > 0 && h !== HOPS) return;   // подпись -- только по своим событиям
   const c = colorOf(w, mk);
   const wOld = have === undefined ? 0 : have + 1;
@@ -417,7 +466,7 @@ function createSeed(seed, shuffle) {
        мира, не расходует случайных чисел и не создаёт развилок. Поэтому
        тождество при TAX = 0 обязано устоять -- и проверяется. */
     stat: null,
-    faults: { miss: 0, rot: 0, slip: 0, ghost: 0 },
+    faults: { miss: 0, rot: 0, slip: 0, ghost: 0, met: 0 },
     nextMark: 0,
     colors: ANCHOR > 0 ? new Map() : null, dir: null,
     col: makeRNG((seed * 15485863 + 11) >>> 0) };
@@ -588,6 +637,8 @@ function round(w) {
         for (const [mk, h] of c.o.hot) remember(w, p, mk, h - 1);
       }
       if (w.stat) { w.stat.readDist += c.novelty; w.stat.readN++; }
+      // ЗАМКНУТАЯ ПЕТЛЯ: встреча входит в историю той части, что читала
+      if (LOOP > 0 && ANCHOR > 0 && w.rnd() < MEET) { meet(w, p, c.o); w.faults.met++; }
       got.push(c.o);
     }
 
@@ -705,7 +756,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN, KIN, addrOf };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS, PUSH, MIX0, ANCHOR, ANCHOR_OWN, KIN, LOOP, addrOf };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);
