@@ -161,6 +161,45 @@ const ROT_UNTIL = num('ROT_UNTIL', Infinity);
    быстрее возвращаются». ROT_ALL = 1 бьёт всех подряд и позволяет эти
    два объяснения развести. Умолчание -- как было, тождество цело. */
 const ROT_ALL = num('ROT_ALL', 0);
+
+/* ============ ПАМЯТЬ МЕТОК: ВЕЛИЧИНА, КОТОРАЯ НЕ РАЗМЫВАЕТСЯ ============
+
+   ЗАЧЕМ. Всё измеренное до сих пор размывалось, и причина одна на всё:
+   каждая величина в этом мире менялась УСРЕДНЕНИЕМ -- состояние
+   (смесь себя и прочитанных), ошибка (бегущее среднее), счётчик
+   пользования (затухание). Усреднение -- сжатие: повторяй его, и любое
+   различие стянется к общему. Шаг 13 померил цену: различие состояний
+   живёт тридцать кругов из двадцати тысяч.
+
+   Значит нужна величина, у которой операция НЕ СЖИМАЮЩАЯ.
+
+   УСТРОЙСТВО. У части есть ПАМЯТЬ -- набор меток. Метка рождается от
+   события (здесь -- от порчи записи) и попадает в память той части, с
+   кем событие случилось. При чтении память ОБЪЕДИНЯЕТСЯ: прочитавший
+   забирает метки прочитанного. Объединение не сжимает и не усредняет:
+   что попало в память, оттуда не уходит НИКОГДА. Забыть нельзя.
+
+   ПОЧЕМУ ЭТО НЕ ВЫРОДИТСЯ В НАСЫЩЕНИЕ. Если объединять без предела,
+   через тысячу кругов у всех будут все метки, и мир снова однороден --
+   только на другом конце. Удерживает от этого не затухание (оно и есть
+   размывание), а ДАЛЬНОСТЬ: метка несёт счётчик переходов и передаётся
+   дальше, лишь пока он не исчерпан. Дальние события до тебя не дойдут
+   никогда -- не потому, что ты их забыл, а потому, что они не дошли.
+
+   Так у каждой части накапливается СВОЯ ОКРУГА -- точная запись о том,
+   какие события случились вблизи неё. Две части, далёкие в сети,
+   различаются памятью навсегда, и никакое перемешивание этого не
+   отменяет.
+
+   ЧТО ЗДЕСЬ ЦИФРОВОГО. Память бесплатна, а точное тождество метки и
+   точный счёт переходов даровые -- у вещества ни того, ни другого нет:
+   там всякая запись течёт. Это §2a проекта, названный в начале и ни
+   разу не использованный.
+
+   При MARKS = 0 не заводится ни одной метки, не тратится ни одного
+   случайного числа, и мир идёт ПОБИТОВО как прежде. */
+const MARKS = num('MARKS', 0);
+const HOPS = num('HOPS', 2);
 const ANY_FAULT = MISS > 0 || ROT > 0 || SLIP > 0 || GHOST > 0;
 
 const GRACE = num('GRACE', 0);
@@ -178,7 +217,10 @@ function makePart(id, rnd, parent) {
         urge: clamp01(parent.par.urge + (rnd() - 0.5) * 0.15) }
     : { mix: 0.3, greed: 0.5, urge: 0.5 };
   return { id, x, prev: Float64Array.from(x), par, links: [], credit: 0,
-    read: 0, readPrev: 0, steps: 0, frozen: 0, born: 0, kids: 0, dropped: 0 };
+    read: 0, readPrev: 0, steps: 0, frozen: 0, born: 0, kids: 0, dropped: 0,
+    // память меток: метка -> сколько переходов ей ещё осталось.
+    // Убавляться не может: записи отсюда не удаляются нигде.
+    mem: MARKS > 0 ? new Map() : null };
 }
 const clamp01 = (v) => (v < 0.02 ? 0.02 : v > 0.98 ? 0.98 : v);
 
@@ -234,7 +276,8 @@ function createSeed(seed, shuffle) {
        мира, не расходует случайных чисел и не создаёт развилок. Поэтому
        тождество при TAX = 0 обязано устоять -- и проверяется. */
     stat: null,
-    faults: { miss: 0, rot: 0, slip: 0, ghost: 0 } };
+    faults: { miss: 0, rot: 0, slip: 0, ghost: 0 },
+    nextMark: 0 };
   w.parts.push(makePart(w.nextId++, rnd, null));
   return w;
 }
@@ -364,6 +407,7 @@ function round(w) {
     for (const p of P) if (w.rnd() < ROT) {
       p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
       w.faults.rot++;
+      if (MARKS > 0) p.mem.set(w.nextMark++, HOPS);
     }
   }
 
@@ -395,6 +439,15 @@ function round(w) {
       c.o.read++;                       // прочитанный зарабатывает
       c.l.used += 1;                    // связью воспользовались
       if (TAX > 0) observe(c.l, c.o);   // чем ожидание разошлось с фактом
+      // ПАМЯТЬ: объединение. Метки прочитанного переходят к
+      // прочитавшему, теряя один переход. Ничего не удаляется.
+      if (MARKS > 0) {
+        for (const [mk, h] of c.o.mem) {
+          if (h <= 0) continue;
+          const have = p.mem.get(mk);
+          if (have === undefined || have < h - 1) p.mem.set(mk, h - 1);
+        }
+      }
       if (w.stat) { w.stat.readDist += c.novelty; w.stat.readN++; }
       got.push(c.o);
     }
@@ -413,6 +466,7 @@ function round(w) {
     if (ROT > 0 && w.round < ROT_UNTIL && w.rnd() < ROT) {
       p.x[Math.floor(w.rnd() * K)] = w.rnd() * 2 - 1;
       w.faults.rot++;
+      if (MARKS > 0) p.mem.set(w.nextMark++, HOPS);
     }
     p.credit = budgetLeft;
     p.steps++;
@@ -440,6 +494,7 @@ function round(w) {
         && w.rnd() < p.par.urge * 0.5) {
       p.credit -= C_DIVIDE;
       const kid = makePart(w.nextId, w.rnd, p);
+      if (MARKS > 0) for (const [mk, h] of p.mem) kid.mem.set(mk, h);
       kid.born = w.round;
       kid.links.push(makeLink(p.id, kid, w));
       newborns.push(kid);
@@ -492,7 +547,7 @@ function snapshot(w) {
 }
 
 module.exports = { createSeed, round, run, snapshot, dist, watch,
-  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL };
+  BUDGET, CAP, C_HOLD, BASE_SHARE, TAX, LEARN, W, HEAD, K, INVERT, GRACE, FAULT, ANY_FAULT, ROT_UNTIL, MARKS, HOPS };
 
 if (require.main === module) {
   const rounds = +(process.argv[2] || 2000);

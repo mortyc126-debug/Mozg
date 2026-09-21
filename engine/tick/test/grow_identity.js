@@ -43,7 +43,7 @@ function fp(w) {
 
 function load(file, env) {
   for (const k of ['BASE', 'HOLD', 'DECAY', 'CAP', 'SAFETY', 'TAX', 'LEARN', 'W', 'HEAD', 'INVERT', 'EREF', 'GRACE',
-    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL'])
+    'FAULT', 'MISS', 'ROT', 'SLIP', 'GHOST', 'ROT_UNTIL', 'ROT_ALL', 'MARKS', 'HOPS'])
     delete process.env[k];   // иначе значение протекает из прошлой загрузки
   Object.assign(process.env, env);
   delete require.cache[require.resolve(file)];
@@ -151,6 +151,35 @@ for (const base of ['0.5', '0.05']) {
       const b = fp(load(path.resolve(__dirname, '../grow.js'), env).run(seed, 300));
       check(`сбои: сид ${seed}, ${f} поодиночке уводит мир`, a !== b);
     }
+  }
+}
+
+/* --- память меток: тождество при нуле и то, что она НЕ УБЫВАЕТ --- */
+{
+  const base = { BASE: '0.05', HOLD: '0.1', CAP: '64', TAX: '40', GRACE: '30', ROT: '0.05' };
+  for (const seed of [1, 2]) {
+    const a = fp(load(path.resolve(__dirname, '../grow.js'), Object.assign({}, base)).run(seed, 300));
+    const b = fp(load(path.resolve(__dirname, '../grow.js'),
+      Object.assign({ MARKS: '1' }, base)).run(seed, 300));
+    check(`метки: сид ${seed}, при MARKS=1 ход мира тот же, побитово`, a === b,
+      'память ни на что не влияет -- она пока только записывается');
+
+    // главное свойство: память не убывает НИ У КОГО НИ РАЗУ
+    const G = load(path.resolve(__dirname, '../grow.js'), Object.assign({ MARKS: '1' }, base));
+    const w = G.createSeed(seed);
+    let shrank = 0, grew = 0;
+    for (let r = 0; r < 600; r++) {
+      const before = w.parts.map((p) => p.mem.size);
+      G.round(w);
+      w.parts.forEach((p, i) => {
+        if (i < before.length) {
+          if (p.mem.size < before[i]) shrank++;
+          if (p.mem.size > before[i]) grew++;
+        }
+      });
+    }
+    check(`метки: сид ${seed}, память ни разу не убыла`, shrank === 0 && grew > 0,
+      `убыло ${shrank}, приросло ${grew}`);
   }
 }
 
