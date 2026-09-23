@@ -125,7 +125,6 @@ const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD уси
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const ZVFREEZE = K('ZVFREEZE', 0);    // разбор: 1 -- в тишине нормировка сигнала (zv, zv5) не обновляется
 const RELSIG = K('RELSIG', 0);        // 1: путь сигнала судится по доле с тем же окном, что у мощности входа (zv5, шаг 0.05)
 const RELPRUNE = K('RELPRUNE', 0);    // 1: связь судится по доле своей мощности в мощности датчика части, а не по абсолютной
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
@@ -522,9 +521,8 @@ function round(w) {
     else if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
       let z = p.uSelf * sv; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
-      const zfr = quiet && ZVFREEZE;
-      if (!zfr) p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
-      if (RELSIG && !zfr) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
+      p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
+      if (RELSIG) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
     }
     if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
