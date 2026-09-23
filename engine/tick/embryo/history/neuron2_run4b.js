@@ -135,9 +135,7 @@ const RELSIG = K('RELSIG', 0);        // 1: путь сигнала судитс
 const RELPRUNE = K('RELPRUNE', 0);    // 1: связь судится по доле своей мощности в мощности датчика части, а не по абсолютной
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
-const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
-const ORDERSHUF = K('ORDERSHUF', 0);  // нуль строки 8: знак отчёта -- жребий, не связанный с порядком
-const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0)) : 64);   // мест (по 8 на канал)
+const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
 const SN     = K('SN', 0.1);          // шум датчика
 const PAY    = K('PAY', 1);           // тактов за бит сжатия
@@ -207,9 +205,7 @@ const LMAX   = K('LMAX', 4);          // физический предел св�
 const CHW = WORLD ? (DEEP ? 10 : 8) : N;          // каналы без еды
 const FCH = EAT ? CHW : -1;                       // канал еды идёт следующим номером
 const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный канал идёт после канала еды
-const OCH = ORDER ? CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) : -1;   // каналы A, B, Q идут последними
-const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0), V = 1 + SN * SN;
-const PEV = 1 / 13.5, SEV = 1 / Math.sqrt(PEV * (1 - PEV)), SQ = 1 / Math.sqrt(PEV);   // частота событий за круг и нормировки к единичной дисперсии
+const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
 if (EAT && (!FREEPRUNE || !FREEMETA)) throw new Error('тишина со всеми правилами не поддержана в мире еды');
@@ -283,18 +279,6 @@ function worldStep(w) {
     if (SLOW) {                           // медленная скрытая величина и её зашумлённое наблюдение
       w.L = SRHO * w.L + Math.sqrt(1 - SRHO * SRHO) * g();
       n[SCH] = w.L + SSIG * g();
-    }
-    if (ORDER) {                          // проба строки 8: эпизод -- событие X, через g кругов другое, через d -- отчёт о порядке
-      const o = w.ord || (w.ord = { ph: 0, t: 0, x: 0, g: 0, d: 0 });
-      let ea = 0, eb = 0, q = 0;
-      if (o.ph === 0) {
-        if (w.rnd() < 0.1) { o.x = w.rnd() < 0.5 ? 0 : 1; o.g = 1 + Math.floor(3 * w.rnd()); o.d = 1 + Math.floor(2 * w.rnd()); o.t = 0; o.ph = 1; if (o.x === 0) ea = 1; else eb = 1; }
-      } else {
-        o.t++;
-        if (o.t === o.g) { if (o.x === 0) eb = 1; else ea = 1; }
-        if (o.t === o.g + o.d) { q = ORDERSHUF ? (w.rnd() < 0.5 ? 1 : -1) : (o.x === 0 ? 1 : -1); o.ph = 0; }
-      }
-      n[OCH] = (ea - PEV) * SEV; n[OCH + 1] = (eb - PEV) * SEV; n[OCH + 2] = q * SQ;
     }
   }
   w.c = n;
@@ -779,7 +763,7 @@ function pauseRound(w) {
 
 function freeRound(w) { w.silent = true; round(w); w.silent = false; }   // круг свободной активности: все правила ткани, касания мира нет
 
-module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep, freeRound, OCH };
+module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep, freeRound };
 
 if (require.main === module) {
   const f = (v, d = 2) => (Number.isNaN(v) ? '-' : v.toFixed(d));
