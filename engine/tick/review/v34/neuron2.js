@@ -120,7 +120,7 @@ const SELFREC = K('SELFREC', 0);        // 1 вес на собственный 
 const WSLEARN = K('WSLEARN', 1);        // 1 этот вес учится LMS, 0 закреплён
 const WS0    = K('WS0', 0);             // начальный (или закреплённый) вес на себя у частей прочих каналов
 const WS0S   = K('WS0S', 0);           // то же у частей медленного канала
-const HOLD   = K('HOLD', 0);          // 1: в тишине на месте молчащего датчика -- собственное ожидание части
+const HOLD   = K('HOLD', 0);          // 1: в тишине на месте молчащего датчика -- собственное ожидание части; 2: только для самой части, покупатели видят молчание
 const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD усиление части на себя (wSelf + ws) не выше HCAP по модулю
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
@@ -705,19 +705,20 @@ function stats(w) {
 // Каждая часть выставляет вчерашние прогноз и сигнал и считает новые теми же формулами, что в round.
 function pauseRound(w) {
   const P = w.parts;
-  for (const p of P) if (p) { p.s = HOLD ? p.pred : 0; p.outP = p.pred; p.zOut = p.z; }   // свой датчик молчит; при HOLD на его месте ожидание
+  for (const p of P) if (p) { p.s = HOLD === 1 ? p.pred : 0; p.outP = p.pred; p.zOut = p.z; }   // свой датчик молчит; при HOLD=1 на его месте ожидание
   for (const p of P) {
     if (!p) continue;
-    let pred = HOLD ? p.wSelf * p.s : 0, z = HOLD ? p.uSelf * p.s : 0;   // без HOLD вклад датчика равен нулю
+    const sh = HOLD === 2 ? p.outP : p.s;   // что часть подставляет себе на место датчика
+    let pred = HOLD ? p.wSelf * sh : 0, z = HOLD ? p.uSelf * sh : 0;   // без HOLD вклад датчика равен нулю
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const v = l.k === 2 ? q.zOut : l.k ? q.outP : q.s;
       if (!(TRY > 0 && l.age < TRIAL)) pred += l.w * v;   // проба в прогноз не входит, как в round
       if (SIGNAL) z += l.u * v;
     }
-    if (HCAP > 0) {                       // предел: вклад части на себя заменяется ограниченным (p.s и p.outP здесь равны)
+    if (HCAP > 0) {                       // предел: вклад части на себя заменяется ограниченным (sh и p.outP здесь равны)
       const own = p.wSelf + (SELFREC ? p.ws : 0);
-      pred += clamp(own, -HCAP, HCAP) * p.outP - p.wSelf * p.s;
+      pred += clamp(own, -HCAP, HCAP) * p.outP - p.wSelf * sh;
     } else
     if (SELFREC) pred += p.ws * p.outP;     // в паузе возвратная связь на себя тоже работает
     p.pred = pred;
