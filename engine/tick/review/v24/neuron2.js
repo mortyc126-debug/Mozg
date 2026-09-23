@@ -176,7 +176,8 @@ const HID    = K('HID', 0);           // 1 скрытая величина h: п
 const HQ     = K('HQ', 0.02);         // вероятность, что h перевернётся за круг
 const LOOK   = K('LOOK', 0.8);        // цена взгляда на h
 const LOOKN  = K('LOOKN', 0);         // закреплённый рукой взгляд: смотреть, если с прошлого прошло >= LOOKN кругов (0 -- никогда)
-const ORACLE = K('ORACLE', 0);        // проверка 0: каждый добытчик знает h даром
+const ORACLE = K('ORACLE', 0);
+const LOSEK  = K('LOSEK', 0);          // взгляд после K промахов подряд (0 -- выключено)        // проверка 0: каждый добытчик знает h даром
 const KEEP   = K('KEEP', 0);          // сколько истощения остаётся на следующий круг: 0 -- последствие на один круг
 const LMAX   = K('LMAX', 4);          // физический предел связей у части (не ген; при 8 генный закон вымирал чаще)
 const CHW = WORLD ? (DEEP ? 10 : 8) : N;          // каналы без еды
@@ -273,7 +274,7 @@ function newPart(w, slot, par) {
     cz: 0, zz: 0, cp: 0, pp: 0,          // только для замеров: связь товаров с нужным каналу 9 прошлым
     dem: 0,                               // сглаженная сумма квадратов ошибок покупателей сигнала
     c0: 0, gain: 0, fromWorld: 0, fromReads: 0,
-    ph: [], ate: 0, nAct: 0, nHit: 0, hb: -1, hAge: 0,      // прошлые намерения (для нуля Б) и счёт действий
+    ph: [], ate: 0, nAct: 0, nHit: 0, hb: -1, hAge: 0, miss: 0,      // прошлые намерения (для нуля Б) и счёт действий
     q: DECIDE ? new Float64Array(M_PL) : null,   // оценка выгоды каждого сдвига, учится только на еде
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
@@ -361,6 +362,8 @@ function round(w) {
     const win = truth >= 0 ? w.acts.filter((a) => a.place === truth) : [];
     const share = win.length ? FOOD / win.length : 0;
     for (const a of win) { const b = P[a.slot]; if (b) { b.credit += share; b.ate += share; b.nHit++; } }
+    if (LOSEK) for (const a of w.acts) { const b = P[a.slot]; if (!b) continue;   // своя удача и неудача
+      if (a.place === truth) b.miss = 0; else b.miss++; }
     if (GAINM) for (const a of w.acts) {    // множитель учится ТОЛЬКО на еде: возмущение на награду
       const b = P[a.slot]; if (!b) continue;
       const rew = a.place === truth ? share : 0;
@@ -500,6 +503,10 @@ function round(w) {
         if (ORACLE) p.hb = w.h;
         else if (LOOKN > 0 && (p.hb < 0 || p.hAge >= LOOKN) && p.credit >= LOOK) {
           p.credit -= LOOK; p.hb = w.h; p.hAge = 0;
+          if (w.round >= ROUNDS / 2) w.fs.looks++;
+        }
+        else if (LOSEK > 0 && p.miss >= LOSEK && p.credit >= LOOK) {   // K промахов подряд -- знание устарело
+          p.credit -= LOOK; p.hb = w.h; p.hAge = 0; p.miss = 0;
           if (w.round >= ROUNDS / 2) w.fs.looks++;
         }
         if (p.hb === 1) want = M_PL - 1 - want;   // знающий, что h=1, называет зеркальную долю
