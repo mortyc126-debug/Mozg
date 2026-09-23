@@ -120,6 +120,7 @@ const SELFREC = K('SELFREC', 0);        // 1 вес на собственный 
 const WSLEARN = K('WSLEARN', 1);        // 1 этот вес учится LMS, 0 закреплён
 const WS0    = K('WS0', 0);             // начальный (или закреплённый) вес на себя у частей прочих каналов
 const WS0S   = K('WS0S', 0);
+const HOLD   = K('HOLD', 0);          // 1: в тишине на месте молчащего датчика -- собственное ожидание части
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны            // то же у частей медленного канала           // шум наблюдения в самом мире -- один на все части канала
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
@@ -702,10 +703,10 @@ function stats(w) {
 // Каждая часть выставляет вчерашние прогноз и сигнал и считает новые теми же формулами, что в round.
 function pauseRound(w) {
   const P = w.parts;
-  for (const p of P) if (p) { p.s = 0; p.outP = p.pred; p.zOut = p.z; }   // свой датчик молчит
+  for (const p of P) if (p) { p.s = HOLD ? p.pred : 0; p.outP = p.pred; p.zOut = p.z; }   // свой датчик молчит; при HOLD на его месте ожидание
   for (const p of P) {
     if (!p) continue;
-    let pred = 0, z = 0;                  // вклад собственного датчика равен нулю
+    let pred = HOLD ? p.wSelf * p.s : 0, z = HOLD ? p.uSelf * p.s : 0;   // без HOLD вклад датчика равен нулю
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const v = l.k === 2 ? q.zOut : l.k ? q.outP : q.s;
@@ -718,7 +719,7 @@ function pauseRound(w) {
   }
 }
 
-module.exports = { create, round, stats, CFG, pauseRound, SCH };
+module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep };
 
 if (require.main === module) {
   const f = (v, d = 2) => (Number.isNaN(v) ? '-' : v.toFixed(d));
