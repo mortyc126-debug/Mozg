@@ -120,6 +120,7 @@ const SELFREC = K('SELFREC', 0);        // 1 вес на собственный 
 const WSLEARN = K('WSLEARN', 1);        // 1 этот вес учится LMS, 0 закреплён
 const WS0    = K('WS0', 0);             // начальный (или закреплённый) вес на себя у частей прочих каналов
 const WS0S   = K('WS0S', 0);
+const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны            // то же у частей медленного канала           // шум наблюдения в самом мире -- один на все части канала
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
@@ -194,6 +195,7 @@ const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный кан�
 const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
+if (PAYL && !SLOW) throw new Error('плата за знание L требует медленного канала (SLOW=1)');
 if (SELFREC && RULE) throw new Error('связь на себя поддержана только при законе LMS (RULE=0)');
 const FDIV = Math.sqrt(1 + LOOP * LOOP * (M_PL * M_PL - 1) / 12);   // держит дисперсию F около 1
 const mPlace = (a) => a - (M_PL - 1) / 2;         // место как число: -1.5 ... +1.5 при M=4
@@ -286,7 +288,7 @@ function newPart(w, slot, par) {
   }
   const p = { slot, ch: slot % CH, g, credit: par ? BIRTH / 2 : START,
     hungry: 0, age: 0, links: [], wSelf: 0, ws: SELFREC ? (slot % CH === SCH ? WS0S : WS0) : 0, xs: 0,
-    mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0,
+    mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0, mseL: 1,
     uSelf: SIGNAL ? 0.05 * gauss(r) : 0, z: 0, zOut: 0, xOld: null, xlOld: null, zv: 0.01, zb: 0,
     cz: 0, zz: 0, cp: 0, pp: 0,          // только для замеров: связь товаров с нужным каналу 9 прошлым
     dem: 0,                               // сглаженная сумма квадратов ошибок покупателей сигнала
@@ -296,7 +298,7 @@ function newPart(w, slot, par) {
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
     p.links = par.links.map((l) => ({ j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }));
-    p.wSelf = par.wSelf; p.mse = par.mse; p.uSelf = par.uSelf;
+    p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
     if (KIN) { p.zb = par.zb; p.zv = par.zv; }   // потомок помнит спрос на сигнал родителя
     if (DECIDE) p.q = Float64Array.from(par.q);  // потомок наследует таблицу сдвигов, как связи
@@ -454,6 +456,10 @@ function round(w) {
         l.w = clampW(l.w + (p.xt[i] ? p.g.lr * e * xi / (1 + xi * xi) : k * xi));
       }
     }
+    if (PAYL && SLOW && p.ch === SCH) {   // последствия зависят от мира, а не от шума датчика; учёба L не видит
+      const eL = w.L - p.pred; p.mseL += BETA * (eL * eL - p.mseL);
+      p.bits = Math.max(0, 0.5 * Math.log2(1 / Math.max(p.mseL, 1e-6)));
+    } else
     p.bits = Math.max(0, 0.5 * Math.log2(((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.mse, 1e-6)));
     if (!(EAT && p.ch === FCH)) bank += PAY * p.bits;   // за сжатие канала еды не платят
   }
