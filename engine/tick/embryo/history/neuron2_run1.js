@@ -124,8 +124,6 @@ const HOLD   = K('HOLD', 0);          // 1: в тишине на месте мо
 const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD усиление части на себя (wSelf + ws) не выше HCAP по модулю
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
-const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const RELPRUNE = K('RELPRUNE', 0);    // 1: связь судится по доле своей мощности в мощности датчика части, а не по абсолютной
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
@@ -295,7 +293,7 @@ function newPart(w, slot, par) {
     else g.lr = Math.exp(Math.log(0.01) + r() * Math.log(30));
   }
   const p = { slot, ch: slot % CH, g, credit: par ? BIRTH / 2 : START,
-    hungry: 0, age: 0, r2s: 1, links: [], wSelf: 0, ws: SELFREC ? (slot % CH === SCH ? WS0S : WS0) : 0, xs: 0,
+    hungry: 0, age: 0, links: [], wSelf: 0, ws: SELFREC ? (slot % CH === SCH ? WS0S : WS0) : 0, xs: 0,
     mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0, mseL: 1,
     uSelf: SIGNAL ? 0.05 * gauss(r) : 0, z: 0, zOut: 0, xOld: null, xlOld: null, zv: 0.01, zb: 0,
     cz: 0, zz: 0, cp: 0, pp: 0,          // только для замеров: связь товаров с нужным каналу 9 прошлым
@@ -306,7 +304,7 @@ function newPart(w, slot, par) {
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
     p.links = par.links.map((l) => ({ j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }));
-    p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
+    p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
     if (KIN) { p.zb = par.zb; p.zv = par.zv; }   // потомок помнит спрос на сигнал родителя
     if (DECIDE) p.q = Float64Array.from(par.q);  // потомок наследует таблицу сдвигов, как связи
@@ -374,7 +372,6 @@ function round(w) {
   worldStep(w);
   const P = w.parts, inc = new Float64Array(N);
   const quiet = w.silent, frozenL = quiet && !FREEPRUNE, noMeta = quiet && !FREEMETA;
-  const sleep = quiet && ECOSLEEP, money = noMeta || sleep;   // money: в этом круге деньги не ходят
   // датчики; прогноз прошлого круга выставляется на продажу до того, как его перезапишут
   if (quiet) {                            // тишина: мир живёт, датчики молчат; на месте своего датчика -- своё ожидание (HOLD)
     if (RULE) throw new Error('тишина со всеми правилами поддержана только при LMS');
@@ -497,15 +494,14 @@ function round(w) {
   const zr = SIGNAL ? new Float64Array(N) : null;   // сколько раз купили сигнал части
   for (const p of P) {
     if (!p) continue;
-    if (!(SPROTECT && p.ch === SCH) && !money) p.credit -= RENT;
+    if (!(SPROTECT && p.ch === SCH) && !noMeta) p.credit -= RENT;
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
     const sv = quiet ? p.sh : p.s, capq = quiet && HCAP > 0 && HOLD;
-    if (RELPRUNE) p.r2s += 0.05 * (sv * sv - p.r2s);   // мощность того, что стоит на месте датчика
     const x = [sv], xl = [], xt = [];
     for (const l of order) {
       if (!(FREE_TRY > 0 && l.age < TRIAL)) {   // проба -- бесплатный образец, остальное за плату
-        if (!money) {
+        if (!noMeta) {
         if (p.credit < PRICE - DEBT) break;   // в долг -- не глубже DEBT
         p.credit -= PRICE; inc[l.j] += PRICE;
         }
@@ -576,12 +572,12 @@ function round(w) {
     for (const l of p.links) l.age++;
     p.links = p.links.filter((l) => {    // связь живёт, пока несёт вес -- для прогноза или для сигнала
       const keep = l.age < TRIAL || (SIGNAL
-        ? Math.abs(l.w) * Math.sqrt(RELPRUNE ? l.r2 * ((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.r2s, 1e-300) : l.r2) >= PRUNE ||   // вклад в свой прогноз
+        ? Math.abs(l.w) * Math.sqrt(l.r2) >= PRUNE ||                       // вклад в свой прогноз
           (p.zb > 0.3 && Math.abs(l.u) * Math.sqrt(l.r2 / p.zv) >= PRUNE)  // вклад в сигнал, пока его покупают
         : Math.abs(l.w) >= PRUNE);
       if (!keep) { l.dead = true; if (l.age >= TRIAL) w.pruned[l.k]++; } return keep; });
     }
-    if (!frozenL && !money && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < p.g.urge * SEARCH) {
+    if (!frozenL && !noMeta && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < p.g.urge * SEARCH) {
       p.credit -= C_LINK;                 // поиск платный, даже неудачный
       let j, k, hint = null;
       if (IMIT > 0 && w.rnd() < IMIT) {   // подсказка: проверенная связь соседа по каналу
@@ -599,23 +595,23 @@ function round(w) {
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
         p.links.push({ j, k, w: 0, u: SIGNAL ? 0.05 * gauss(w.rnd) : 0, r2: 1, age: 0 });
     }
-    if (DEMAND && !frozenL && !money && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < DEMAND * Math.min(1, p.dem)) {
+    if (DEMAND && !frozenL && !noMeta && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < DEMAND * Math.min(1, p.dem)) {
       p.credit -= C_LINK;                 // покупатели недовольны -- продавец ищет новый вход для сигнала
       const j = Math.floor(w.rnd() * N), q = w.rnd(), k = q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2;
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
         p.links.push({ j, k, w: 0, u: 0.05 * gauss(w.rnd), r2: 1, age: 0 });
     }
-    if (!sleep) p.gain += GAIN * (p.credit - p.c0 - p.gain);   // доход за круг, сглаженный; во сне часы хозяйства стоят
+    p.gain += GAIN * (p.credit - p.c0 - p.gain);   // доход за круг, сглаженный
     p.age++;
   }
 
   // смерть: банкротство или сбой
   for (const p of P) {
     if (!p) continue;
-    if (!sleep) p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
+    p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
     if (SPROTECT && p.ch === SCH) continue;
     if (noMeta) continue;
-    if (!sleep && p.hungry > DIE) kill(w, p, 'bank');   // во сне банкротства нет, сбои идут
+    if (p.hungry > DIE) kill(w, p, 'bank');
     else if (w.rnd() < FAULT) kill(w, p, 'fault');
   }
 
@@ -629,7 +625,7 @@ function round(w) {
   const free = []; for (let i = 0; i < N; i++) if (!P[i]) free.push(i);
   for (let i = free.length - 1; i > 0; i--) { const j = Math.floor(w.rnd() * (i + 1)); [free[i], free[j]] = [free[j], free[i]]; }
   const ok = (p) => p && p.credit >= BIRTH && (!SELECT || p.gain > 0);
-  if (!money) for (const s of free) {
+  if (!noMeta) for (const s of free) {
     const k = s % CH;
     let pool = P.filter((p) => ok(p) && p.ch === k);
     if (!pool.length && 2 * P.filter((p) => p && p.ch === k).length < Math.ceil(N / CH)) pool = P.filter(ok);

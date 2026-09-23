@@ -6,7 +6,8 @@ function mw(a, b) { const n = a.length, m = b.length; let U = 0; for (const x of
   const d = mwE(n, m); let t = 0; for (let u = 0; u <= n*m; u++) t += d[u]; let ge = 0; for (let u = Math.ceil(U); u <= n*m; u++) ge += d[u];
   return { U, p: ge / t }; }
 const fs = require('fs');
-const L = fs.readFileSync('out/battery.tsv', 'utf8').trim().split('\n').map((l) => l.split('\t'));
+const FILE = process.argv[2] || 'out/battery.tsv', RULEB = process.argv[3] || '1';
+const L = fs.readFileSync(FILE, 'utf8').trim().split('\n').map((l) => l.split('\t'));
 const med = (a) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
 const f = (x, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : 'NaN');
 const E = L.filter((r) => r[0] === 'зародыш').sort((a, b) => a[1] - b[1]).map((r) => ({ seed: +r[1], alive: +r[2], right: +r[3], nul: +r[4], b9: +r[5], hold9: +r[6], kept: +r[7], ch: r[8].split(',').map(Number), food: +r[9], H10: +r[10], H30: +r[11], Rmix: +r[12], RS: +r[13] }));
@@ -19,8 +20,9 @@ const h10 = m('H10'), h30 = m('H30');
 put(0, 'живёт между касаниями', h10 >= 0.5 && h30 >= 0.5 ? 'ЕСТЬ' : 'нет', `H(10) ${f(h10)}, H(30) ${f(h30)} (порог 0.5)`);
 put(1, 'принимает мир', 'дана', 'конструкцией мира');
 put(2, 'держит след опыта', m('right') >= 0.95 ? 'ЕСТЬ' : 'нет', `вес на верных связях ${f(100 * m('right'), 1)}% (порог 95%, нуль ${f(100 * m('nul'), 1)}%)`);
-const pathB = live.filter((e) => e.hold9 >= 0.9 && e.kept <= 0.5).length;
-put('3В', 'след во времени, путь В', pathB >= 6 ? 'ЕСТЬ' : 'нет', `в ${pathB} сидах из 12 канал 9 держит прошлое в 90% замеров при смене большей части состава (порог 6); доля замеров медиана ${f(m('hold9'), 2)}, дожило частей медиана ${f(m('kept'), 2)}`);
+// путь В: в прогоне 1 -- удержание и смена состава; с шага 48 -- только удержание (смена состава оказалась полной всегда)
+const pathB = live.filter((e) => e.hold9 >= 0.9 && (RULEB === '2' || e.kept <= 0.5)).length;
+put('3В', 'след во времени, путь В', pathB >= 6 ? 'ЕСТЬ' : 'нет', `в ${pathB} сидах из 12 канал 9 держит прошлое в 90% замеров${RULEB === '2' ? '' : ' при смене большей части состава'} (порог 6); доля замеров медиана ${f(m('hold9'), 2)}, дожило частей медиана ${f(m('kept'), 2)}`);
 put('3', 'след во времени, прямо', m('Rmix') >= 0.9 && m('RS') >= 0.9 ? 'ЕСТЬ' : 'нет', `после 100 кругов свободной активности R смеси ${f(m('Rmix'))}, канал S ${f(m('RS'))} (порог 0.9)`);
 const n4 = live.filter((e) => e.b9 > 0.6).length;
 put(4, 'проводит на расстояние', n4 >= 6 ? 'ЕСТЬ' : 'нет', `bits9 > 0.6 в ${n4} сидах из 12 (порог 6), медиана ${f(m('b9'))}`);
