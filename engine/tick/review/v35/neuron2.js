@@ -122,6 +122,8 @@ const WS0    = K('WS0', 0);             // начальный (или закре
 const WS0S   = K('WS0S', 0);           // то же у частей медленного канала
 const HOLD   = K('HOLD', 0);          // 1: в тишине на месте молчащего датчика -- собственное ожидание части; 2: только для самой части, покупатели видят молчание
 const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD усиление части на себя (wSelf + ws) не выше HCAP по модулю
+const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
+const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
@@ -197,6 +199,7 @@ const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный кан�
 const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
+if (EAT && (!FREEPRUNE || !FREEMETA)) throw new Error('тишина со всеми правилами не поддержана в мире еды');
 if (HCAP && !HOLD) throw new Error('предел HCAP действует только при HOLD=1');
 if (PAYL && !SLOW) throw new Error('плата за знание L требует медленного канала (SLOW=1)');
 if (SELFREC && RULE) throw new Error('связь на себя поддержана только при законе LMS (RULE=0)');
@@ -368,7 +371,12 @@ function pickByGain(pool, r) {            // шанс растёт с доход
 function round(w) {
   worldStep(w);
   const P = w.parts, inc = new Float64Array(N);
+  const quiet = w.silent, frozenL = quiet && !FREEPRUNE, noMeta = quiet && !FREEMETA;
   // датчики; прогноз прошлого круга выставляется на продажу до того, как его перезапишут
+  if (quiet) {                            // тишина: мир живёт, датчики молчат; на месте своего датчика -- своё ожидание (HOLD)
+    if (EAT || RULE) throw new Error('тишина со всеми правилами поддержана только без еды и при LMS');
+    for (const p of P) if (p) { p.c0 = p.credit; p.outP = p.pred; p.zOut = p.z; p.s = HOLD === 1 ? p.outP : 0; p.sh = HOLD ? p.outP : 0; }
+  } else
   for (const p of P) if (p) { p.c0 = p.credit; p.s = w.c[p.ch] + SN * gauss(w.rnd); p.outP = p.pred; p.zOut = p.z; }
   if (EAT) {                              // границы долей, раздача еды, замеры второй половины
     const f = w.c[FCH];
@@ -436,11 +444,11 @@ function round(w) {
     if (!p) continue;
     alive++;
     if (!p.x) { p.bits = 0; continue; }
-    const e = p.s - p.pred;
+    const e = (quiet ? p.sh : p.s) - p.pred;   // в тишине -- ошибка против того, что стоит на месте датчика
     if (SIGNAL) for (const l of p.xl) if (l.k === 2 && !l.dead) {   // ошибка обратно продавцу
       fb[l.j] += e * l.w; if (DEMAND) dm[l.j] += e * e;
     }
-    p.mse += BETA * (e * e - p.mse);
+    if (!quiet) p.mse += BETA * (e * e - p.mse);   // оценка ошибки -- для платы мира; в тишине касания нет
     let nrm = 1; for (let i = 0; i < p.x.length; i++) if (i === 0 || !p.xt[i - 1]) nrm += p.x[i] * p.x[i];
     if (SELFREC) nrm += p.xs * p.xs;
     if (RULE) {                           // (a*s' - b*p)*x - c*w, нормировано входом
@@ -459,7 +467,8 @@ function round(w) {
         l.w = clampW(l.w + (p.xt[i] ? p.g.lr * e * xi / (1 + xi * xi) : k * xi));
       }
     }
-    if (PAYL && SLOW && p.ch === SCH) {   // последствия зависят от мира, а не от шума датчика; учёба L не видит
+    if (quiet) {}                         // в тишине мир не платит, биты не пересчитываются
+    else if (PAYL && SLOW && p.ch === SCH) {   // последствия зависят от мира, а не от шума датчика; учёба L не видит
       const eL = w.L - p.pred; p.mseL += BETA * (eL * eL - p.mseL);
       p.bits = Math.max(0, 0.5 * Math.log2(1 / Math.max(p.mseL, 1e-6)));
     } else
@@ -477,7 +486,7 @@ function round(w) {
   const shared = SHARE && w.round >= SHARE_AT;
   for (const p of P) {
     if (!p) continue;
-    const pay = (EAT && p.ch === FCH) ? 0 : (shared ? bank / alive : PAY * p.bits);
+    const pay = quiet ? 0 : (EAT && p.ch === FCH) ? 0 : (shared ? bank / alive : PAY * p.bits);
     p.credit += pay; p.fromWorld += pay;
   }
 
@@ -485,24 +494,28 @@ function round(w) {
   const zr = SIGNAL ? new Float64Array(N) : null;   // сколько раз купили сигнал части
   for (const p of P) {
     if (!p) continue;
-    if (!(SPROTECT && p.ch === SCH)) p.credit -= RENT;
+    if (!(SPROTECT && p.ch === SCH) && !noMeta) p.credit -= RENT;
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
-    const x = [p.s], xl = [], xt = [];
+    const sv = quiet ? p.sh : p.s, capq = quiet && HCAP > 0 && HOLD;
+    const x = [sv], xl = [], xt = [];
     for (const l of order) {
       if (!(FREE_TRY > 0 && l.age < TRIAL)) {   // проба -- бесплатный образец, остальное за плату
+        if (!noMeta) {
         if (p.credit < PRICE - DEBT) break;   // в долг -- не глубже DEBT
         p.credit -= PRICE; inc[l.j] += PRICE;
+        }
       }
       const v = l.k === 2 ? P[l.j].zOut : l.k ? P[l.j].outP : P[l.j].s;
       x.push(v); xl.push(l); xt.push(TRY > 0 && l.age < TRIAL);
       if (SIGNAL) { l.r2 += 0.05 * (v * v - l.r2); if (l.k === 2) zr[l.j]++; }
     }
-    let pred = p.wSelf * p.s;           // проба в оплачиваемый прогноз не входит
+    let pred = capq ? 0 : p.wSelf * sv;   // проба в оплачиваемый прогноз не входит
     for (let i = 0; i < xl.length; i++) if (!xt[i]) pred += xl[i].w * x[i + 1];
-    if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
+    if (capq) pred += clamp(p.wSelf + (SELFREC ? p.ws : 0), -HCAP, HCAP) * p.outP;   // в тишине усиление на себя под пределом
+    else if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
-      let z = p.uSelf * p.s; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
+      let z = p.uSelf * sv; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
       p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
     }
     if (SELFREC) p.xs = p.outP;
@@ -555,6 +568,7 @@ function round(w) {
   // связи: отмирание пустых, поиск новых
   for (const p of P) {
     if (!p) continue;
+    if (!frozenL) {
     for (const l of p.links) l.age++;
     p.links = p.links.filter((l) => {    // связь живёт, пока несёт вес -- для прогноза или для сигнала
       const keep = l.age < TRIAL || (SIGNAL
@@ -562,7 +576,8 @@ function round(w) {
           (p.zb > 0.3 && Math.abs(l.u) * Math.sqrt(l.r2 / p.zv) >= PRUNE)  // вклад в сигнал, пока его покупают
         : Math.abs(l.w) >= PRUNE);
       if (!keep) { l.dead = true; if (l.age >= TRIAL) w.pruned[l.k]++; } return keep; });
-    if (p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < p.g.urge * SEARCH) {
+    }
+    if (!frozenL && !noMeta && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < p.g.urge * SEARCH) {
       p.credit -= C_LINK;                 // поиск платный, даже неудачный
       let j, k, hint = null;
       if (IMIT > 0 && w.rnd() < IMIT) {   // подсказка: проверенная связь соседа по каналу
@@ -580,7 +595,7 @@ function round(w) {
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
         p.links.push({ j, k, w: 0, u: SIGNAL ? 0.05 * gauss(w.rnd) : 0, r2: 1, age: 0 });
     }
-    if (DEMAND && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < DEMAND * Math.min(1, p.dem)) {
+    if (DEMAND && !frozenL && !noMeta && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < DEMAND * Math.min(1, p.dem)) {
       p.credit -= C_LINK;                 // покупатели недовольны -- продавец ищет новый вход для сигнала
       const j = Math.floor(w.rnd() * N), q = w.rnd(), k = q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2;
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
@@ -595,6 +610,7 @@ function round(w) {
     if (!p) continue;
     p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
     if (SPROTECT && p.ch === SCH) continue;
+    if (noMeta) continue;
     if (p.hungry > DIE) kill(w, p, 'bank');
     else if (w.rnd() < FAULT) kill(w, p, 'fault');
   }
@@ -609,7 +625,7 @@ function round(w) {
   const free = []; for (let i = 0; i < N; i++) if (!P[i]) free.push(i);
   for (let i = free.length - 1; i > 0; i--) { const j = Math.floor(w.rnd() * (i + 1)); [free[i], free[j]] = [free[j], free[i]]; }
   const ok = (p) => p && p.credit >= BIRTH && (!SELECT || p.gain > 0);
-  for (const s of free) {
+  if (!noMeta) for (const s of free) {
     const k = s % CH;
     let pool = P.filter((p) => ok(p) && p.ch === k);
     if (!pool.length && 2 * P.filter((p) => p && p.ch === k).length < Math.ceil(N / CH)) pool = P.filter(ok);
@@ -726,7 +742,9 @@ function pauseRound(w) {
   }
 }
 
-module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep };
+function freeRound(w) { w.silent = true; round(w); w.silent = false; }   // круг свободной активности: все правила ткани, касания мира нет
+
+module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep, freeRound };
 
 if (require.main === module) {
   const f = (v, d = 2) => (Number.isNaN(v) ? '-' : v.toFixed(d));
