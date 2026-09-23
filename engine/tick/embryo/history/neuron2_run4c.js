@@ -136,9 +136,7 @@ const RELPRUNE = K('RELPRUNE', 0);    // 1: связь судится по до�
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
-const ORDERSHUF = K('ORDERSHUF', 0);
-const PROTECTQ = K('PROTECTQ', 0);    // разбор строки 8: части канала Q без аренды и бессмертны
-const QDELAY = K('QDELAY', 0);        // разбор строки 8: частям канала Q даром линия задержки A и B на 0-6 кругов, веса учит LMS  // нуль строки 8: знак отчёта -- жребий, не связанный с порядком
+const ORDERSHUF = K('ORDERSHUF', 0);  // нуль строки 8: знак отчёта -- жребий, не связанный с порядком
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
 const SN     = K('SN', 0.1);          // шум датчика
@@ -297,7 +295,6 @@ function worldStep(w) {
         if (o.t === o.g + o.d) { q = ORDERSHUF ? (w.rnd() < 0.5 ? 1 : -1) : (o.x === 0 ? 1 : -1); o.ph = 0; }
       }
       n[OCH] = (ea - PEV) * SEV; n[OCH + 1] = (eb - PEV) * SEV; n[OCH + 2] = q * SQ;
-      if (QDELAY) { (w.ohA ||= []).unshift(n[OCH]); (w.ohB ||= []).unshift(n[OCH + 1]); w.ohA.length = 7; w.ohB.length = 7; }
     }
   }
   w.c = n;
@@ -486,7 +483,6 @@ function round(w) {
     if (!quiet) p.mse += BETA * (e * e - p.mse);   // оценка ошибки -- для платы мира; в тишине касания нет
     let nrm = 1; for (let i = 0; i < p.x.length; i++) if (i === 0 || !p.xt[i - 1]) nrm += p.x[i] * p.x[i];
     if (SELFREC) nrm += p.xs * p.xs;
-    if (QDELAY && p.hx) for (const v of p.hx) nrm += v * v;
     if (RULE) {                           // (a*s' - b*p)*x - c*w, нормировано входом
       const { a, b, c } = p.g, hs = a * p.s - b * p.pred;
       p.wSelf = clampW(p.wSelf + (hs * p.x[0] - c * p.wSelf) / nrm);
@@ -498,7 +494,6 @@ function round(w) {
       const k = p.g.lr * e / nrm;
       p.wSelf = clampW(p.wSelf + k * p.x[0]);
       if (SELFREC && WSLEARN) p.ws = clamp(p.ws + k * p.xs, -0.99, 0.99);   // возвратный путь не усиливает сверх 0.99
-      if (QDELAY && p.hx) for (let i = 0; i < p.hx.length; i++) p.wd[i] = clampW(p.wd[i] + k * p.hx[i]);
       for (let i = 0; i < p.xl.length; i++) {
         const l = p.xl[i], xi = p.x[i + 1];
         l.w = clampW(l.w + (p.xt[i] ? p.g.lr * e * xi / (1 + xi * xi) : k * xi));
@@ -531,7 +526,7 @@ function round(w) {
   const zr = SIGNAL ? new Float64Array(N) : null;   // сколько раз купили сигнал части
   for (const p of P) {
     if (!p) continue;
-    if (!(SPROTECT && p.ch === SCH) && !(PROTECTQ && p.ch === OCH + 2) && !money) p.credit -= RENT;
+    if (!(SPROTECT && p.ch === SCH) && !money) p.credit -= RENT;
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
     const sv = quiet ? p.sh : p.s, capq = quiet && HCAP > 0 && HOLD;
@@ -557,12 +552,6 @@ function round(w) {
       const zfr = (quiet && ZVFREEZE) || nod;   // 1 -- замораживает zv и zv5, 2 -- только zv
       if (!zfr) p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
       if (RELSIG && !(zfr && ZVFREEZE === 1) && !nod) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
-    }
-    if (QDELAY && p.ch === OCH + 2 && w.ohA) {   // линия задержки: вход не покупается, дан
-      const hx = Array.from(w.ohA, (v) => v || 0).concat(Array.from(w.ohB, (v) => v || 0));   // Array.from не пропускает пустые места, map -- пропускает
-      if (!p.wd) p.wd = new Float64Array(hx.length);
-      for (let i = 0; i < hx.length; i++) pred += p.wd[i] * hx[i];
-      p.pred = pred; p.hx = hx;
     }
     if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
@@ -656,7 +645,6 @@ function round(w) {
     if (!p) continue;
     if (!sleep) p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
     if (SPROTECT && p.ch === SCH) continue;
-    if (PROTECTQ && p.ch === OCH + 2) continue;
     if (noMeta) continue;
     if (!sleep && p.hungry > DIE) kill(w, p, 'bank');   // во сне банкротства нет, сбои идут
     else if (!(quiet && NOFAULTQUIET) && w.rnd() < FAULT) kill(w, p, 'fault');
