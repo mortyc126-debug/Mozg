@@ -125,7 +125,6 @@ const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD уси
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const RELSIG = K('RELSIG', 0);        // 1: путь сигнала судится по доле с тем же окном, что у мощности входа (zv5, шаг 0.05)
 const RELPRUNE = K('RELPRUNE', 0);    // 1: связь судится по доле своей мощности в мощности датчика части, а не по абсолютной
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
@@ -298,7 +297,7 @@ function newPart(w, slot, par) {
   const p = { slot, ch: slot % CH, g, credit: par ? BIRTH / 2 : START,
     hungry: 0, age: 0, r2s: 1, links: [], wSelf: 0, ws: SELFREC ? (slot % CH === SCH ? WS0S : WS0) : 0, xs: 0,
     mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0, mseL: 1,
-    uSelf: SIGNAL ? 0.05 * gauss(r) : 0, z: 0, zOut: 0, xOld: null, xlOld: null, zv: 0.01, zv5: 0.01, zb: 0,
+    uSelf: SIGNAL ? 0.05 * gauss(r) : 0, z: 0, zOut: 0, xOld: null, xlOld: null, zv: 0.01, zb: 0,
     cz: 0, zz: 0, cp: 0, pp: 0,          // только для замеров: связь товаров с нужным каналу 9 прошлым
     dem: 0,                               // сглаженная сумма квадратов ошибок покупателей сигнала
     c0: 0, gain: 0, fromWorld: 0, fromReads: 0,
@@ -309,7 +308,7 @@ function newPart(w, slot, par) {
     p.links = par.links.map((l) => ({ j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }));
     p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
-    if (KIN) { p.zb = par.zb; p.zv = par.zv; if (RELSIG) p.zv5 = par.zv5; }   // потомок помнит спрос на сигнал родителя
+    if (KIN) { p.zb = par.zb; p.zv = par.zv; }   // потомок помнит спрос на сигнал родителя
     if (DECIDE) p.q = Float64Array.from(par.q);  // потомок наследует таблицу сдвигов, как связи
     if (GAINM) { p.mul = par.mul; p.mbase = par.mbase; }   // потомок наследует множитель
   }
@@ -522,7 +521,6 @@ function round(w) {
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
       let z = p.uSelf * sv; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
       p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
-      if (RELSIG) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
     }
     if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
@@ -579,7 +577,7 @@ function round(w) {
     p.links = p.links.filter((l) => {    // связь живёт, пока несёт вес -- для прогноза или для сигнала
       const keep = l.age < TRIAL || (SIGNAL
         ? Math.abs(l.w) * Math.sqrt(RELPRUNE ? l.r2 * ((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.r2s, 1e-300) : l.r2) >= PRUNE ||   // вклад в свой прогноз
-          (p.zb > 0.3 && Math.abs(l.u) * Math.sqrt(l.r2 / (RELSIG ? p.zv5 : p.zv)) >= PRUNE)  // вклад в сигнал, пока его покупают
+          (p.zb > 0.3 && Math.abs(l.u) * Math.sqrt(l.r2 / p.zv) >= PRUNE)  // вклад в сигнал, пока его покупают
         : Math.abs(l.w) >= PRUNE);
       if (!keep) { l.dead = true; if (l.age >= TRIAL) w.pruned[l.k]++; } return keep; });
     }

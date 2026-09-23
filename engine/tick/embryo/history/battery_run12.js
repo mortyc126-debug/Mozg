@@ -10,22 +10,17 @@ if (mode === 'нульА') {
   console.log(['нульА', seed, f(st.food ? st.food.share : NaN), st.alive].join('\t'));
   process.exit(0);
 }
-if (mode === 'проверка3') {
-  for (let r = 1; r <= 60000; r++) M.round(w);
-}
 // 1. жизнь; с 60000-го круга -- замер канала 9 и смены состава
-let st = {}, alive = NaN, hold9 = NaN, kept = NaN, chBits = [NaN, NaN, NaN, NaN]; const Hs = {};
-if (mode !== 'проверка3') {
 let at60 = null; const b9 = [];
 for (let r = 1; r <= 100000; r++) {
   M.round(w);
   if (r === 60000) at60 = w.parts.filter(Boolean);
   if (r >= 60000 && r % 1000 === 0) b9.push(M.stats(w).bits9);
 }
-st = M.stats(w); alive = st.alive;
-hold9 = b9.filter((x) => x > 0.6).length / b9.length;
-kept = at60.filter((p) => w.parts[p.slot] === p).length / at60.length;
-chBits = [3, 4, 5, 7].map((c) => med(w.parts.filter((p) => p && p.ch === c).map((p) => p.bits)));
+const st = M.stats(w), alive = st.alive;
+const hold9 = b9.filter((x) => x > 0.6).length / b9.length;
+const kept = at60.filter((p) => w.parts[p.slot] === p).length / at60.length;
+const chBits = [3, 4, 5, 7].map((c) => med(w.parts.filter((p) => p && p.ch === c).map((p) => p.bits)));
 // 2. строка 0: циклы тишины, как в шагах 42-45
 let ks = (seed * 2654435761) >>> 0;
 const krnd = () => { ks = (ks + 0x6D2B79F5) >>> 0; let t = ks; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -43,6 +38,7 @@ for (let r = 1; r <= 1000; r++) life();
 const acc = () => ({ net: 0, nul: 0, kal: 0 });
 const add = (a, preds, kp, L) => { for (const x of preds) { a.net += (x - L) ** 2; a.nul += L * L; a.kal += (kp - L) ** 2; } };
 const H = (a) => (a.nul - a.net) / (a.nul - a.kal);
+const Hs = {};
 for (const T of [10, 30]) {
   const hT = acc();
   for (let c = 0; c < 20; c++) {
@@ -53,7 +49,6 @@ for (const T of [10, 30]) {
   Hs[T] = H(hT);
 }
 // 3. строка 3 прямо: 40 кругов жизни, 100 кругов свободной активности, 45 кругов жизни (замер 6-45), как в шаге 46
-}
 const V = 1 + C.SN * C.SN, VS = 1 + C.SSIG * C.SSIG + C.SN * C.SN, MIX = [3, 4, 5, 6, 7];
 function lifeRec(a) {
   const before = w.parts.filter((p) => p && p.x).map((p) => [p, p.pred]);
@@ -65,15 +60,9 @@ function lifeRec(a) {
   a.S += n[SCH] ? s[SCH] / n[SCH] : VS; a.nS++;
 }
 const tacc = () => ({ mix: 0, nm: 0, S: 0, nS: 0 });
-// с шага 50: цикл строки 3 повторяется 5 раз, между циклами 960 кругов жизни; квадраты ошибок -- по всем циклам
-const FF = +(process.env.FREE_F ?? 100);
-const pre = tacc(), post = tacc();
-for (let c = 0; c < 5; c++) {
-  if (c) for (let r = 1; r <= 960; r++) M.round(w);
-  for (let r = 1; r <= 40; r++) lifeRec(pre);
-  for (let k = 1; k <= FF; k++) M.freeRound(w);
-  for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? post : null);
-}
+const pre = tacc(); for (let r = 1; r <= 40; r++) lifeRec(pre);
+for (let k = 1; k <= 100; k++) M.freeRound(w);
+const post = tacc(); for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? post : null);
 const Rmix = (V - post.mix / post.nm) / (V - pre.mix / pre.nm), RS = (VS - post.S / post.nS) / (VS - pre.S / pre.nS);
-console.log([mode, seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
+console.log(['зародыш', seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
   f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS)].join('\t'));
