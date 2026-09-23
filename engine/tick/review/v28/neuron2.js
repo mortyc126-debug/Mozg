@@ -115,7 +115,12 @@ const DEEP   = K('DEEP', 0);          // 0 нет; 1, 2 -- глубина про
 const EAT    = K('EAT', 0);            // 1 слой еды: канал F, добытчики, действие, петля истощения
 const SLOW   = K('SLOW', 0);           // 1 медленный канал S: скрытая L (AR rho) сквозь шум, лежащий в самом мире
 const SRHO   = K('SRHO', 0.98);        // медленность L
-const SSIG   = K('SSIG', 1);           // шум наблюдения в самом мире -- один на все части канала
+const SSIG   = K('SSIG', 1);
+const SELFREC = K('SELFREC', 0);        // 1 вес на собственный вчерашний прогноз (возвратная связь на себя)
+const WSLEARN = K('WSLEARN', 1);        // 1 этот вес учится LMS, 0 закреплён
+const WS0    = K('WS0', 0);             // начальный (или закреплённый) вес на себя у частей прочих каналов
+const WS0S   = K('WS0S', 0);
+const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны            // то же у частей медленного канала           // шум наблюдения в самом мире -- один на все части канала
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
 const SN     = K('SN', 0.1);          // шум датчика
@@ -189,6 +194,7 @@ const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный кан�
 const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
+if (SELFREC && RULE) throw new Error('связь на себя поддержана только при законе LMS (RULE=0)');
 const FDIV = Math.sqrt(1 + LOOP * LOOP * (M_PL * M_PL - 1) / 12);   // держит дисперсию F около 1
 const mPlace = (a) => a - (M_PL - 1) / 2;         // место как число: -1.5 ... +1.5 при M=4
 const NF = EAT ? Array.from({ length: N }, (_, i) => i).filter((i) => i % CH === FCH).length : 0;
@@ -279,7 +285,8 @@ function newPart(w, slot, par) {
     else g.lr = Math.exp(Math.log(0.01) + r() * Math.log(30));
   }
   const p = { slot, ch: slot % CH, g, credit: par ? BIRTH / 2 : START,
-    hungry: 0, age: 0, links: [], wSelf: 0, mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0,
+    hungry: 0, age: 0, links: [], wSelf: 0, ws: SELFREC ? (slot % CH === SCH ? WS0S : WS0) : 0, xs: 0,
+    mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0,
     uSelf: SIGNAL ? 0.05 * gauss(r) : 0, z: 0, zOut: 0, xOld: null, xlOld: null, zv: 0.01, zb: 0,
     cz: 0, zz: 0, cp: 0, pp: 0,          // только для замеров: связь товаров с нужным каналу 9 прошлым
     dem: 0,                               // сглаженная сумма квадратов ошибок покупателей сигнала
@@ -290,6 +297,7 @@ function newPart(w, slot, par) {
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
     p.links = par.links.map((l) => ({ j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }));
     p.wSelf = par.wSelf; p.mse = par.mse; p.uSelf = par.uSelf;
+    if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
     if (KIN) { p.zb = par.zb; p.zv = par.zv; }   // потомок помнит спрос на сигнал родителя
     if (DECIDE) p.q = Float64Array.from(par.q);  // потомок наследует таблицу сдвигов, как связи
     if (GAINM) { p.mul = par.mul; p.mbase = par.mbase; }   // потомок наследует множитель
@@ -429,6 +437,7 @@ function round(w) {
     }
     p.mse += BETA * (e * e - p.mse);
     let nrm = 1; for (let i = 0; i < p.x.length; i++) if (i === 0 || !p.xt[i - 1]) nrm += p.x[i] * p.x[i];
+    if (SELFREC) nrm += p.xs * p.xs;
     if (RULE) {                           // (a*s' - b*p)*x - c*w, нормировано входом
       const { a, b, c } = p.g, hs = a * p.s - b * p.pred;
       p.wSelf = clampW(p.wSelf + (hs * p.x[0] - c * p.wSelf) / nrm);
@@ -439,6 +448,7 @@ function round(w) {
     } else {                              // LMS рукой; проба учится на остатке ошибки
       const k = p.g.lr * e / nrm;
       p.wSelf = clampW(p.wSelf + k * p.x[0]);
+      if (SELFREC && WSLEARN) p.ws = clamp(p.ws + k * p.xs, -0.99, 0.99);   // возвратный путь не усиливает сверх 0.99
       for (let i = 0; i < p.xl.length; i++) {
         const l = p.xl[i], xi = p.x[i + 1];
         l.w = clampW(l.w + (p.xt[i] ? p.g.lr * e * xi / (1 + xi * xi) : k * xi));
@@ -466,7 +476,7 @@ function round(w) {
   const zr = SIGNAL ? new Float64Array(N) : null;   // сколько раз купили сигнал части
   for (const p of P) {
     if (!p) continue;
-    p.credit -= RENT;
+    if (!(SPROTECT && p.ch === SCH)) p.credit -= RENT;
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
     const x = [p.s], xl = [], xt = [];
@@ -481,10 +491,12 @@ function round(w) {
     }
     let pred = p.wSelf * p.s;           // проба в оплачиваемый прогноз не входит
     for (let i = 0; i < xl.length; i++) if (!xt[i]) pred += xl[i].w * x[i + 1];
+    if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
       let z = p.uSelf * p.s; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
       p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
     }
+    if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
   }
   for (let i = 0; i < N; i++) if (P[i]) {
@@ -573,6 +585,7 @@ function round(w) {
   for (const p of P) {
     if (!p) continue;
     p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
+    if (SPROTECT && p.ch === SCH) continue;
     if (p.hungry > DIE) kill(w, p, 'bank');
     else if (w.rnd() < FAULT) kill(w, p, 'fault');
   }
@@ -693,6 +706,7 @@ function pauseRound(w) {
       if (!(TRY > 0 && l.age < TRIAL)) pred += l.w * v;   // проба в прогноз не входит, как в round
       if (SIGNAL) z += l.u * v;
     }
+    if (SELFREC) pred += p.ws * p.outP;     // в паузе возвратная связь на себя тоже работает
     p.pred = pred;
     if (SIGNAL) p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);   // нормировка заморожена
   }
