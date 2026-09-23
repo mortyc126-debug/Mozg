@@ -43,15 +43,14 @@ for (let r = 1; r <= 1000; r++) life();
 const acc = () => ({ net: 0, nul: 0, kal: 0 });
 const add = (a, preds, kp, L) => { for (const x of preds) { a.net += (x - L) ** 2; a.nul += L * L; a.kal += (kp - L) ** 2; } };
 const H = (a) => (a.nul - a.net) / (a.nul - a.kal);
-// с шага 63: 100 циклов (100 кругов жизни -- тишина), суммы на выход; H строки 0 -- отношение сумм по всем сидам
 for (const T of [10, 30]) {
   const hT = acc();
-  for (let c = 0; c < 100; c++) {
-    for (let r = 1; r <= 100; r++) life();
+  for (let c = 0; c < 20; c++) {
+    for (let r = 1; r <= 200; r++) life();
     for (let k = 1; k <= T; k++) silent();
     const prT = Sp().map((p) => p.pred), kpT = life(); add(hT, prT, kpT, w.L);
   }
-  Hs[T] = H(hT); Hs['s' + T] = [hT.net, hT.nul, hT.kal];
+  Hs[T] = H(hT);
 }
 // 3. строка 3 прямо: 40 кругов жизни, 100 кругов свободной активности, 45 кругов жизни (замер 6-45), как в шаге 46
 }
@@ -86,4 +85,4 @@ for (let c = 0; c < 3; c++) {
 }
 const RmixL = (V - postL.mix / postL.nm) / (V - preL.mix / preL.nm), RSL = (VS - postL.S / postL.nS) / (VS - preL.S / preL.nS);
 console.log([mode, seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
-  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL), (Hs.s10 || []).map((x) => x.toFixed(6)).join(','), (Hs.s30 || []).map((x) => x.toFixed(6)).join(',')].join('\t'));
+  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL)].join('\t'));
