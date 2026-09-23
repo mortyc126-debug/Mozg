@@ -523,9 +523,9 @@ function round(w) {
     else if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
       let z = p.uSelf * sv; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
-      const zfr = quiet && ZVFREEZE;   // 1 -- замораживает zv и zv5, 2 -- только zv
+      const zfr = quiet && ZVFREEZE;
       if (!zfr) p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
-      if (RELSIG && !(zfr && ZVFREEZE === 1)) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
+      if (RELSIG && !zfr) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
     }
     if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
