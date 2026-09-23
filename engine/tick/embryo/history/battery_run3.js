@@ -75,14 +75,5 @@ for (let c = 0; c < 5; c++) {
   for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? post : null);
 }
 const Rmix = (V - post.mix / post.nm) / (V - pre.mix / pre.nm), RS = (VS - post.S / post.nS) / (VS - pre.S / pre.nS);
-// с шага 57: строка «3 длинная тишина» -- 3 цикла по 1000 кругов свободной активности
-const preL = tacc(), postL = tacc();
-for (let c = 0; c < 3; c++) {
-  for (let r = 1; r <= 960; r++) M.round(w);
-  for (let r = 1; r <= 40; r++) lifeRec(preL);
-  for (let k = 1; k <= 1000; k++) M.freeRound(w);
-  for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? postL : null);
-}
-const RmixL = (V - postL.mix / postL.nm) / (V - preL.mix / preL.nm), RSL = (VS - postL.S / postL.nS) / (VS - preL.S / preL.nS);
 console.log([mode, seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
-  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL)].join('\t'));
+  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS)].join('\t'));

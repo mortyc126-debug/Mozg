@@ -125,7 +125,6 @@ const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD уси
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const NODATA = K('NODATA', 0);        // 1: в тишине оценки мощности входа из мира (r2, r2s, zv, zv5) не обновляются -- у них нет данных
 const WAKEGRACE = K('WAKEGRACE', 0);  // разбор: после тишины столько кругов жизни связи не судятся
 const NOFAULTQUIET = K('NOFAULTQUIET', 0);   // разбор: 1 -- в тишине сбоев нет
 const ZVFREEZE = K('ZVFREEZE', 0);    // разбор: 1 -- в тишине нормировка сигнала (zv, zv5) не обновляется
@@ -380,7 +379,6 @@ function round(w) {
   const P = w.parts, inc = new Float64Array(N);
   const quiet = w.silent, frozenL = quiet && !FREEPRUNE, noMeta = quiet && !FREEMETA;
   const sleep = quiet && ECOSLEEP, money = noMeta || sleep;   // money: в этом круге деньги не ходят
-  const nod = quiet && NODATA;
   let grace = false;
   if (WAKEGRACE) { if (quiet) w.wake = WAKEGRACE; else if (w.wake > 0) { grace = true; w.wake--; } }
   // датчики; прогноз прошлого круга выставляется на продажу до того, как его перезапишут
@@ -509,7 +507,7 @@ function round(w) {
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
     const sv = quiet ? p.sh : p.s, capq = quiet && HCAP > 0 && HOLD;
-    if (RELPRUNE && !nod) p.r2s += 0.05 * (sv * sv - p.r2s);   // мощность того, что стоит на месте датчика
+    if (RELPRUNE) p.r2s += 0.05 * (sv * sv - p.r2s);   // мощность того, что стоит на месте датчика
     const x = [sv], xl = [], xt = [];
     for (const l of order) {
       if (!(FREE_TRY > 0 && l.age < TRIAL)) {   // проба -- бесплатный образец, остальное за плату
@@ -520,7 +518,7 @@ function round(w) {
       }
       const v = l.k === 2 ? P[l.j].zOut : l.k ? P[l.j].outP : P[l.j].s;
       x.push(v); xl.push(l); xt.push(TRY > 0 && l.age < TRIAL);
-      if (SIGNAL) { if (!nod) l.r2 += 0.05 * (v * v - l.r2); if (l.k === 2) zr[l.j]++; }
+      if (SIGNAL) { l.r2 += 0.05 * (v * v - l.r2); if (l.k === 2) zr[l.j]++; }
     }
     let pred = capq ? 0 : p.wSelf * sv;   // проба в оплачиваемый прогноз не входит
     for (let i = 0; i < xl.length; i++) if (!xt[i]) pred += xl[i].w * x[i + 1];
@@ -528,9 +526,9 @@ function round(w) {
     else if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
       let z = p.uSelf * sv; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
-      const zfr = (quiet && ZVFREEZE) || nod;   // 1 -- замораживает zv и zv5, 2 -- только zv
+      const zfr = quiet && ZVFREEZE;   // 1 -- замораживает zv и zv5, 2 -- только zv
       if (!zfr) p.zv += 0.01 * (z * z - p.zv); p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);
-      if (RELSIG && !(zfr && ZVFREEZE === 1) && !nod) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
+      if (RELSIG && !(zfr && ZVFREEZE === 1)) p.zv5 += 0.05 * (z * z - p.zv5);   // мощность сигнала в окне мощности входа -- для суда о связи
     }
     if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
