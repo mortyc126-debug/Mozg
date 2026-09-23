@@ -669,7 +669,26 @@ function stats(w) {
     minus: A.filter((p) => p.credit < 0).length };
 }
 
-module.exports = { create, round, stats, CFG };
+// ПАУЗА (путь Б, замер нехватки): входа нет, хозяйство и пластичность заморожены, идёт только ток.
+// Каждая часть выставляет вчерашние прогноз и сигнал и считает новые теми же формулами, что в round.
+function pauseRound(w) {
+  const P = w.parts;
+  for (const p of P) if (p) { p.s = 0; p.outP = p.pred; p.zOut = p.z; }   // свой датчик молчит
+  for (const p of P) {
+    if (!p) continue;
+    let pred = 0, z = 0;                  // вклад собственного датчика равен нулю
+    for (const l of p.links) {
+      const q = P[l.j]; if (!q) continue;
+      const v = l.k === 2 ? q.zOut : l.k ? q.outP : q.s;
+      if (!(TRY > 0 && l.age < TRIAL)) pred += l.w * v;   // проба в прогноз не входит, как в round
+      if (SIGNAL) z += l.u * v;
+    }
+    p.pred = pred;
+    if (SIGNAL) p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);   // нормировка заморожена
+  }
+}
+
+module.exports = { create, round, stats, CFG, pauseRound };
 
 if (require.main === module) {
   const f = (v, d = 2) => (Number.isNaN(v) ? '-' : v.toFixed(d));
