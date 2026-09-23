@@ -30,4 +30,9 @@ for (let c = 0; c < d; c++) { let p = c; for (let r = c + 1; r < d; r++) if (Mat
 const beta = A.map((row, i) => row[d] / row[i]);
 let dh = 0; X.forEach((x, i) => { const s = x.reduce((a, v, j) => a + v * beta[j], 0); if (Math.sign(s) === y[i]) dh++; });
 const st = M.stats(w);
-console.log([cond, seed, tot ? (hit / tot).toFixed(4) : 'NaN', tot, (dh / X.length).toFixed(4), X.length, st.alive, w.parts.filter((p) => p && p.ch === O + 2).length].join('\t'));
+// разбор шага 61: доля частей канала Q со связями-линиями к A и к B
+const QP = w.parts.filter((p) => p && p.ch === O + 2);
+const hasLine = (p, ch) => p.links.some((l) => l.k === 3 && w.parts[l.j] && w.parts[l.j].ch === ch);
+const lineAB = QP.length ? QP.filter((p) => hasLine(p, O) && hasLine(p, O + 1)).length / QP.length : NaN;
+const lineAny = QP.length ? QP.filter((p) => hasLine(p, O) || hasLine(p, O + 1)).length / QP.length : NaN;
+console.log([cond, seed, tot ? (hit / tot).toFixed(4) : 'NaN', tot, (dh / X.length).toFixed(4), X.length, st.alive, QP.length, lineAB.toFixed(3), lineAny.toFixed(3)].join('\t'));
