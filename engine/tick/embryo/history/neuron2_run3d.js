@@ -125,7 +125,6 @@ const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD уси
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const WAKEGRACE = K('WAKEGRACE', 0);  // разбор: после тишины столько кругов жизни связи не судятся
 const NOFAULTQUIET = K('NOFAULTQUIET', 0);   // разбор: 1 -- в тишине сбоев нет
 const ZVFREEZE = K('ZVFREEZE', 0);    // разбор: 1 -- в тишине нормировка сигнала (zv, zv5) не обновляется
 const RELSIG = K('RELSIG', 0);        // 1: путь сигнала судится по доле с тем же окном, что у мощности входа (zv5, шаг 0.05)
@@ -379,8 +378,6 @@ function round(w) {
   const P = w.parts, inc = new Float64Array(N);
   const quiet = w.silent, frozenL = quiet && !FREEPRUNE, noMeta = quiet && !FREEMETA;
   const sleep = quiet && ECOSLEEP, money = noMeta || sleep;   // money: в этом круге деньги не ходят
-  let grace = false;
-  if (WAKEGRACE) { if (quiet) w.wake = WAKEGRACE; else if (w.wake > 0) { grace = true; w.wake--; } }
   // датчики; прогноз прошлого круга выставляется на продажу до того, как его перезапишут
   if (quiet) {                            // тишина: мир живёт, датчики молчат; на месте своего датчика -- своё ожидание (HOLD)
     if (RULE) throw new Error('тишина со всеми правилами поддержана только при LMS');
@@ -582,7 +579,7 @@ function round(w) {
     if (!p) continue;
     if (!frozenL) {
     for (const l of p.links) l.age++;
-    if (!grace) p.links = p.links.filter((l) => {    // связь живёт, пока несёт вес -- для прогноза или для сигнала
+    p.links = p.links.filter((l) => {    // связь живёт, пока несёт вес -- для прогноза или для сигнала
       const keep = l.age < TRIAL || (SIGNAL
         ? Math.abs(l.w) * Math.sqrt(RELPRUNE ? l.r2 * ((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.r2s, 1e-300) : l.r2) >= PRUNE ||   // вклад в свой прогноз
           (p.zb > 0.3 && Math.abs(l.u) * Math.sqrt(l.r2 / (RELSIG ? p.zv5 : p.zv)) >= PRUNE)  // вклад в сигнал, пока его покупают
