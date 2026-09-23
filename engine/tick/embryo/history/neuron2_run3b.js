@@ -125,7 +125,6 @@ const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD уси
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const NOFAULTQUIET = K('NOFAULTQUIET', 0);   // разбор: 1 -- в тишине сбоев нет
 const ZVFREEZE = K('ZVFREEZE', 0);    // разбор: 1 -- в тишине нормировка сигнала (zv, zv5) не обновляется
 const RELSIG = K('RELSIG', 0);        // 1: путь сигнала судится по доле с тем же окном, что у мощности входа (zv5, шаг 0.05)
 const RELPRUNE = K('RELPRUNE', 0);    // 1: связь судится по доле своей мощности в мощности датчика части, а не по абсолютной
@@ -621,7 +620,7 @@ function round(w) {
     if (SPROTECT && p.ch === SCH) continue;
     if (noMeta) continue;
     if (!sleep && p.hungry > DIE) kill(w, p, 'bank');   // во сне банкротства нет, сбои идут
-    else if (!(quiet && NOFAULTQUIET) && w.rnd() < FAULT) kill(w, p, 'fault');
+    else if (w.rnd() < FAULT) kill(w, p, 'fault');
   }
 
   // потолок копилки и рождение. Расти можно только в своей нише: место в канале
