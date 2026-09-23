@@ -113,7 +113,10 @@ const K = (n, d) => (CFG[n] = num(n, d));
 const WORLD  = K('WORLD', 1);         // 1 причинный мир, 0 у каждой части свой поток
 const DEEP   = K('DEEP', 0);          // 0 нет; 1, 2 -- глубина прошлого для канала 9
 const EAT    = K('EAT', 0);            // 1 слой еды: канал F, добытчики, действие, петля истощения
-const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0)) : 64);   // мест (по 8 на канал)
+const SLOW   = K('SLOW', 0);           // 1 медленный канал S: скрытая L (AR rho) сквозь шум, лежащий в самом мире
+const SRHO   = K('SRHO', 0.98);        // медленность L
+const SSIG   = K('SSIG', 1);           // шум наблюдения в самом мире -- один на все части канала
+const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
 const SN     = K('SN', 0.1);          // шум датчика
 const PAY    = K('PAY', 1);           // тактов за бит сжатия
@@ -182,7 +185,10 @@ const KEEP   = K('KEEP', 0);          // сколько истощения ос�
 const LMAX   = K('LMAX', 4);          // физический предел связей у части (не ген; при 8 генный закон вымирал чаще)
 const CHW = WORLD ? (DEEP ? 10 : 8) : N;          // каналы без еды
 const FCH = EAT ? CHW : -1;                       // канал еды идёт следующим номером
-const CH = CHW + (EAT ? 1 : 0), V = 1 + SN * SN;
+const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный канал идёт после канала еды
+const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
+const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
+if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
 const FDIV = Math.sqrt(1 + LOOP * LOOP * (M_PL * M_PL - 1) / 12);   // держит дисперсию F около 1
 const mPlace = (a) => a - (M_PL - 1) / 2;         // место как число: -1.5 ... +1.5 при M=4
 const NF = EAT ? Array.from({ length: N }, (_, i) => i).filter((i) => i % CH === FCH).length : 0;
@@ -245,6 +251,10 @@ function worldStep(w) {
       }
       w.h8.unshift(n[8]); w.h8.length = DEEP + 1;
     }
+    if (SLOW) {                           // медленная скрытая величина и её зашумлённое наблюдение
+      w.L = SRHO * w.L + Math.sqrt(1 - SRHO * SRHO) * g();
+      n[SCH] = w.L + SSIG * g();
+    }
   }
   w.c = n;
 }
@@ -269,7 +279,7 @@ function newPart(w, slot, par) {
     else g.lr = Math.exp(Math.log(0.01) + r() * Math.log(30));
   }
   const p = { slot, ch: slot % CH, g, credit: par ? BIRTH / 2 : START,
-    hungry: 0, age: 0, links: [], wSelf: 0, mse: V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0,
+    hungry: 0, age: 0, links: [], wSelf: 0, mse: (SLOW && slot % CH === SCH) ? VS : V, s: 0, x: null, xl: null, pred: 0, outP: 0, bits: 0,
     uSelf: SIGNAL ? 0.05 * gauss(r) : 0, z: 0, zOut: 0, xOld: null, xlOld: null, zv: 0.01, zb: 0,
     cz: 0, zz: 0, cp: 0, pp: 0,          // только для замеров: связь товаров с нужным каналу 9 прошлым
     dem: 0,                               // сглаженная сумма квадратов ошибок покупателей сигнала
@@ -291,7 +301,7 @@ function create(seed) {
   const w = { rnd: makeRNG(seed), round: 0, parts: [], c: new Float64Array(CH), births: 0,
     deaths: { bank: 0, fault: 0 }, deadAges: [], h8: new Array(DEEP + 1).fill(0),
     pruned: [0, 0, 0], lost: [0, 0, 0], colon: 0,
-    h: 0, abar: 0, abarOld: 0, dep: 0, depPrev: 0, hid: 0, acts: [], fsamp: [], fq: null,    // среднее названное место, выборка F, границы долей
+    L: 0, h: 0, abar: 0, abarOld: 0, dep: 0, depPrev: 0, hid: 0, acts: [], fsamp: [], fq: null,    // среднее названное место, выборка F, границы долей
     fs: { acts: 0, hits: 0, rounds: 0, fed: 0, winners: 0, burn: 0, sf: 0, n: 0,
           sum: 0, sum2: 0, actsRelay: 0, hitsRelay: 0, actsBare: 0, hitsBare: 0, spent: 0, paid: 0,
           byK: new Map(), dUse: new Array(M_PL).fill(0), dHit: new Array(M_PL).fill(0), pert: 0, pertCh: 0,
@@ -434,7 +444,7 @@ function round(w) {
         l.w = clampW(l.w + (p.xt[i] ? p.g.lr * e * xi / (1 + xi * xi) : k * xi));
       }
     }
-    p.bits = Math.max(0, 0.5 * Math.log2(V / Math.max(p.mse, 1e-6)));
+    p.bits = Math.max(0, 0.5 * Math.log2(((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.mse, 1e-6)));
     if (!(EAT && p.ch === FCH)) bank += PAY * p.bits;   // за сжатие канала еды не платят
   }
   if (DEMAND) for (const p of P) if (p) p.dem += 0.02 * (dm[p.slot] - p.dem);
@@ -688,7 +698,7 @@ function pauseRound(w) {
   }
 }
 
-module.exports = { create, round, stats, CFG, pauseRound };
+module.exports = { create, round, stats, CFG, pauseRound, SCH };
 
 if (require.main === module) {
   const f = (v, d = 2) => (Number.isNaN(v) ? '-' : v.toFixed(d));
