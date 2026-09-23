@@ -115,14 +115,15 @@ const DEEP   = K('DEEP', 0);          // 0 нет; 1, 2 -- глубина про
 const EAT    = K('EAT', 0);            // 1 слой еды: канал F, добытчики, действие, петля истощения
 const SLOW   = K('SLOW', 0);           // 1 медленный канал S: скрытая L (AR rho) сквозь шум, лежащий в самом мире
 const SRHO   = K('SRHO', 0.98);        // медленность L
-const SSIG   = K('SSIG', 1);
+const SSIG   = K('SSIG', 1);           // шум наблюдения в самом мире -- один на все части канала
 const SELFREC = K('SELFREC', 0);        // 1 вес на собственный вчерашний прогноз (возвратная связь на себя)
 const WSLEARN = K('WSLEARN', 1);        // 1 этот вес учится LMS, 0 закреплён
 const WS0    = K('WS0', 0);             // начальный (или закреплённый) вес на себя у частей прочих каналов
-const WS0S   = K('WS0S', 0);
+const WS0S   = K('WS0S', 0);           // то же у частей медленного канала
 const HOLD   = K('HOLD', 0);          // 1: в тишине на месте молчащего датчика -- собственное ожидание части
+const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD усиление части на себя (wSelf + ws) не выше HCAP по модулю
 const PAYL   = K('PAYL', 0);          // 1: мир платит медленному каналу по знанию настоящей L, а не по сжатию датчика
-const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны            // то же у частей медленного канала           // шум наблюдения в самом мире -- один на все части канала
+const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
 const SN     = K('SN', 0.1);          // шум датчика
@@ -196,6 +197,7 @@ const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный кан�
 const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
+if (HCAP && !HOLD) throw new Error('предел HCAP действует только при HOLD=1');
 if (PAYL && !SLOW) throw new Error('плата за знание L требует медленного канала (SLOW=1)');
 if (SELFREC && RULE) throw new Error('связь на себя поддержана только при законе LMS (RULE=0)');
 const FDIV = Math.sqrt(1 + LOOP * LOOP * (M_PL * M_PL - 1) / 12);   // держит дисперсию F около 1
@@ -713,6 +715,10 @@ function pauseRound(w) {
       if (!(TRY > 0 && l.age < TRIAL)) pred += l.w * v;   // проба в прогноз не входит, как в round
       if (SIGNAL) z += l.u * v;
     }
+    if (HCAP > 0) {                       // предел: вклад части на себя заменяется ограниченным (p.s и p.outP здесь равны)
+      const own = p.wSelf + (SELFREC ? p.ws : 0);
+      pred += clamp(own, -HCAP, HCAP) * p.outP - p.wSelf * p.s;
+    } else
     if (SELFREC) pred += p.ws * p.outP;     // в паузе возвратная связь на себя тоже работает
     p.pred = pred;
     if (SIGNAL) p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);   // нормировка заморожена
