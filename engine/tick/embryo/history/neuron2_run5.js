@@ -792,8 +792,7 @@ function pauseRound(w) {
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const v = l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
-      if (!(TRY > 0 && l.age < TRIAL)) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // проба в прогноз не входит, как в round
-      if (l.tw) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели
+      if (!(TRY > 0 && l.age < TRIAL)) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // проба в прогноз не входит, как в round; в паузе история стоит
       if (SIGNAL) z += l.u * v;
     }
     if (HCAP > 0) {                       // предел: вклад части на себя заменяется ограниченным (sh и p.outP здесь равны)

@@ -10,14 +10,21 @@ const FILE = process.argv[2] || 'out/battery.tsv', RULEB = process.argv[3] || '1
 const L = fs.readFileSync(FILE, 'utf8').trim().split('\n').map((l) => l.split('\t'));
 const med = (a) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
 const f = (x, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : 'NaN');
-const E = L.filter((r) => r[0] === 'зародыш').sort((a, b) => a[1] - b[1]).map((r) => ({ seed: +r[1], alive: +r[2], right: +r[3], nul: +r[4], b9: +r[5], hold9: +r[6], kept: +r[7], ch: r[8].split(',').map(Number), food: +r[9], H10: +r[10], H30: +r[11], Rmix: +r[12], RS: +r[13], RmixL: +r[14], RSL: +r[15] }));
+const E = L.filter((r) => r[0] === 'зародыш').sort((a, b) => a[1] - b[1]).map((r) => ({ seed: +r[1], alive: +r[2], right: +r[3], nul: +r[4], b9: +r[5], hold9: +r[6], kept: +r[7], ch: r[8].split(',').map(Number), food: +r[9], H10: +r[10], H30: +r[11], Rmix: +r[12], RS: +r[13], RmixL: +r[14], RSL: +r[15], s10: r[16] ? r[16].split(',').map(Number) : null, s30: r[17] ? r[17].split(',').map(Number) : null }));
 const N = new Map(L.filter((r) => r[0] === 'нульА').map((r) => [+r[1], +r[2]]));
 const dead = E.filter((e) => !(e.alive > 0)).map((e) => e.seed), live = E.filter((e) => e.alive > 0);
 const m = (k) => med(live.map((e) => e[k]));
 const rows = [];
 const put = (line, name, status, detail) => rows.push({ line, name, status, detail });
-const h10 = m('H10'), h30 = m('H30');
-put(0, 'живёт между касаниями', h10 >= 0.5 && h30 >= 0.5 ? 'ЕСТЬ' : 'нет', `H(10) ${f(h10)}, H(30) ${f(h30)} (порог 0.5)`);
+// с шага 63: статистика А -- отношение сумм по всем сидам, разброс -- бутстреп по сидам
+const HA = (xs) => xs.reduce((s, x) => s + x[1] - x[0], 0) / xs.reduce((s, x) => s + x[1] - x[2], 0);
+function hstat(k) { const xs = live.map((e) => e[k]).filter(Boolean); if (!xs.length) return null;
+  let rs = 12345; const rnd = () => { rs = (rs * 1103515245 + 12345) >>> 0; return rs / 4294967296; };
+  const bt = []; for (let b = 0; b < 2000; b++) { const s = []; for (let i = 0; i < xs.length; i++) s.push(xs[Math.floor(rnd() * xs.length)]); bt.push(HA(s)); }
+  const mb = bt.reduce((s, x) => s + x, 0) / bt.length; return [HA(xs), Math.sqrt(bt.reduce((s, x) => s + (x - mb) ** 2, 0) / bt.length)]; }
+const A10 = hstat('s10'), A30 = hstat('s30');
+if (A10 && A30) put(0, 'живёт между касаниями', A10[0] >= 0.5 && A30[0] >= 0.5 ? 'ЕСТЬ' : 'нет', `H(10) ${f(A10[0])} ± ${f(A10[1])}, H(30) ${f(A30[0])} ± ${f(A30[1])} (статистика А; порог 0.5)`);
+else { const h10 = m('H10'), h30 = m('H30'); put(0, 'живёт между касаниями', h10 >= 0.5 && h30 >= 0.5 ? 'ЕСТЬ' : 'нет', `H(10) ${f(h10)}, H(30) ${f(h30)} (старая мера; порог 0.5)`); }
 put(1, 'принимает мир', 'дана', 'конструкцией мира');
 put(2, 'держит след опыта', m('right') >= 0.95 ? 'ЕСТЬ' : 'нет', `вес на верных связях ${f(100 * m('right'), 1)}% (порог 95%, нуль ${f(100 * m('nul'), 1)}%)`);
 // путь В: в прогоне 1 -- удержание и смена состава; с шага 48 -- только удержание (смена состава оказалась полной всегда)
