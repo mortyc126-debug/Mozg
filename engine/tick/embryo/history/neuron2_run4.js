@@ -125,8 +125,6 @@ const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD уси
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
 const ECOSLEEP = K('ECOSLEEP', 0);    // 1: в тишине деньги не ходят (нет аренды, платы за чтения, поиска, рождений), часы хозяйства стоят; сбои идут
-const REL3 = K('REL3', 0);            // проба строки 5: правило канала 3 -- 0 (c0+c1), 1 (c0-c1), 2 (c0+c2); замер может менять w.rel3 на ходу
-const PERTURB = K('PERTURB', 0);      // проба строки 5 (нуль): столько лишних жребиев после создания мира -- другая история шума
 const NODATA = K('NODATA', 0);        // 1: в тишине оценки мощности входа из мира (r2, r2s, zv, zv5) не обновляются -- у них нет данных
 const WAKEGRACE = K('WAKEGRACE', 0);  // разбор: после тишины столько кругов жизни связи не судятся
 const NOFAULTQUIET = K('NOFAULTQUIET', 0);   // разбор: 1 -- в тишине сбоев нет
@@ -209,7 +207,6 @@ const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0), V = 1 + SN * SN;
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
 if (EAT && (!FREEPRUNE || !FREEMETA)) throw new Error('тишина со всеми правилами не поддержана в мире еды');
-if ((REL3 || PERTURB) && (RHO !== 0 || MIX !== 1)) throw new Error('проба строки 5 рассчитана на RHO=0 и MIX=1');
 if (HCAP && !HOLD) throw new Error('предел HCAP действует только при HOLD=1');
 if (PAYL && !SLOW) throw new Error('плата за знание L требует медленного канала (SLOW=1)');
 if (SELFREC && RULE) throw new Error('связь на себя поддержана только при законе LMS (RULE=0)');
@@ -256,12 +253,11 @@ function worldStep(w) {
     const gc = RHO ? g() : 0;
     for (let k = 0; k < 3; k++)
       n[k] = 0.5 * c[k] + Math.sqrt(0.75) * (RHO ? Math.sqrt(RHO) * gc + Math.sqrt(1 - RHO) * g() : g());
-    const rel = w.rel3 ?? REL3;          // проба строки 5 (при 0 -- мир прежний)
-    n[3] = rel === 1 ? (c[0] - MIX * c[1]) / K4 : rel === 2 ? (c[0] + MIX * c[2]) / K3 : (c[0] + MIX * c[1]) / K3;
+    n[3] = (c[0] + MIX * c[1]) / K3;
     n[4] = (c[1] - MIX * c[2]) / K4;
     n[5] = (c[0] - MIX * c[2]) / K4;
     n[6] = c[3];
-    n[7] = (c[3] - MIX * c[4]) / (rel ? Math.sqrt(3) : K7);   // при rel 1 и 2 ковариация c3 и c4 меняет знак: дисперсия разности 3
+    n[7] = (c[3] - MIX * c[4]) / K7;
     if (DEEP) {                           // источник 8 и канал 9: c9(t+1) = c8(t - DEEP)
       n[8] = 0.5 * c[8] + Math.sqrt(0.75) * g();
       const hid = w.h8[DEEP];
@@ -335,7 +331,6 @@ function create(seed) {
           sA: {}, sH: {}, sF: {}, occ: {}, looks: 0, hOne: 0, kA: 0, kH: 0, bA: 0, bH: 0 } };  // сколько связей каждого товара отмерло и сколько потеряно со смертью продавца
   for (let k = 0; k < CH; k++) w.c[k] = gauss(w.rnd);
   for (let i = 0; i < N; i++) w.parts.push(newPart(w, i, null));
-  for (let k = 0; k < PERTURB; k++) w.rnd();   // нуль строки 5: другая история шума при тех же начальных условиях
   return w;
 }
 
