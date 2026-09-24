@@ -137,7 +137,6 @@ const PAYL   = K('PAYL', 0);          // 1: мир платит медленно
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
 const ORDERSHUF = K('ORDERSHUF', 0);
-const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
 const DLINE = K('DLINE', 0);          // > 0: товар «датчик с линией» -- покупатель сам держит историю входа на DLINE кругов, у связи DLINE+1 отводов
 const PROTECTQ = K('PROTECTQ', 0);    // разбор строки 8: части канала Q без аренды и бессмертны
 const QDELAY = K('QDELAY', 0);        // разбор строки 8: частям канала Q даром линия задержки A и B на 0-6 кругов, веса учит LMS  // нуль строки 8: знак отчёта -- жребий, не связанный с порядком
@@ -790,11 +789,9 @@ function pauseRound(w) {
     if (!p) continue;
     const sh = HOLD === 2 ? p.outP : p.s;   // что часть подставляет себе на место датчика
     let pred = HOLD ? p.wSelf * sh : 0, z = HOLD ? p.uSelf * sh : 0;   // без HOLD вклад датчика равен нулю
-    const px = PAUSEX ? [HOLD ? sh : 0] : null, pxl = PAUSEX ? [] : null, pxt = PAUSEX ? [] : null;
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const v = l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
-      if (PAUSEX) { px.push(v); pxl.push(l); pxt.push(TRY > 0 && l.age < TRIAL); if (l.tw) l.xb = l.buf.slice(); }
       if (!(TRY > 0 && l.age < TRIAL)) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // проба в прогноз не входит, как в round
       if (l.tw) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели
       if (SIGNAL) z += l.u * v;
@@ -806,7 +803,6 @@ function pauseRound(w) {
     if (SELFREC) pred += p.ws * p.outP;     // в паузе возвратная связь на себя тоже работает
     p.pred = pred;
     if (SIGNAL) p.z = clamp(z / Math.sqrt(p.zv + 1e-9), -4, 4);   // нормировка заморожена
-    if (PAUSEX) { p.xOld = p.x; p.xlOld = p.xl; p.x = px; p.xl = pxl; p.xt = pxt; if (SELFREC) p.xs = p.outP; }   // входы прогноза паузы -- как в круге жизни
   }
 }
 
