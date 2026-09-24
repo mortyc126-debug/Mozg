@@ -139,6 +139,9 @@ const SPROTECT = K('SPROTECT', 0);      // разбор: части медлен
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
 const ORDERSHUF = K('ORDERSHUF', 0);
 const ORDERTSHUF = K('ORDERTSHUF', 0);
+const OGMAX = K('OGMAX', 3);           // шаг 96: наибольший зазор между событиями A и B (зазор 1..OGMAX)
+const ODMAX = K('ODMAX', 2);           // шаг 96: наибольшая задержка отчёта после второго события (1..ODMAX)
+const OP = K('OP', 0.1);               // шаг 96: шанс начала эпизода за круг
 const QPAY = K('QPAY', 0);
 const LEXP = K('LEXP', 0);            // шаг 83: 1 -- в тишине линия продавца медленного канала несёт его ожидание на месте молчащего датчика
 const IMPRINT = K('IMPRINT', 0);      // шаг 86: 1 -- отмершая долгая связь оставляет отпечаток весов; новая связь того же рода начинает с него
@@ -233,7 +236,7 @@ const FCH = EAT ? CHW : -1;                       // канал еды идёт 
 const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный канал идёт после канала еды
 const OCH = ORDER ? CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) : -1;   // каналы A, B, Q идут последними
 const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0), V = 1 + SN * SN;
-const PEV = 1 / 13.5, SEV = 1 / Math.sqrt(PEV * (1 - PEV)), SQ = 1 / Math.sqrt(PEV);   // частота событий за круг и нормировки к единичной дисперсии
+const PEV = 1 / (1 / OP + (1 + OGMAX) / 2 + (1 + ODMAX) / 2), SEV = 1 / Math.sqrt(PEV * (1 - PEV)), SQ = 1 / Math.sqrt(PEV);   // частота событий за круг и нормировки к единичной дисперсии
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
 if (EAT && (!FREEPRUNE || !FREEMETA)) throw new Error('тишина со всеми правилами не поддержана в мире еды');
@@ -314,7 +317,7 @@ function worldStep(w) {
       const o = w.ord || (w.ord = { ph: 0, t: 0, x: 0, g: 0, d: 0 });
       let ea = 0, eb = 0, q = 0;
       if (o.ph === 0) {
-        if (w.rnd() < 0.1) { o.x = w.rnd() < 0.5 ? 0 : 1; o.g = 1 + Math.floor(3 * w.rnd()); o.d = 1 + Math.floor(2 * w.rnd()); o.t = 0; o.ph = 1; if (o.x === 0) ea = 1; else eb = 1; }
+        if (w.rnd() < OP) { o.x = w.rnd() < 0.5 ? 0 : 1; o.g = 1 + Math.floor(OGMAX * w.rnd()); o.d = 1 + Math.floor(ODMAX * w.rnd()); o.t = 0; o.ph = 1; if (o.x === 0) ea = 1; else eb = 1; }
       } else {
         o.t++;
         if (o.t === o.g) { if (o.x === 0) eb = 1; else ea = 1; }

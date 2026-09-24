@@ -4,7 +4,7 @@ const seed = +process.argv[2], past = +process.argv[3], P2 = +process.argv[4], T
 const V = 1 + C.SN * C.SN;
 const w = M.create(seed);
 w.rel3 = past; for (let r = 1; r <= 60000; r++) M.round(w);
-w.rel3 = 2;    for (let r = 1; r <= P2; r++) M.round(w);
+w.rel3 = +(process.env.SAVI ?? 2); for (let r = 1; r <= P2; r++) M.round(w);
 w.rel3 = T;
 let sum = 0;
 for (let r = 1; r <= 300; r++) {
