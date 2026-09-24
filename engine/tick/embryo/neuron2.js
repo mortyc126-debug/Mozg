@@ -141,6 +141,7 @@ const ORDERSHUF = K('ORDERSHUF', 0);
 const ORDERTSHUF = K('ORDERTSHUF', 0);
 const QPAY = K('QPAY', 0);
 const LEXP = K('LEXP', 0);            // шаг 83: 1 -- в тишине линия продавца медленного канала несёт его ожидание на месте молчащего датчика
+const LCAP = K('LCAP', 0);            // шаг 84: 1 (при LEXP) -- предел HCAP на всё усиление части медленного канала на ожидания в тишине: возврат плюс линии продавцов медленного канала
 const LFREEZE = K('LFREEZE', 0);      // шаг 82: 1 -- в тишине у линии нет данных: отводы не сдвигаются, текущий отдаёт последнее значение из жизни            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
 const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
@@ -606,8 +607,15 @@ function round(w) {
       if (SIGNAL) { if (!nod) l.r2 += 0.05 * (v * v - l.r2); if (l.k === 2) zr[l.j]++; }
     }
     let pred = capq ? 0 : p.wSelf * sv;   // проба в оплачиваемый прогноз не входит
-    for (let i = 0; i < xl.length; i++) if (!xt[i]) { pred += xl[i].w * x[i + 1]; if (xl[i].xb) for (let j = 0; j < xl[i].xb.length; j++) pred += xl[i].tw[j] * xl[i].xb[j]; }
-    if (capq) pred += clamp(p.wSelf + (SELFREC ? p.ws : 0), -HCAP, HCAP) * p.outP;   // в тишине усиление на себя под пределом
+    let lp = 0, lg = 0;                   // шаг 84: вклад и усиление линий продавцов медленного канала на ожидания в тишине
+    for (let i = 0; i < xl.length; i++) if (!xt[i]) {
+      const L = xl[i], exp = LCAP && LEXP && capq && L.k === 3 && P[L.j] && P[L.j].ch === SCH;
+      if (!exp) { pred += L.w * x[i + 1]; if (L.xb) for (let j = 0; j < L.xb.length; j++) pred += L.tw[j] * L.xb[j]; continue; }   // прежний порядок сложения
+      lp += L.w * x[i + 1]; lg += Math.abs(L.w);
+      if (L.xb) for (let j = 0; j < L.xb.length; j++) { lp += L.tw[j] * L.xb[j]; lg += Math.abs(L.tw[j]); }
+    }
+    if (capq) { const own = p.wSelf + (SELFREC ? p.ws : 0), G = Math.abs(own) + lg;   // в тишине усиление на себя под пределом; с шага 84 -- вся петля ожиданий
+      if (lg > 0 && G > HCAP) pred += (HCAP / G) * (own * p.outP + lp); else pred += clamp(own, -HCAP, HCAP) * p.outP + lp; }
     else if (SELFREC) pred += p.ws * p.outP;     // собственный вчерашний прогноз
     if (SIGNAL) {                          // сигнал: смесь входов, нормированная по силе и ограниченная
       let z = p.uSelf * sv; for (let i = 0; i < xl.length; i++) z += xl[i].u * x[i + 1];
@@ -846,19 +854,24 @@ function pauseRound(w) {
     const hs = HOLDS && p.ch !== SCH, hold = HOLD && !hs;   // шаг 72: у быстрых частей подстановки нет
     let pred = hold ? p.wSelf * sh : 0, z = hold ? p.uSelf * sh : 0;   // без HOLD вклад датчика равен нулю
     const px = PAUSEX ? [hold ? sh : 0] : null, pxl = PAUSEX ? [] : null, pxt = PAUSEX ? [] : null;
+    let lp = 0, lg = 0;                   // шаг 84: вклад и усиление линий на ожидания медленного канала
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const lf = LFREEZE && l.k === 3;    // шаг 82: в паузе линия отдаёт последнее значение из жизни
       const le = LEXP && l.k === 3 && q.ch === SCH;   // шаг 83: в паузе линия медленного канала -- ожидание продавца
       const v = lf ? (l.last ?? 0) : le ? q.outP : l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
       if (PAUSEX) { px.push(v); pxl.push(l); pxt.push(TRY > 0 && l.age < TRIAL); if (l.tw) l.xb = l.buf.slice(); }
-      if (!(TRY > 0 && l.age < TRIAL)) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // проба в прогноз не входит, как в round
+      if (!(TRY > 0 && l.age < TRIAL)) {   // проба в прогноз не входит, как в round
+        const exp = LCAP && le && !hs && HCAP > 0 && p.ch === SCH;   // шаг 84: линия на ожидания медленного канала -- под общим пределом
+        if (!exp) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // прежний порядок сложения
+        else { lp += l.w * v; lg += Math.abs(l.w); if (l.tw) for (let j = 0; j < l.tw.length; j++) { lp += l.tw[j] * l.buf[j]; lg += Math.abs(l.tw[j]); } } }
       if (l.tw && !lf) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели; с шага 82 при LFREEZE -- стоит
       if (SIGNAL) z += l.u * v;
     }
     if (HCAP > 0 && !hs) {                // предел: вклад части на себя заменяется ограниченным (sh и p.outP здесь равны)
-      const own = p.wSelf + (SELFREC ? p.ws : 0);
-      pred += clamp(own, -HCAP, HCAP) * p.outP - p.wSelf * sh;
+      const own = p.wSelf + (SELFREC ? p.ws : 0), G = Math.abs(own) + lg;
+      if (lg > 0 && G > HCAP) pred += (HCAP / G) * (own * p.outP + lp) - p.wSelf * sh;   // шаг 84: предел на всю петлю ожиданий
+      else pred += clamp(own, -HCAP, HCAP) * p.outP - p.wSelf * sh + lp;
     } else
     if (SELFREC) pred += p.ws * p.outP;     // в паузе возвратная связь на себя тоже работает
     p.pred = pred;
