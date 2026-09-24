@@ -73,14 +73,12 @@ function lifeRec(a) {
 }
 const tacc = () => ({ mix: 0, nm: 0, S: 0, nS: 0 });
 // с шага 50: цикл строки 3 повторяется 5 раз, между циклами 960 кругов жизни; квадраты ошибок -- по всем циклам
-const FF = +(process.env.FREE_F ?? 100), FL = +(process.env.FREE_L ?? 1000), WIPE3 = +(process.env.WIPE3 ?? 0);
-// с шага 75: отрицательный контроль меры строк 3 -- в конце тишины у частей медленного канала стираются веса
-const wipe = () => { if (!WIPE3) return; for (const p of w.parts) if (p && p.ch === SCH) { p.wSelf = 0; p.ws = 0; for (const l of p.links) { l.w = 0; if (l.tw) l.tw.fill(0); } } };
+const FF = +(process.env.FREE_F ?? 100);
 const pre = tacc(), post = tacc();
 for (let c = 0; c < 5; c++) {
   if (c) for (let r = 1; r <= 960; r++) M.round(w);
   for (let r = 1; r <= 40; r++) lifeRec(pre);
-  silBeg(); for (let k = 1; k <= FF; k++) { M.freeRound(w); silStep(); } silEnd(); wipe();
+  silBeg(); for (let k = 1; k <= FF; k++) { M.freeRound(w); silStep(); } silEnd();
   for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? post : null);
 }
 const Rmix = (V - post.mix / post.nm) / (V - pre.mix / pre.nm), RS = (VS - post.S / post.nS) / (VS - pre.S / pre.nS);
@@ -89,10 +87,9 @@ const preL = tacc(), postL = tacc();
 for (let c = 0; c < 3; c++) {
   for (let r = 1; r <= 960; r++) M.round(w);
   for (let r = 1; r <= 40; r++) lifeRec(preL);
-  silBeg(); for (let k = 1; k <= FL; k++) { M.freeRound(w); silStep(); } silEnd(); wipe();
+  silBeg(); for (let k = 1; k <= 1000; k++) { M.freeRound(w); silStep(); } silEnd();
   for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? postL : null);
 }
 const RmixL = (V - postL.mix / postL.nm) / (V - preL.mix / preL.nm), RSL = (VS - postL.S / postL.nS) / (VS - preL.S / preL.nS);
 console.log([mode, seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
-  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL), (Hs.s10 || []).map((x) => x.toFixed(6)).join(','), (Hs.s30 || []).map((x) => x.toFixed(6)).join(','), `${cat},${gmax.toExponential(3)}`,
-  [pre, post].flatMap((a) => [a.mix, a.nm, a.S, a.nS]).map((x) => x.toFixed(6)).join(','), [preL, postL].flatMap((a) => [a.mix, a.nm, a.S, a.nS]).map((x) => x.toFixed(6)).join(',')].join('\t'));
+  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL), (Hs.s10 || []).map((x) => x.toFixed(6)).join(','), (Hs.s30 || []).map((x) => x.toFixed(6)).join(','), `${cat},${gmax.toExponential(3)}`].join('\t'));

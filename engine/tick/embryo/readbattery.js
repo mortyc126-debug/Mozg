@@ -10,7 +10,7 @@ const FILE = process.argv[2] || 'out/battery.tsv', RULEB = process.argv[3] || '1
 const L = fs.readFileSync(FILE, 'utf8').trim().split('\n').map((l) => l.split('\t'));
 const med = (a) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
 const f = (x, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : 'NaN');
-const E = L.filter((r) => r[0] === 'зародыш').sort((a, b) => a[1] - b[1]).map((r) => ({ seed: +r[1], alive: +r[2], right: +r[3], nul: +r[4], b9: +r[5], hold9: +r[6], kept: +r[7], ch: r[8].split(',').map(Number), food: +r[9], H10: +r[10], H30: +r[11], Rmix: +r[12], RS: +r[13], RmixL: +r[14], RSL: +r[15], s10: r[16] ? r[16].split(',').map(Number) : null, s30: r[17] ? r[17].split(',').map(Number) : null }));
+const E = L.filter((r) => r[0] === 'зародыш').sort((a, b) => a[1] - b[1]).map((r) => ({ seed: +r[1], alive: +r[2], right: +r[3], nul: +r[4], b9: +r[5], hold9: +r[6], kept: +r[7], ch: r[8].split(',').map(Number), food: +r[9], H10: +r[10], H30: +r[11], Rmix: +r[12], RS: +r[13], RmixL: +r[14], RSL: +r[15], s10: r[16] ? r[16].split(',').map(Number) : null, s30: r[17] ? r[17].split(',').map(Number) : null, t3: r[19] ? r[19].split(',').map(Number) : null, t3L: r[20] ? r[20].split(',').map(Number) : null }));
 const N = new Map(L.filter((r) => r[0] === 'нульА').map((r) => [+r[1], +r[2]]));
 const dead = E.filter((e) => !(e.alive > 0)).map((e) => e.seed), live = E.filter((e) => e.alive > 0);
 const m = (k) => med(live.map((e) => e[k]));
@@ -30,8 +30,20 @@ put(2, 'держит след опыта', m('right') >= 0.95 ? 'ЕСТЬ' : 'н
 // путь В: в прогоне 1 -- удержание и смена состава; с шага 48 -- только удержание (смена состава оказалась полной всегда)
 const pathB = live.filter((e) => e.hold9 >= 0.9 && (RULEB === '2' || e.kept <= 0.5)).length;
 put('3В', 'след во времени, путь В', pathB >= 6 ? 'ЕСТЬ' : 'нет', `в ${pathB} сидах из 12 канал 9 держит прошлое в 90% замеров${RULEB === '2' ? '' : ' при смене большей части состава'} (порог 6); доля замеров медиана ${f(m('hold9'), 2)}, дожило частей медиана ${f(m('kept'), 2)}`);
-put('3', 'след во времени, прямо', m('Rmix') >= 0.9 && m('RS') >= 0.9 ? 'ЕСТЬ' : 'нет', `после 100 кругов свободной активности R смеси ${f(m('Rmix'))}, канал S ${f(m('RS'))} (порог 0.9)`);
-if (live.some((e) => Number.isFinite(e.RmixL))) put('3Д', 'след, длинная тишина', m('RmixL') >= 0.9 && m('RSL') >= 0.9 ? 'ЕСТЬ' : 'нет', `после 1000 кругов свободной активности R смеси ${f(m('RmixL'))}, канал S ${f(m('RSL'))} (порог 0.9)`);
+// с шага 75: строки 3 -- статистика А: сумма знания после тишины по сидам на сумму знания до неё, разброс -- бутстреп по сидам
+const V3 = 1.01, VS3 = 2.01;   // V = 1 + SN², VS = 1 + SSIG² + SN² при постоянных зародыша
+const RA = (xs, j) => { const Vx = j ? VS3 : V3; let a = 0, b = 0; for (const t of xs) { a += Vx - t[4 + 2 * j] / t[5 + 2 * j]; b += Vx - t[2 * j] / t[1 + 2 * j]; } return a / b; };
+function r3(k, j) { const xs = live.map((e) => e[k]).filter(Boolean); if (xs.length < live.length || !xs.length) return null;
+  let rs = 12345; const rnd = () => { rs = (rs * 1103515245 + 12345) >>> 0; return rs / 4294967296; };
+  const bt = []; for (let b = 0; b < 2000; b++) { const s = []; for (let i = 0; i < xs.length; i++) s.push(xs[Math.floor(rnd() * xs.length)]); bt.push(RA(s, j)); }
+  const mb = bt.reduce((s, x) => s + x, 0) / bt.length; return [RA(xs, j), Math.sqrt(bt.reduce((s, x) => s + (x - mb) ** 2, 0) / bt.length)]; }
+const nm3 = [['3', 'след во времени, прямо', 't3', 'Rmix', 'RS', 'после 100 кругов'], ['3Д', 'след, длинная тишина', 't3L', 'RmixL', 'RSL', 'после 1000 кругов']];
+for (const [ln, name, k, km, ks, when] of nm3) {
+  if (!live.some((e) => Number.isFinite(e[km]))) continue;
+  const am = r3(k, 0), as = r3(k, 1);
+  if (am && as) put(ln, name, am[0] >= 0.9 && as[0] >= 0.9 ? 'ЕСТЬ' : 'нет', `${when} свободной активности R смеси ${f(am[0])} ± ${f(am[1])}, канал S ${f(as[0])} ± ${f(as[1])} (статистика А; порог 0.9; старая мера -- медианы ${f(m(km))} / ${f(m(ks))})`);
+  else put(ln, name, m(km) >= 0.9 && m(ks) >= 0.9 ? 'ЕСТЬ' : 'нет', `${when} свободной активности R смеси ${f(m(km))}, канал S ${f(m(ks))} (старая мера; порог 0.9)`);
+}
 const n4 = live.filter((e) => e.b9 > 0.6).length;
 put(4, 'проводит на расстояние', n4 >= 6 ? 'ЕСТЬ' : 'нет', `bits9 > 0.6 в ${n4} сидах из 12 (порог 6), медиана ${f(m('b9'))}`);
 put(5, 'собственное прошлое', 'нет', 'меры нет');
