@@ -4,20 +4,6 @@ const seed = +process.argv[2], mode = process.argv[3], C = M.CFG, SCH = M.SCH;
 const f = (x, d = 4) => (Number.isFinite(x) ? x.toFixed(d) : 'NaN');
 const med = (a) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
 const w = M.create(seed);
-// с шага 76: наблюдатель для строк 3 -- Калман на медленном канале, свой жребий; видит в жизни, слеп в тишине; только чтения
-const K3 = { m: 0, P: 1, sensed: false, last: 0 };
-let k3s = (seed * 2654435761 ^ 0x9e3779b9) >>> 0;
-const k3r = () => { k3s = (k3s + 0x6D2B79F5) >>> 0; let t = k3s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-const k3g = () => Math.sqrt(-2 * Math.log(k3r() + 1e-12)) * Math.cos(2 * Math.PI * k3r());
-function k3() {
-  const R = C.SSIG * C.SSIG + C.SN * C.SN, rho = C.SRHO;
-  if (K3.sensed) { const y = w.c[SCH] + C.SN * k3g(); const K = K3.P / (K3.P + R); K3.m += K * (y - K3.m); K3.P *= 1 - K; }
-  K3.m = rho * K3.m; K3.P = rho * rho * K3.P + (1 - rho * rho); return K3.m;
-}
-if (C.SLOW) { const r0 = M.round, f0 = M.freeRound, s0 = M.worldStep;
-  M.round = (x) => { const kp = k3(); r0(x); K3.sensed = true; K3.last = kp; };
-  M.freeRound = (x) => { const kp = k3(); f0(x); K3.sensed = false; K3.last = kp; };
-  M.worldStep = (x) => { const kp = k3(); s0(x); K3.sensed = false; K3.last = kp; }; }
 // с шага 74: счёт катастроф -- рост в тишине (только чтения): пик > 10·вход и пик > 20
 const mxp = () => { let m = 0; for (const p of w.parts) if (p) m = Math.max(m, Math.abs(p.pred)); return m; };
 let cat = 0, gmax = 0, sil = null;
@@ -80,13 +66,12 @@ function lifeRec(a) {
   const before = w.parts.filter((p) => p && p.x).map((p) => [p, p.pred]);
   M.round(w);
   const s = {}, n = {};
-  for (const [p, pr] of before) { if (w.parts[p.slot] !== p) continue; s[p.ch] = (s[p.ch] || 0) + (p.s - pr) ** 2; n[p.ch] = (n[p.ch] || 0) + 1;
-    if (a && p.ch === SCH) { a.kn += (pr - w.L) ** 2; a.kz += w.L * w.L; a.kk += (K3.last - w.L) ** 2; } }   // с шага 76: против наблюдателя
+  for (const [p, pr] of before) { if (w.parts[p.slot] !== p) continue; s[p.ch] = (s[p.ch] || 0) + (p.s - pr) ** 2; n[p.ch] = (n[p.ch] || 0) + 1; }
   if (!a) return;
   for (const c of MIX) { a.mix += n[c] ? s[c] / n[c] : V; a.nm++; }
   a.S += n[SCH] ? s[SCH] / n[SCH] : VS; a.nS++;
 }
-const tacc = () => ({ mix: 0, nm: 0, S: 0, nS: 0, kn: 0, kz: 0, kk: 0 });
+const tacc = () => ({ mix: 0, nm: 0, S: 0, nS: 0 });
 // с шага 50: цикл строки 3 повторяется 5 раз, между циклами 960 кругов жизни; квадраты ошибок -- по всем циклам
 const FF = +(process.env.FREE_F ?? 100), FL = +(process.env.FREE_L ?? 1000), WIPE3 = +(process.env.WIPE3 ?? 0);
 // с шага 75: отрицательный контроль меры строк 3 -- в конце тишины у частей медленного канала стираются веса
@@ -110,5 +95,4 @@ for (let c = 0; c < 3; c++) {
 const RmixL = (V - postL.mix / postL.nm) / (V - preL.mix / preL.nm), RSL = (VS - postL.S / postL.nS) / (VS - preL.S / preL.nS);
 console.log([mode, seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
   f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL), (Hs.s10 || []).map((x) => x.toFixed(6)).join(','), (Hs.s30 || []).map((x) => x.toFixed(6)).join(','), `${cat},${gmax.toExponential(3)}`,
-  [pre, post].flatMap((a) => [a.mix, a.nm, a.S, a.nS]).map((x) => x.toFixed(6)).join(','), [preL, postL].flatMap((a) => [a.mix, a.nm, a.S, a.nS]).map((x) => x.toFixed(6)).join(','),
-  [pre, post, preL, postL].flatMap((a) => [a.kn, a.kz, a.kk]).map((x) => x.toFixed(6)).join(',')].join('\t'));
+  [pre, post].flatMap((a) => [a.mix, a.nm, a.S, a.nS]).map((x) => x.toFixed(6)).join(','), [preL, postL].flatMap((a) => [a.mix, a.nm, a.S, a.nS]).map((x) => x.toFixed(6)).join(',')].join('\t'));
