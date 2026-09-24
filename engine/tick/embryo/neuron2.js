@@ -146,6 +146,7 @@ const IAGE = K('IAGE', 1000);         // сколько кругов связь 
 const ISLOW = K('ISLOW', 0);          // шаг 88: 1 -- отпечаток хранит медленное среднее веса (окно IAGE), а не последний вес
 const IMAX = K('IMAX', 8);            // отпечатков на часть, старый вытесняется
 const LLEARN = K('LLEARN', 0);        // шаг 91: 1 (при HID) -- период взгляда учится на окупаемости: возмущение периода и чистый доход цикла
+const LLMIX = K('LLMIX', 0);          // шаг 92: 1 -- смешанный мир: обучаемый взгляд у мест с нечётным номером внутри канала (floor(slot/CH)), у чётных -- часы LOOKN
 const LLR = K('LLR', 0.05);           // скорость учёбы периода взгляда
 const LSIG = K('LSIG', 0.5);          // размах возмущения периода (в логарифме)
 const LNOS = K('LNOS', 0);            // шаг 85: 1 (при DLINE) -- линия не товар для частей медленного канала: их поиск выбирает товар, будто линий нет
@@ -376,7 +377,7 @@ function create(seed) {
     fs: { acts: 0, hits: 0, rounds: 0, fed: 0, winners: 0, burn: 0, sf: 0, n: 0,
           sum: 0, sum2: 0, actsRelay: 0, hitsRelay: 0, actsBare: 0, hitsBare: 0, spent: 0, paid: 0,
           byK: new Map(), dUse: new Array(M_PL).fill(0), dHit: new Array(M_PL).fill(0), pert: 0, pertCh: 0,
-          sA: {}, sH: {}, sF: {}, occ: {}, looks: 0, hOne: 0, kA: 0, kH: 0, bA: 0, bH: 0 } };  // сколько связей каждого товара отмерло и сколько потеряно со смертью продавца
+          sA: {}, sH: {}, sF: {}, occ: {}, sL: {}, looks: 0, hOne: 0, kA: 0, kH: 0, bA: 0, bH: 0 } };  // сколько связей каждого товара отмерло и сколько потеряно со смертью продавца
   for (let k = 0; k < CH; k++) w.c[k] = gauss(w.rnd);
   for (let i = 0; i < N; i++) w.parts.push(newPart(w, i, null));
   for (let k = 0; k < PERTURB; k++) w.rnd();   // нуль строки 5: другая история шума при тех же начальных условиях
@@ -682,18 +683,18 @@ function round(w) {
       let want = (base + d) % M_PL;
       if (HID) {                          // знание h: даром (проверка 0) или за взгляд
         if (ORACLE) p.hb = w.h;
-        else if (LOOKN > 0 && (p.hb < 0 || p.hAge >= LOOKN) && p.credit >= LOOK) {
+        else if (LOOKN > 0 && !(LLMIX && LLEARN && Math.floor(p.slot / CH) % 2 === 1) && (p.hb < 0 || p.hAge >= LOOKN) && p.credit >= LOOK) {
           p.credit -= LOOK; p.hb = w.h; p.hAge = 0;
-          if (w.round >= ROUNDS / 2) w.fs.looks++;
+          if (w.round >= ROUNDS / 2) { w.fs.looks++; if (LLMIX) w.fs.sL[p.slot] = (w.fs.sL[p.slot] || 0) + 1; }
         }
-        else if (LLEARN && (p.hb < 0 || p.hAge >= p.lper) && p.credit >= LOOK) {   // шаг 91: взгляд по выученному периоду
+        else if (LLEARN && (!LLMIX || Math.floor(p.slot / CH) % 2 === 1) && (p.hb < 0 || p.hAge >= p.lper) && p.credit >= LOOK) {   // шаг 91: взгляд по выученному периоду
           if (p.hb >= 0 && p.hAge > 0) {  // цикл закрыт: чистый доход за круг -- и учёба периода возмущением
             const inc = ((p.ate - p.la0) - ACT * (p.nAct - p.ln0) - LOOK) / p.hAge;
             if (p.lb === undefined) p.lb = inc;
             p.lth = clamp(p.lth + LLR * (inc - p.lb) * p.leps, 0, Math.log(1000)); p.lb += 0.05 * (inc - p.lb);
           }
           p.credit -= LOOK; p.hb = w.h; p.hAge = 0;
-          if (w.round >= ROUNDS / 2) w.fs.looks++;
+          if (w.round >= ROUNDS / 2) { w.fs.looks++; if (LLMIX) w.fs.sL[p.slot] = (w.fs.sL[p.slot] || 0) + 1; }
           p.la0 = p.ate; p.ln0 = p.nAct; p.leps = LSIG * gauss(w.rnd); p.lper = Math.exp(p.lth + p.leps);
         }
         else if (LOSEK > 0 && p.miss >= LOSEK && p.credit >= LOOK) {   // K промахов подряд -- знание устарело
