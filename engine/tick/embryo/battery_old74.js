@@ -4,12 +4,6 @@ const seed = +process.argv[2], mode = process.argv[3], C = M.CFG, SCH = M.SCH;
 const f = (x, d = 4) => (Number.isFinite(x) ? x.toFixed(d) : 'NaN');
 const med = (a) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
 const w = M.create(seed);
-// с шага 74: счёт катастроф -- рост в тишине (только чтения): пик > 10·вход и пик > 20
-const mxp = () => { let m = 0; for (const p of w.parts) if (p) m = Math.max(m, Math.abs(p.pred)); return m; };
-let cat = 0, gmax = 0, sil = null;
-const silBeg = () => { sil = { a: mxp(), pk: 0 }; };
-const silStep = () => { sil.pk = Math.max(sil.pk, mxp()); };
-const silEnd = () => { const g = sil.pk / Math.max(sil.a, 1e-9); if (g > gmax) gmax = g; if (sil.pk > 10 * sil.a && sil.pk > 20) cat++; };
 if (mode === 'нульА') {
   for (let r = 1; r <= 100000; r++) M.round(w);
   const st = M.stats(w);
@@ -54,7 +48,7 @@ for (const T of [10, 30]) {
   const hT = acc();
   for (let c = 0; c < 100; c++) {
     for (let r = 1; r <= 100; r++) life();
-    silBeg(); for (let k = 1; k <= T; k++) { silent(); silStep(); } silEnd();
+    for (let k = 1; k <= T; k++) silent();
     const prT = Sp().map((p) => p.pred), kpT = life(); add(hT, prT, kpT, w.L);
   }
   Hs[T] = H(hT); Hs['s' + T] = [hT.net, hT.nul, hT.kal];
@@ -78,7 +72,7 @@ const pre = tacc(), post = tacc();
 for (let c = 0; c < 5; c++) {
   if (c) for (let r = 1; r <= 960; r++) M.round(w);
   for (let r = 1; r <= 40; r++) lifeRec(pre);
-  silBeg(); for (let k = 1; k <= FF; k++) { M.freeRound(w); silStep(); } silEnd();
+  for (let k = 1; k <= FF; k++) M.freeRound(w);
   for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? post : null);
 }
 const Rmix = (V - post.mix / post.nm) / (V - pre.mix / pre.nm), RS = (VS - post.S / post.nS) / (VS - pre.S / pre.nS);
@@ -87,9 +81,9 @@ const preL = tacc(), postL = tacc();
 for (let c = 0; c < 3; c++) {
   for (let r = 1; r <= 960; r++) M.round(w);
   for (let r = 1; r <= 40; r++) lifeRec(preL);
-  silBeg(); for (let k = 1; k <= 1000; k++) { M.freeRound(w); silStep(); } silEnd();
+  for (let k = 1; k <= 1000; k++) M.freeRound(w);
   for (let r = 1; r <= 45; r++) lifeRec(r > 5 ? postL : null);
 }
 const RmixL = (V - postL.mix / postL.nm) / (V - preL.mix / preL.nm), RSL = (VS - postL.S / postL.nS) / (VS - preL.S / preL.nS);
 console.log([mode, seed, alive, f(st.right), f(st.nul), f(st.bits9), f(hold9), f(kept), chBits.map((x) => f(x, 3)).join(','),
-  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL), (Hs.s10 || []).map((x) => x.toFixed(6)).join(','), (Hs.s30 || []).map((x) => x.toFixed(6)).join(','), `${cat},${gmax.toExponential(3)}`].join('\t'));
+  f(st.food ? st.food.share : NaN), f(Hs[10]), f(Hs[30]), f(Rmix), f(RS), f(RmixL), f(RSL), (Hs.s10 || []).map((x) => x.toFixed(6)).join(','), (Hs.s30 || []).map((x) => x.toFixed(6)).join(',')].join('\t'));
