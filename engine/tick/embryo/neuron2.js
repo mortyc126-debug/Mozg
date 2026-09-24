@@ -139,7 +139,8 @@ const SPROTECT = K('SPROTECT', 0);      // разбор: части медлен
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
 const ORDERSHUF = K('ORDERSHUF', 0);
 const ORDERTSHUF = K('ORDERTSHUF', 0);
-const QPAY = K('QPAY', 0);            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
+const QPAY = K('QPAY', 0);
+const LFREEZE = K('LFREEZE', 0);      // шаг 82: 1 -- в тишине у линии нет данных: отводы не сдвигаются, текущий отдаёт последнее значение из жизни            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
 const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
 const DLINE = K('DLINE', 0);          // > 0: товар «датчик с линией» -- покупатель сам держит историю входа на DLINE кругов, у связи DLINE+1 отводов
@@ -345,7 +346,7 @@ function newPart(w, slot, par) {
     q: DECIDE ? new Float64Array(M_PL) : null,   // оценка выгоды каждого сдвига, учится только на еде
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
-    p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); } return m; });
+    p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } return m; });
     p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
     if (KIN) { p.zb = par.zb; p.zv = par.zv; if (RELSIG) p.zv5 = par.zv5; }   // потомок помнит спрос на сигнал родителя
@@ -399,7 +400,7 @@ function kill(w, p, why) {
       if (l.k === 2) { if (asKin) w.kinPick = (w.kinPick || 0) + 1; else w.kinMiss = (w.kinMiss || 0) + 1; }
       if (!pick) pick = c[Math.floor(w.rnd() * c.length)];
       const nl = { j: pick.slot, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.k === 2 && !asKin ? 0 : l.age };
-      if (l.tw) { nl.tw = Float64Array.from(l.tw); nl.buf = l.buf.slice(); }
+      if (l.tw) { nl.tw = Float64Array.from(l.tw); nl.buf = l.buf.slice(); if (LFREEZE) nl.last = l.last; }
       q.links.push(nl);
     }
   }
@@ -593,11 +594,12 @@ function round(w) {
         p.credit -= PRICE; inc[l.j] += PRICE;
         }
       }
-      const v = l.k === 2 ? P[l.j].zOut : l.k === 1 ? P[l.j].outP : P[l.j].s;   // 0 и 3 -- датчик
+      const lf = LFREEZE && quiet && l.k === 3;   // шаг 82: в тишине линия отдаёт последнее значение из жизни и не сдвигается
+      const v = lf ? (l.last ?? 0) : l.k === 2 ? P[l.j].zOut : l.k === 1 ? P[l.j].outP : P[l.j].s;   // 0 и 3 -- датчик
       x.push(v); xl.push(l); xt.push(TRY > 0 && l.age < TRIAL);
       if (DLINE && l.k === 3) {           // линия у покупателя: отводы 1..DLINE -- значения прошлых кругов
         if (!l.buf) { l.buf = new Array(DLINE).fill(0); l.tw = new Float64Array(DLINE); }
-        l.xb = l.buf.slice(); l.buf.unshift(v); l.buf.length = DLINE;
+        l.xb = l.buf.slice(); if (!lf) { l.buf.unshift(v); l.buf.length = DLINE; if (LFREEZE) l.last = v; }
       }
       if (SIGNAL) { if (!nod) l.r2 += 0.05 * (v * v - l.r2); if (l.k === 2) zr[l.j]++; }
     }
@@ -844,10 +846,11 @@ function pauseRound(w) {
     const px = PAUSEX ? [hold ? sh : 0] : null, pxl = PAUSEX ? [] : null, pxt = PAUSEX ? [] : null;
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
-      const v = l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
+      const lf = LFREEZE && l.k === 3;    // шаг 82: в паузе линия отдаёт последнее значение из жизни
+      const v = lf ? (l.last ?? 0) : l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
       if (PAUSEX) { px.push(v); pxl.push(l); pxt.push(TRY > 0 && l.age < TRIAL); if (l.tw) l.xb = l.buf.slice(); }
       if (!(TRY > 0 && l.age < TRIAL)) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // проба в прогноз не входит, как в round
-      if (l.tw) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели
+      if (l.tw && !lf) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели; с шага 82 при LFREEZE -- стоит
       if (SIGNAL) z += l.u * v;
     }
     if (HCAP > 0 && !hs) {                // предел: вклад части на себя заменяется ограниченным (sh и p.outP здесь равны)
