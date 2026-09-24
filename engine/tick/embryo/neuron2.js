@@ -141,6 +141,9 @@ const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOU
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
 const DLINE = K('DLINE', 0);          // > 0: товар «датчик с линией» -- покупатель сам держит историю входа на DLINE кругов, у связи DLINE+1 отводов
 const PROTECTQ = K('PROTECTQ', 0);    // разбор строки 8: части канала Q без аренды и бессмертны
+const CSEARCH = K('CSEARCH', 0);      // > 0: слепой поиск пробует столько кандидатов даром и берёт того, чьё прошлое сильнее совпало с ошибкой части
+const CWIN = K('CWIN', 32);           // окно совпадения, кругов
+const CHIST = K('CHIST', 0);          // разбор: 1 -- писать историю ошибок и товаров без выбора (для ворот шага 68)
 const QDELAY = K('QDELAY', 0);        // разбор строки 8: частям канала Q даром линия задержки A и B на 0-6 кругов, веса учит LMS  // нуль строки 8: знак отчёта -- жребий, не связанный с порядком
 const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
@@ -405,6 +408,21 @@ function pickByGain(pool, r) {            // шанс растёт с доход
   return pool[pool.length - 1];
 }
 
+// шаг 68: совпадение ошибки части с прошлым товара кандидата -- наибольшее |корреляция| по запаздываниям
+const HIST = CSEARCH > 0 || CHIST > 0, HLEN = CWIN + DLINE + 2;
+function cscore(w, p, j, k) {
+  const g = w.gh && w.gh[j]; if (!g || !p.eh) return 0;
+  const v = k === 1 ? g.p : k === 2 ? g.z : g.s, e = p.eh, L = DLINE && k === 3 ? DLINE : 0;
+  let best = 0;
+  for (let lag = 0; lag <= L; lag++) {
+    let sxy = 0, sxx = 0, syy = 0, n = 0;
+    for (let i = 0; i < e.length; i++) { const t = i + 1 + lag; if (t >= v.length) break;
+      sxy += e[i] * v[t]; sxx += e[i] * e[i]; syy += v[t] * v[t]; n++; }
+    if (n >= 8 && sxx > 0 && syy > 0) { const c = Math.abs(sxy) / Math.sqrt(sxx * syy); if (c > best) best = c; }
+  }
+  return best;
+}
+
 function round(w) {
   worldStep(w);
   const P = w.parts, inc = new Float64Array(N);
@@ -419,6 +437,12 @@ function round(w) {
     for (const p of P) if (p) { p.c0 = p.credit; p.outP = p.pred; p.zOut = p.z; p.s = HOLD === 1 ? p.outP : 0; p.sh = HOLD ? p.outP : 0; }
   } else
   for (const p of P) if (p) { p.c0 = p.credit; p.s = w.c[p.ch] + SN * gauss(w.rnd); p.outP = p.pred; p.zOut = p.z; }
+  if (HIST) {                             // шаг 68: история товаров места -- что покупатели видят в этом круге (новейшее первым)
+    if (!w.gh) w.gh = new Array(N).fill(null);
+    for (const p of P) if (p) { const g = w.gh[p.slot] || (w.gh[p.slot] = { s: [], p: [], z: [] });
+      g.s.unshift(p.s); g.p.unshift(p.outP); g.z.unshift(p.zOut);
+      if (g.s.length > HLEN) { g.s.length = HLEN; g.p.length = HLEN; g.z.length = HLEN; } }
+  }
   if (EAT) {                              // границы долей, раздача еды, замеры второй половины
     const f = w.c[FCH];
     if (w.round < ROUNDS / 2) {           // границы -- выборочные квантили первой половины, потом заморожены
@@ -486,6 +510,7 @@ function round(w) {
     alive++;
     if (!p.x) { p.bits = 0; continue; }
     const e = (quiet ? p.sh : p.s) - p.pred;   // в тишине -- ошибка против того, что стоит на месте датчика
+    if (HIST) { (p.eh ||= []).unshift(e); if (p.eh.length > CWIN) p.eh.length = CWIN; }   // шаг 68: e(t) -- ошибка прогноза по входам круга t-1
     if (SIGNAL) for (const l of p.xl) if (l.k === 2 && !l.dead) {   // ошибка обратно продавцу
       fb[l.j] += e * l.w; if (DEMAND) dm[l.j] += e * e;
     }
@@ -652,6 +677,18 @@ function round(w) {
         }
       }
       if (hint) { j = hint.j; k = hint.k; }
+      else if (CSEARCH > 0) {             // шаг 68: кандидаты тем же жребием; берётся лучший по совпадению с ошибкой
+        const full = p.eh && p.eh.length >= CWIN;
+        let best = -1; j = -1; k = 0;
+        for (let c = 0; c < CSEARCH; c++) {
+          const jj = Math.floor(w.rnd() * N), q = w.rnd();
+          const kk = DLINE ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
+          if (!(P[jj] && jj !== p.slot && !p.links.some((l) => l.j === jj && l.k === kk))) continue;
+          if (!full) { if (best < 0) { best = 0; j = jj; k = kk; } continue; }   // окно не набрано -- первый годный, как слепой
+          const sc = cscore(w, p, jj, kk);
+          if (sc > best) { best = sc; j = jj; k = kk; }
+        }
+      }
       else {
         j = Math.floor(w.rnd() * N); const q = w.rnd();   // товар: 0 датчик, 1 прогноз, 2 сигнал
         k = DLINE ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
@@ -698,6 +735,7 @@ function round(w) {
     if (!pool.length) continue;
     const par = SELECT ? pickByGain(pool, w.rnd) : pool[Math.floor(w.rnd() * pool.length)];
     par.credit -= BIRTH; P[s] = newPart(w, s, par); w.births++;
+    if (HIST && w.gh) w.gh[s] = null;   // шаг 68: новая часть не наследует прошлого места
     if (par.ch !== k) w.colon++;          // заселение чужого канала
   }
   w.round++;
@@ -814,7 +852,7 @@ function pauseRound(w) {
 
 function freeRound(w) { w.silent = true; round(w); w.silent = false; }   // круг свободной активности: все правила ткани, касания мира нет
 
-module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep, freeRound, OCH };
+module.exports = { create, round, stats, CFG, pauseRound, SCH, worldStep, freeRound, OCH, cscore };
 
 if (require.main === module) {
   const f = (v, d = 2) => (Number.isNaN(v) ? '-' : v.toFixed(d));
