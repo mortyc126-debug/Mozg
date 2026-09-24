@@ -164,7 +164,31 @@ const CSEARCH = K('CSEARCH', 0);      // > 0: слепой поиск пробу
 const CWIN = K('CWIN', 32);           // окно совпадения, кругов
 const CHIST = K('CHIST', 0);          // разбор: 1 -- писать историю ошибок и товаров без выбора (для ворот шага 68)
 const QDELAY = K('QDELAY', 0);        // разбор строки 8: частям канала Q даром линия задержки A и B на 0-6 кругов, веса учит LMS  // нуль строки 8: знак отчёта -- жребий, не связанный с порядком
-const N      = K('N', WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0)) : 64);   // мест (по 8 на канал)
+const BODY = K('BODY', 0);            // ТЕЛО-1: 1 -- мир с телом на плоскости: запах слева/справа, касание, копия поворота, вспышка, моторный канал
+const BA = K('BA', 20);               // сторона арены
+const SPEED = K('SPEED', 0.5);        // шаг тела за круг
+const TMAX = K('TMAX', 0.5);          // наибольший поворот за круг, радиан
+const RF = K('RF', 1.5);              // радиус, в котором еда съедается
+const BLAM = K('BLAM', 6);            // длина спада запаха
+const BFOOD = K('BFOOD', 60);         // доход моторного канала за съеденное (делится поровну)
+const PAIN = K('PAIN', 2);            // цена касания стенки для моторного канала (делится поровну)
+const MSIG = K('MSIG', 0.3);          // размах возмущения моторного выхода
+const MLR = K('MLR', 0.05);           // скорость учёбы моторных весов (0 -- нуль М0)
+const MGAM = K('MGAM', 0.9);          // затухание следа
+const BFL = K('BFL', 0.5);            // с какой доли жизни идут вспышки
+const BFIX = K('BFIX', 0);            // 1 -- еда всегда в одной точке, отрастает через BREG кругов; во второй половине запах выключается блоками
+const BREG = K('BREG', 30);
+const BOFF = K('BOFF', 200);          // длина блока без запаха
+const BRAIT = K('BRAIT', 0);          // > 0: положительный отсчёт -- поворот задан правилом BRAIT·(слева − справа), моторный канал не правит
+const BTRAJ = K('BTRAJ', 3000);       // сколько последних кругов траектории хранить
+const MG = K('MG', 6);                // ТЕЛО-2 (BODY=2): лабиринт MG x MG клеток
+const CUR = K('CUR', 0);              // ТЕЛО-2: доход мотора за прирост знания ткани (любопытство)
+const DRK = K('DRK', 0);              // ТЕЛО-2: доход мотора за средние биты немоторных частей (тёмная комната)
+const BWF = K('BWF', 0);              // ТЕЛО-2: 1 -- положительный отсчёт, поворот по правилу правой руки
+const PHA = K('PHA', 40000);          // ТЕЛО-2: кругов брожения без еды
+const PHB = K('PHB', 20000);          // ТЕЛО-2: кругов опытов в первом лабиринте; дальше -- новый лабиринт
+const TOUT = K('TOUT', 2000);         // ТЕЛО-2: срок опыта
+const N      = K('N', BODY === 2 ? 56 : BODY ? 48 : WORLD ? 8 * ((DEEP ? 10 : 8) + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0)) : 64);   // мест (по 8 на канал)
 const ROUNDS = K('ROUNDS', 100000);
 const SN     = K('SN', 0.1);          // шум датчика
 const PAY    = K('PAY', 1);           // тактов за бит сжатия
@@ -235,7 +259,9 @@ const CHW = WORLD ? (DEEP ? 10 : 8) : N;          // каналы без еды
 const FCH = EAT ? CHW : -1;                       // канал еды идёт следующим номером
 const SCH = SLOW ? CHW + (EAT ? 1 : 0) : -1;       // медленный канал идёт после канала еды
 const OCH = ORDER ? CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) : -1;   // каналы A, B, Q идут последними
-const CH = CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0), V = 1 + SN * SN;
+const CH = BODY === 2 ? 7 : BODY ? 6 : CHW + (EAT ? 1 : 0) + (SLOW ? 1 : 0) + (ORDER ? 3 : 0), V = 1 + SN * SN;
+const MCH = BODY === 2 ? 6 : BODY ? 5 : -1;                        // ТЕЛО-1: моторный канал
+if (BODY && (EAT || SLOW || ORDER || DEEP || !WORLD)) throw new Error('BODY=1 -- свой мир: нужны WORLD=1 и EAT=SLOW=ORDER=DEEP=0');
 const PEV = 1 / (1 / OP + (1 + OGMAX) / 2 + (1 + ODMAX) / 2), SEV = 1 / Math.sqrt(PEV * (1 - PEV)), SQ = 1 / Math.sqrt(PEV);   // частота событий за круг и нормировки к единичной дисперсии
 const VS = 1 + SSIG * SSIG + SN * SN;              // дисперсия датчика медленного канала
 if (SLOW && !WORLD) throw new Error('медленный канал требует WORLD=1');
@@ -279,7 +305,84 @@ const hasRelay = (w, p) => p.links.some((l) => { const q = w.parts[l.j];
   return q && l.age >= TRIAL && Math.abs(l.w) * Math.sqrt(l.r2 || 1) >= PRUNE &&
     ((l.k === 2 && carZ(q)) || (l.k === 1 && carP(q))); });
 
+function bodyStep(w) {                  // ТЕЛО-1: тело на плоскости; поворот решён моторным каналом в прошлом круге
+  const r = w.rnd, n = new Float64Array(CH);
+  const b = w.b || (w.b = { x: BA / 2, y: BA / 2, th: 2 * Math.PI * r(), fx: 0, fy: 0, fOn: false, reg: 0, turn: 0, dPrev: 0,
+    st: { n: 0, eat: 0, touch: 0, sxy: 0, sxx: 0, syy: 0, sx: 0, sy: 0, nc: 0, offN: 0, offEat: 0 }, tl: [], fl: [], tr: [] });
+  const half = w.round >= ROUNDS / 2, S = b.st;
+  if (half) { S.sx += b.dPrev; S.sy += b.turn; S.sxy += b.dPrev * b.turn; S.sxx += b.dPrev * b.dPrev; S.syy += b.turn * b.turn; S.nc++; }
+  b.th += TMAX * b.turn; b.x += SPEED * Math.cos(b.th); b.y += SPEED * Math.sin(b.th);
+  let touch = 0;
+  if (b.x < 0) { b.x = 0; touch = 1; } else if (b.x > BA) { b.x = BA; touch = 1; }
+  if (b.y < 0) { b.y = 0; touch = 1; } else if (b.y > BA) { b.y = BA; touch = 1; }
+  const place = () => { if (BFIX) { b.fx = 0.75 * BA; b.fy = 0.75 * BA; } else { b.fx = BA * r(); b.fy = BA * r(); } b.fOn = true; };
+  if (!b.fOn && b.reg <= 0) place();
+  let eat = 0;
+  if (b.fOn && Math.hypot(b.x - b.fx, b.y - b.fy) < RF) { eat = 1; b.fOn = false; b.reg = BFIX ? BREG : 0; if (!BFIX) place(); }
+  else if (!b.fOn) b.reg--;
+  const off = BFIX && half && Math.floor(w.round / BOFF) % 2 === 1;   // блок без запаха
+  const od = (a) => { if (!b.fOn || off) return 0; const sx = b.x + 0.8 * Math.cos(b.th + a), sy = b.y + 0.8 * Math.sin(b.th + a);
+    return Math.exp(-Math.hypot(sx - b.fx, sy - b.fy) / BLAM); };
+  const oL = od(0.6), oR = od(-0.6);
+  const flash = w.round >= BFL * ROUNDS && r() < 0.02 ? 1 : 0;
+  n[0] = 3 * oL - 1; n[1] = 3 * oR - 1; n[2] = 3 * touch; n[3] = 1.5 * b.turn; n[4] = 4 * flash; n[5] = 3 * eat - 1.5 * touch;
+  b.oL = oL; b.oR = oR; b.dPrev = oL - oR; b.eat = eat; b.touch = touch;
+  if (half) { S.n++; S.eat += eat; S.touch += touch; if (off) { S.offN++; S.offEat += eat; } }
+  if (w.round >= BFL * ROUNDS) { b.tl.push(b.turn); if (flash) b.fl.push(b.tl.length - 1); }
+  if (w.round >= ROUNDS - BTRAJ) b.tr.push([+b.x.toFixed(2), +b.y.toFixed(2), eat, touch, +b.fx.toFixed(2), +b.fy.toFixed(2)]);
+  w.c = n;
+}
+
+// ТЕЛО-2: совершенный лабиринт обходом в глубину на своём жребии; стенки -- блоки, коридоры шириной 1
+function makeMaze(seed) {
+  const r = makeRNG(seed), W = 2 * MG + 1, wall = Array.from({ length: W }, () => new Uint8Array(W).fill(1));
+  const st = [[0, 0]], seen = new Set(['0,0']); wall[1][1] = 0;
+  while (st.length) {
+    const [cx, cy] = st[st.length - 1];
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [cx + dx, cy + dy, dx, dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < MG && y < MG && !seen.has(x + ',' + y));
+    if (!nb.length) { st.pop(); continue; }
+    const [x, y, dx, dy] = nb[Math.floor(r() * nb.length)];
+    wall[2 * cx + 1 + dx][2 * cy + 1 + dy] = 0; wall[2 * x + 1][2 * y + 1] = 0; seen.add(x + ',' + y); st.push([x, y]);
+  }
+  const floor = Array.from({ length: W }, () => new Float64Array(W));
+  for (let i = 0; i < W; i++) for (let j = 0; j < W; j++) floor[i][j] = wall[i][j] ? 0 : gauss(r);
+  // кратчайший путь по блокам от старта (1,1) до цели (W-2, W-2)
+  const d = Array.from({ length: W }, () => new Int32Array(W).fill(-1)), q = [[1, 1]]; d[1][1] = 0;
+  while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = x + dx, b = y + dy;
+    if (a >= 0 && b >= 0 && a < W && b < W && !wall[a][b] && d[a][b] < 0) { d[a][b] = d[x][y] + 1; q.push([a, b]); } } }
+  let open = 0; for (let i = 0; i < W; i++) for (let j = 0; j < W; j++) if (!wall[i][j]) open++;
+  return { W, wall, floor, Lmin: d[W - 2][W - 2], open };
+}
+function mazeStep(w) {                  // ТЕЛО-2: тело в лабиринте; фазы: брожение, опыты, опыты в новом лабиринте
+  const r = w.rnd, n = new Float64Array(CH);
+  const b = w.b || (w.b = { mz: makeMaze(w.seed * 7 + 1), x: 1.5, y: 1.5, th: 2 * Math.PI * r(), turn: 0, eat: 0, touch: 0, t0: 0,
+    trials: [[], []], vis: new Set(), tr: [], oL: 0, oR: 0 });
+  const t = w.round, ph = t < PHA ? 0 : t < PHA + PHB ? 1 : 2, m0 = b.mz;
+  if (t === PHA + PHB) { b.mz = makeMaze(w.seed * 31 + 7); b.x = 1.5; b.y = 1.5; b.th = 2 * Math.PI * r(); b.t0 = t; }
+  if (t === PHA) { b.x = 1.5; b.y = 1.5; b.th = 2 * Math.PI * r(); b.t0 = t; }
+  const M = b.mz, bl = (x, y) => x < 0 || y < 0 || x >= M.W || y >= M.W || M.wall[Math.floor(x)][Math.floor(y)] === 1;
+  b.th += TMAX * b.turn;
+  const nx = b.x + SPEED * Math.cos(b.th), ny = b.y + SPEED * Math.sin(b.th);
+  let touch = 0; if (bl(nx, ny)) touch = 1; else { b.x = nx; b.y = ny; }
+  let eat = 0;
+  if (ph > 0) {
+    const G = M.W - 1.5;
+    if (Math.hypot(b.x - G, b.y - G) < 0.5) eat = 1;
+    if (eat || t - b.t0 >= TOUT) { b.trials[ph - 1].push([t - b.t0 + (eat ? 0 : 0), eat]); b.x = 1.5; b.y = 1.5; b.th = 2 * Math.PI * r(); b.t0 = t + 1; }
+  }
+  const ray = (a) => { const c = Math.cos(b.th + a), sn = Math.sin(b.th + a); let d = 0; while (d < 4 && !bl(b.x + d * c, b.y + d * sn)) d += 0.05; return Math.min(d, 4); };
+  const rL = ray(Math.PI / 4), rF = ray(0), rR = ray(-Math.PI / 4);
+  n[0] = rL - 1; n[1] = rF - 1; n[2] = rR - 1; n[3] = 3 * touch; n[4] = 1.5 * b.turn; n[5] = M.floor[Math.floor(b.x)][Math.floor(b.y)];
+  n[6] = 3 * eat - 1.5 * touch;
+  b.rL = rL; b.rF = rF; b.rR = rR; b.eat = eat; b.touch = touch;
+  if (ph === 0 && t >= PHA - 10000) b.vis.add(Math.floor(b.x) + ',' + Math.floor(b.y));
+  if (t >= ROUNDS - BTRAJ || (t >= PHA - BTRAJ && t < PHA)) b.tr.push([+b.x.toFixed(2), +b.y.toFixed(2), eat, touch, ph]);
+  w.c = n;
+}
+
 function worldStep(w) {
+  if (BODY === 2) { mazeStep(w); return; }
+  if (BODY) { bodyStep(w); return; }
   const c = w.c, n = new Float64Array(CH), g = () => gauss(w.rnd);
   if (!WORLD) { for (let k = 0; k < CH; k++) n[k] = 0.9 * c[k] + Math.sqrt(0.19) * g(); }
   else {
@@ -362,19 +465,20 @@ function newPart(w, slot, par) {
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
   if (LLEARN) { p.lth = par ? par.lth : Math.log(10); p.lb = par ? par.lb : undefined; p.leps = 0; p.lper = Math.exp(p.lth); p.la0 = 0; p.ln0 = 0; }   // шаг 91: наследуется, как связи
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
-    p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } if (ISLOW) { m.mw = l.mw; if (l.mtw) m.mtw = Float64Array.from(l.mtw); } return m; });
+    p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (BODY && l.m !== undefined) m.m = l.m; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } if (ISLOW) { m.mw = l.mw; if (l.mtw) m.mtw = Float64Array.from(l.mtw); } return m; });
     p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
     if (IMPRINT && par.imp) p.imp = new Map(par.imp);   // шаг 86: и отпечатки
     if (KIN) { p.zb = par.zb; p.zv = par.zv; if (RELSIG) p.zv5 = par.zv5; }   // потомок помнит спрос на сигнал родителя
     if (DECIDE) p.q = Float64Array.from(par.q);  // потомок наследует таблицу сдвигов, как связи
     if (GAINM) { p.mul = par.mul; p.mbase = par.mbase; }   // потомок наследует множитель
+    if (BODY) { p.m0 = par.m0; p.rb = par.rb; }      // ТЕЛО-1: и моторный сдвиг с оценкой дохода
   }
   return p;
 }
 
 function create(seed) {
-  const w = { rnd: makeRNG(seed), round: 0, parts: [], c: new Float64Array(CH), births: 0,
+  const w = { seed, rnd: makeRNG(seed), round: 0, parts: [], c: new Float64Array(CH), births: 0,
     deaths: { bank: 0, fault: 0 }, deadAges: [], h8: new Array(DEEP + 1).fill(0),
     pruned: [0, 0, 0, 0], lost: [0, 0, 0, 0], colon: 0,
     L: 0, h: 0, abar: 0, abarOld: 0, dep: 0, depPrev: 0, hid: 0, acts: [], fsamp: [], fq: null,    // среднее названное место, выборка F, границы долей
@@ -417,7 +521,7 @@ function kill(w, p, why) {
       const asKin = !!pick;                // родич с тем же сигналом -- товар равноценен, проба не нужна
       if (l.k === 2) { if (asKin) w.kinPick = (w.kinPick || 0) + 1; else w.kinMiss = (w.kinMiss || 0) + 1; }
       if (!pick) pick = c[Math.floor(w.rnd() * c.length)];
-      const nl = { j: pick.slot, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.k === 2 && !asKin ? 0 : l.age };
+      const nl = { j: pick.slot, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.k === 2 && !asKin ? 0 : l.age }; if (BODY && l.m !== undefined) nl.m = l.m;
       if (l.tw) { nl.tw = Float64Array.from(l.tw); nl.buf = l.buf.slice(); if (LFREEZE) nl.last = l.last; }
       if (ISLOW) { nl.mw = l.mw; if (l.mtw) nl.mtw = Float64Array.from(l.mtw); }
       q.links.push(nl);
@@ -582,6 +686,11 @@ function round(w) {
         l.w = clampW(l.w + (p.xt[i] ? p.g.lr * e * xi / (1 + xi * xi) : k * xi));
       }
     }
+    if (BODY === 2 && !quiet && !RULE && p.ch !== MCH) {   // ТЕЛО-2: прирост знания -- ошибка на том же входе до и после учёбы
+      let pn = p.wSelf * p.x[0] + (SELFREC ? p.ws * p.xs : 0);
+      for (let i = 0; i < p.xl.length; i++) if (!p.xt[i]) { const l = p.xl[i]; pn += l.w * p.x[i + 1]; if (l.xb) for (let j = 0; j < l.xb.length; j++) pn += l.tw[j] * l.xb[j]; }
+      w.bK = (w.bK || 0) + e * e - (p.s - pn) ** 2;
+    }
     if (quiet) {}                         // в тишине мир не платит, биты не пересчитываются
     else if (PAYL && SLOW && p.ch === SCH) {   // последствия зависят от мира, а не от шума датчика; учёба L не видит
       const eL = w.L - p.pred; p.mseL += BETA * (eL * eL - p.mseL);
@@ -609,6 +718,21 @@ function round(w) {
     p.credit += pay; p.fromWorld += pay;
   }
 
+  if (BODY && !quiet) {                   // ТЕЛО-1: еда и касание -- доход моторного канала поровну; учёба моторных весов возмущением со следом
+    let inM = BFOOD * w.b.eat - PAIN * w.b.touch;
+    if (BODY === 2) { if (CUR) inM += CUR * (w.bK || 0);
+      if (DRK) { let sb = 0, nb = 0; for (const q of P) if (q && q.ch !== MCH) { sb += q.bits; nb++; } inM += DRK * (nb ? sb / nb : 0); }
+      w.bInc = (w.bInc || 0) + inM; }
+    w.bK = 0;
+    const Mp = P.filter((p) => p && p.ch === MCH), rr = Mp.length ? inM / Mp.length : 0;
+    for (const p of Mp) {
+      p.credit += rr; p.fromWorld += rr;
+      if (p.rb === undefined) p.rb = 0;
+      const adv = rr - p.rb; p.rb += 0.01 * adv;
+      if (MLR > 0 && p.me) { p.m0 = clamp((p.m0 || 0) + MLR * adv * p.me, -WMAX, WMAX);
+        for (const l of p.links) if (l.e) l.m = clamp(l.m + MLR * adv * l.e, -WMAX, WMAX); }
+    }
+  }
   // аренда, чтение, новое предсказание; пробные связи читаются первыми
   const zr = SIGNAL ? new Float64Array(N) : null;   // сколько раз купили сигнал части
   for (const p of P) {
@@ -662,6 +786,22 @@ function round(w) {
     }
     if (SELFREC) p.xs = p.outP;
     p.xOld = p.x; p.xlOld = p.xl; p.pred = pred; p.x = x; p.xl = xl; p.xt = xt;
+  }
+  if (BODY && !quiet) {                   // ТЕЛО-1: моторный выход на тех же входах; поворот тела -- среднее
+    let su = 0, nu = 0;
+    for (const p of P) {
+      if (!p || p.ch !== MCH || !p.x) continue;
+      let a = p.m0 || 0;
+      for (let i = 0; i < p.xl.length; i++) { const l = p.xl[i]; if (p.xt[i]) continue;
+        if (l.m === undefined) { l.m = 0.1 * gauss(w.rnd); l.e = 0; } a += l.m * p.x[i + 1]; }
+      const t = Math.tanh(a), eps = gauss(w.rnd), g1 = 1 - t * t;
+      p.me = MGAM * (p.me || 0) + eps * g1;
+      const on = new Set(); for (let i = 0; i < p.xl.length; i++) if (!p.xt[i]) { const l = p.xl[i]; l.e = MGAM * (l.e || 0) + eps * g1 * p.x[i + 1]; on.add(l); }
+      for (const l of p.links) if (!on.has(l) && l.e) l.e *= MGAM;
+      su += clamp(t + MSIG * eps, -1, 1); nu++;
+    }
+    w.b.turn = BWF ? clamp(-1.5 * (Math.min(w.b.rR, 1.5) - 0.5) + (w.b.rF < 0.7 ? 2 : 0) + MSIG * gauss(w.rnd), -1, 1) : BRAIT > 0 ? clamp(BRAIT * (w.b.oL - w.b.oR) + MSIG * gauss(w.rnd), -1, 1) : nu ? su / nu : 0;
+    w.b.nMot = nu;
   }
   for (let i = 0; i < N; i++) if (P[i]) {
     P[i].credit += inc[i]; P[i].fromReads += inc[i];
