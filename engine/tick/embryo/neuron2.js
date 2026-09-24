@@ -140,6 +140,7 @@ const ORDER  = K('ORDER', 0);         // проба строки 8: каналы
 const ORDERSHUF = K('ORDERSHUF', 0);
 const ORDERTSHUF = K('ORDERTSHUF', 0);
 const QPAY = K('QPAY', 0);
+const LEXP = K('LEXP', 0);            // шаг 83: 1 -- в тишине линия продавца медленного канала несёт его ожидание на месте молчащего датчика
 const LFREEZE = K('LFREEZE', 0);      // шаг 82: 1 -- в тишине у линии нет данных: отводы не сдвигаются, текущий отдаёт последнее значение из жизни            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
 const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
@@ -595,7 +596,8 @@ function round(w) {
         }
       }
       const lf = LFREEZE && quiet && l.k === 3;   // шаг 82: в тишине линия отдаёт последнее значение из жизни и не сдвигается
-      const v = lf ? (l.last ?? 0) : l.k === 2 ? P[l.j].zOut : l.k === 1 ? P[l.j].outP : P[l.j].s;   // 0 и 3 -- датчик
+      const le = LEXP && quiet && l.k === 3 && P[l.j].ch === SCH;   // шаг 83: линия медленного канала в тишине -- ожидание продавца
+      const v = lf ? (l.last ?? 0) : le ? P[l.j].outP : l.k === 2 ? P[l.j].zOut : l.k === 1 ? P[l.j].outP : P[l.j].s;   // 0 и 3 -- датчик
       x.push(v); xl.push(l); xt.push(TRY > 0 && l.age < TRIAL);
       if (DLINE && l.k === 3) {           // линия у покупателя: отводы 1..DLINE -- значения прошлых кругов
         if (!l.buf) { l.buf = new Array(DLINE).fill(0); l.tw = new Float64Array(DLINE); }
@@ -847,7 +849,8 @@ function pauseRound(w) {
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const lf = LFREEZE && l.k === 3;    // шаг 82: в паузе линия отдаёт последнее значение из жизни
-      const v = lf ? (l.last ?? 0) : l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
+      const le = LEXP && l.k === 3 && q.ch === SCH;   // шаг 83: в паузе линия медленного канала -- ожидание продавца
+      const v = lf ? (l.last ?? 0) : le ? q.outP : l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
       if (PAUSEX) { px.push(v); pxl.push(l); pxt.push(TRY > 0 && l.age < TRIAL); if (l.tw) l.xb = l.buf.slice(); }
       if (!(TRY > 0 && l.age < TRIAL)) { pred += l.w * v; if (l.tw) for (let j = 0; j < l.tw.length; j++) pred += l.tw[j] * l.buf[j]; }   // проба в прогноз не входит, как в round
       if (l.tw && !lf) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели; с шага 82 при LFREEZE -- стоит
