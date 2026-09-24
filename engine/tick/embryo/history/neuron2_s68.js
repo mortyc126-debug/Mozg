@@ -137,7 +137,6 @@ const PAYL   = K('PAYL', 0);          // 1: мир платит медленно
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
 const ORDERSHUF = K('ORDERSHUF', 0);
-const ORDERTSHUF = K('ORDERTSHUF', 0); // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
 const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
 const DLINE = K('DLINE', 0);          // > 0: товар «датчик с линией» -- покупатель сам держит историю входа на DLINE кругов, у связи DLINE+1 отводов
@@ -304,7 +303,6 @@ function worldStep(w) {
         if (o.t === o.g) { if (o.x === 0) eb = 1; else ea = 1; }
         if (o.t === o.g + o.d) { q = ORDERSHUF ? (w.rnd() < 0.5 ? 1 : -1) : (o.x === 0 ? 1 : -1); o.ph = 0; }
       }
-      if (ORDERTSHUF) q = w.rnd() < PEV ? (w.rnd() < 0.5 ? 1 : -1) : 0;   // эпизоды идут прежним жребием, отчёт от них отвязан
       n[OCH] = (ea - PEV) * SEV; n[OCH + 1] = (eb - PEV) * SEV; n[OCH + 2] = q * SQ;
       if (QDELAY) { (w.ohA ||= []).unshift(n[OCH]); (w.ohB ||= []).unshift(n[OCH + 1]); w.ohA.length = 7; w.ohB.length = 7; }
     }
