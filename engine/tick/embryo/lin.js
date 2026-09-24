@@ -1,14 +1,15 @@
 // Матрица одного круга тишины (pauseRound) без ограничения сигнала, её радиус и наибольшее сингулярное число.
 // режим 'H' -- с подстановкой ожидания (HOLD=1), '0' -- без неё, 'L' -- личная: ожидание только в свои прогноз и сигнал.
-function build(w, C, mode) {
+function build(w, C, mode, sch) {        // 'LS' (шаг 72): 'LC' только у частей канала sch, у прочих на себя ws и без своего сигнала
   const A = w.parts.filter(Boolean), n = 2 * A.length, row = new Map();
   A.forEach((p, k) => row.set(p.slot, k));
   const M = new Float64Array(n * n), own = mode === '0' ? 0 : 1, buy = mode === 'H' || mode === 'C' ? 1 : 0;   // 'LC' -- личная подстановка с пределом
   A.forEach((p, k) => {
     const ip = 2 * k, iz = 2 * k + 1, nz = 1 / Math.sqrt(p.zv + 1e-9);
-    const g = own * p.wSelf + (C.SELFREC ? p.ws : 0);
-    M[ip * n + ip] += mode === 'C' || mode === 'LC' ? Math.min(0.99, Math.max(-0.99, g)) : g;   // 'C' -- как 'H', но с пределом 0.99 на части
-    if (C.SIGNAL) M[iz * n + ip] += own * p.uSelf * nz;
+    const fast = mode === 'LS' && p.ch !== sch, ow = fast ? 0 : own;
+    const g = ow * p.wSelf + (C.SELFREC ? p.ws : 0);
+    M[ip * n + ip] += (mode === 'C' || mode === 'LC' || mode === 'LS') && !fast ? Math.min(0.99, Math.max(-0.99, g)) : g;   // 'C' -- как 'H', но с пределом 0.99 на части
+    if (C.SIGNAL) M[iz * n + ip] += ow * p.uSelf * nz;
     for (const l of p.links) {
       if (!row.has(l.j)) continue;
       const j = row.get(l.j), col = l.k === 2 ? 2 * j + 1 : 2 * j, g = l.k === 0 ? buy : 1;

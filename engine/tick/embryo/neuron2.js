@@ -121,6 +121,7 @@ const WSLEARN = K('WSLEARN', 1);        // 1 этот вес учится LMS, 0
 const WS0    = K('WS0', 0);             // начальный (или закреплённый) вес на себя у частей прочих каналов
 const WS0S   = K('WS0S', 0);           // то же у частей медленного канала
 const HOLD   = K('HOLD', 0);          // 1: в тишине на месте молчащего датчика -- собственное ожидание части; 2: только для самой части, покупатели видят молчание
+const HOLDS  = K('HOLDS', 0);         // 1 (при HOLD=2): своё ожидание на месте своего датчика в прогнозе и сигнале в тишине -- только у частей медленного канала; цель учёбы прежняя
 const HCAP   = K('HCAP', 0);          // > 0: в тишине при HOLD усиление части на себя (wSelf + ws) не выше HCAP по модулю
 const FREEPRUNE = K('FREEPRUNE', 1);  // разбор: 0 -- в тишине связи не отмирают и не ищутся, их возраст заморожен
 const FREEMETA = K('FREEMETA', 1);    // разбор: 0 -- в тишине нет аренды, платы за чтения, поиска, смертей и рождений
@@ -224,6 +225,7 @@ if (SLOW && !WORLD) throw new Error('медленный канал требуе�
 if (EAT && (!FREEPRUNE || !FREEMETA)) throw new Error('тишина со всеми правилами не поддержана в мире еды');
 if ((REL3 || PERTURB) && (RHO !== 0 || MIX !== 1)) throw new Error('проба строки 5 рассчитана на RHO=0 и MIX=1');
 if (DLINE && RULE) throw new Error('линия задержки поддержана только при LMS');
+if (HOLDS && HOLD !== 2) throw new Error('HOLDS поддержан только при HOLD=2');
 if (HCAP && !HOLD) throw new Error('предел HCAP действует только при HOLD=1');
 if (PAYL && !SLOW) throw new Error('плата за знание L требует медленного канала (SLOW=1)');
 if (SELFREC && RULE) throw new Error('связь на себя поддержана только при законе LMS (RULE=0)');
@@ -575,7 +577,8 @@ function round(w) {
     if (!(SPROTECT && p.ch === SCH) && !(PROTECTQ && p.ch === OCH + 2) && !money && !(YOUTH && p.age < YOUTH)) p.credit -= RENT;
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
-    const sv = quiet ? p.sh : p.s, capq = quiet && HCAP > 0 && HOLD;
+    const hs = quiet && HOLDS && p.ch !== SCH;   // шаг 72: в тишине у быстрых частей на месте датчика в прогнозе -- ноль, цель учёбы -- прежняя (p.sh)
+    const sv = quiet ? (hs ? 0 : p.sh) : p.s, capq = quiet && HCAP > 0 && HOLD && !hs;
     if (RELPRUNE && !nod) p.r2s += 0.05 * (sv * sv - p.r2s);   // мощность того, что стоит на месте датчика
     const x = [sv], xl = [], xt = [];
     for (const l of order) {
@@ -831,8 +834,9 @@ function pauseRound(w) {
   for (const p of P) {
     if (!p) continue;
     const sh = HOLD === 2 ? p.outP : p.s;   // что часть подставляет себе на место датчика
-    let pred = HOLD ? p.wSelf * sh : 0, z = HOLD ? p.uSelf * sh : 0;   // без HOLD вклад датчика равен нулю
-    const px = PAUSEX ? [HOLD ? sh : 0] : null, pxl = PAUSEX ? [] : null, pxt = PAUSEX ? [] : null;
+    const hs = HOLDS && p.ch !== SCH, hold = HOLD && !hs;   // шаг 72: у быстрых частей подстановки нет
+    let pred = hold ? p.wSelf * sh : 0, z = hold ? p.uSelf * sh : 0;   // без HOLD вклад датчика равен нулю
+    const px = PAUSEX ? [hold ? sh : 0] : null, pxl = PAUSEX ? [] : null, pxt = PAUSEX ? [] : null;
     for (const l of p.links) {
       const q = P[l.j]; if (!q) continue;
       const v = l.k === 2 ? q.zOut : l.k === 1 ? q.outP : q.s;
@@ -841,7 +845,7 @@ function pauseRound(w) {
       if (l.tw) { l.buf.unshift(v); l.buf.length = DLINE; }   // с шага 64: в паузе история линии сдвигается тем, что видят покупатели
       if (SIGNAL) z += l.u * v;
     }
-    if (HCAP > 0) {                       // предел: вклад части на себя заменяется ограниченным (sh и p.outP здесь равны)
+    if (HCAP > 0 && !hs) {                // предел: вклад части на себя заменяется ограниченным (sh и p.outP здесь равны)
       const own = p.wSelf + (SELFREC ? p.ws : 0);
       pred += clamp(own, -HCAP, HCAP) * p.outP - p.wSelf * sh;
     } else
