@@ -141,6 +141,9 @@ const ORDERSHUF = K('ORDERSHUF', 0);
 const ORDERTSHUF = K('ORDERTSHUF', 0);
 const QPAY = K('QPAY', 0);
 const LEXP = K('LEXP', 0);            // шаг 83: 1 -- в тишине линия продавца медленного канала несёт его ожидание на месте молчащего датчика
+const IMPRINT = K('IMPRINT', 0);      // шаг 86: 1 -- отмершая долгая связь оставляет отпечаток весов; новая связь того же рода начинает с него
+const IAGE = K('IAGE', 1000);         // сколько кругов связь должна прожить, чтобы оставить отпечаток
+const IMAX = K('IMAX', 8);            // отпечатков на часть, старый вытесняется
 const LNOS = K('LNOS', 0);            // шаг 85: 1 (при DLINE) -- линия не товар для частей медленного канала: их поиск выбирает товар, будто линий нет
 const LCAP = K('LCAP', 0);            // шаг 84: 1 (при LEXP) -- предел HCAP на всё усиление части медленного канала на ожидания в тишине: возврат плюс линии продавцов медленного канала
 const LFREEZE = K('LFREEZE', 0);      // шаг 82: 1 -- в тишине у линии нет данных: отводы не сдвигаются, текущий отдаёт последнее значение из жизни            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
@@ -352,6 +355,7 @@ function newPart(w, slot, par) {
     p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } return m; });
     p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
+    if (IMPRINT && par.imp) p.imp = new Map(par.imp);   // шаг 86: и отпечатки
     if (KIN) { p.zb = par.zb; p.zv = par.zv; if (RELSIG) p.zv5 = par.zv5; }   // потомок помнит спрос на сигнал родителя
     if (DECIDE) p.q = Float64Array.from(par.q);  // потомок наследует таблицу сдвигов, как связи
     if (GAINM) { p.mul = par.mul; p.mbase = par.mbase; }   // потомок наследует множитель
@@ -385,6 +389,7 @@ function kill(w, p, why) {
   const cos = (a, b) => { let d = 0, na = 0, nb = 0; for (const [k, v] of a) { na += v * v; d += v * (b.get(k) || 0); }
     for (const v of b.values()) nb += v * v; return na && nb ? d / Math.sqrt(na * nb) : 0; };
   const pp = KIN ? prof(p) : null;
+  if (IMPRINT) for (const q of w.parts) if (q && q.imp) q.imp.delete('s' + p.slot);   // шаг 86: отпечаток сигнала павшего продавца пропадает
   for (const q of w.parts) {
     if (!q) continue;
     const gone = [];
@@ -415,6 +420,19 @@ function pickByGain(pool, r) {            // шанс растёт с доход
   let t = r() * sum;
   for (const p of pool) { t -= wt(p); if (t <= 0) return p; }
   return pool[pool.length - 1];
+}
+
+// шаг 86: отпечаток связи -- ключ по роду входа (канал продавца и товар; для сигнала -- сам продавец)
+const ikey = (P, j, k) => (k === 2 ? 's' + j : P[j].ch + ':' + k);
+function imprint(P, p, l) {
+  const key = ikey(P, l.j, l.k); if (!p.imp) p.imp = new Map();
+  p.imp.delete(key); p.imp.set(key, { w: l.w, u: l.u, tw: l.tw ? Float64Array.from(l.tw) : null });
+  if (p.imp.size > IMAX) p.imp.delete(p.imp.keys().next().value);
+}
+function recall(P, p, nl) {                // новая связь того же рода начинает с отпечатка
+  const m = p.imp && p.imp.get(ikey(P, nl.j, nl.k)); if (!m) return nl;
+  nl.w = m.w; nl.u = m.u; if (m.tw && DLINE && nl.k === 3) { nl.tw = Float64Array.from(m.tw); nl.buf = new Array(DLINE).fill(0); }
+  return nl;
 }
 
 // шаг 68: совпадение ошибки части с прошлым товара кандидата -- наибольшее |корреляция| по запаздываниям
@@ -687,7 +705,7 @@ function round(w) {
         ? (l.tw ? Math.hypot(l.w, ...l.tw) : Math.abs(l.w)) * Math.sqrt(RELPRUNE ? l.r2 * ((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.r2s, 1e-300) : l.r2) >= PRUNE ||   // вклад в свой прогноз
           (p.zb > 0.3 && Math.abs(l.u) * Math.sqrt(l.r2 / (RELSIG ? p.zv5 : p.zv)) >= PRUNE)  // вклад в сигнал, пока его покупают
         : Math.abs(l.w) >= PRUNE);
-      if (!keep) { l.dead = true; if (l.age >= TRIAL) w.pruned[l.k]++; } return keep; });
+      if (!keep) { l.dead = true; if (l.age >= TRIAL) w.pruned[l.k]++; if (IMPRINT && l.age >= IAGE && P[l.j]) imprint(P, p, l); } return keep; });
     }
     if (!frozenL && !money && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < p.g.urge * SEARCH) {
       p.credit -= C_LINK;                 // поиск платный, даже неудачный
@@ -717,13 +735,13 @@ function round(w) {
         k = (DLINE && !(LNOS && p.ch === SCH)) ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
       }
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
-        p.links.push({ j, k, w: 0, u: SIGNAL ? 0.05 * gauss(w.rnd) : 0, r2: 1, age: 0 });
+        { const nl = { j, k, w: 0, u: SIGNAL ? 0.05 * gauss(w.rnd) : 0, r2: 1, age: 0 }; p.links.push(IMPRINT ? recall(P, p, nl) : nl); }
     }
     if (DEMAND && !frozenL && !money && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < DEMAND * Math.min(1, p.dem)) {
       p.credit -= C_LINK;                 // покупатели недовольны -- продавец ищет новый вход для сигнала
       const j = Math.floor(w.rnd() * N), q = w.rnd(), k = (DLINE && !(LNOS && p.ch === SCH)) ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2;
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
-        p.links.push({ j, k, w: 0, u: 0.05 * gauss(w.rnd), r2: 1, age: 0 });
+        { const nl = { j, k, w: 0, u: 0.05 * gauss(w.rnd), r2: 1, age: 0 }; p.links.push(IMPRINT ? recall(P, p, nl) : nl); }
     }
     if (!sleep) p.gain += GAIN * (p.credit - p.c0 - p.gain);   // доход за круг, сглаженный; во сне часы хозяйства стоят
     p.age++;
