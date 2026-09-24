@@ -147,6 +147,7 @@ const ISLOW = K('ISLOW', 0);          // шаг 88: 1 -- отпечаток хр
 const IMAX = K('IMAX', 8);            // отпечатков на часть, старый вытесняется
 const LLEARN = K('LLEARN', 0);        // шаг 91: 1 (при HID) -- период взгляда учится на окупаемости: возмущение периода и чистый доход цикла
 const LLMIX = K('LLMIX', 0);          // шаг 92: 1 -- смешанный мир: обучаемый взгляд у мест с нечётным номером внутри канала (floor(slot/CH)), у чётных -- часы LOOKN
+const LLSIDE = K('LLSIDE', 1);        // шаг 94: при LLMIX учится половина с номером в канале этой чётности (1 -- нечётные, 0 -- чётные)
 const LLR = K('LLR', 0.05);           // скорость учёбы периода взгляда
 const LSIG = K('LSIG', 0.5);          // размах возмущения периода (в логарифме)
 const LNOS = K('LNOS', 0);            // шаг 85: 1 (при DLINE) -- линия не товар для частей медленного канала: их поиск выбирает товар, будто линий нет
@@ -683,11 +684,11 @@ function round(w) {
       let want = (base + d) % M_PL;
       if (HID) {                          // знание h: даром (проверка 0) или за взгляд
         if (ORACLE) p.hb = w.h;
-        else if (LOOKN > 0 && !(LLMIX && LLEARN && Math.floor(p.slot / CH) % 2 === 1) && (p.hb < 0 || p.hAge >= LOOKN) && p.credit >= LOOK) {
+        else if (LOOKN > 0 && !(LLMIX && LLEARN && Math.floor(p.slot / CH) % 2 === LLSIDE) && (p.hb < 0 || p.hAge >= LOOKN) && p.credit >= LOOK) {
           p.credit -= LOOK; p.hb = w.h; p.hAge = 0;
           if (w.round >= ROUNDS / 2) { w.fs.looks++; if (LLMIX) w.fs.sL[p.slot] = (w.fs.sL[p.slot] || 0) + 1; }
         }
-        else if (LLEARN && (!LLMIX || Math.floor(p.slot / CH) % 2 === 1) && (p.hb < 0 || p.hAge >= p.lper) && p.credit >= LOOK) {   // шаг 91: взгляд по выученному периоду
+        else if (LLEARN && (!LLMIX || Math.floor(p.slot / CH) % 2 === LLSIDE) && (p.hb < 0 || p.hAge >= p.lper) && p.credit >= LOOK) {   // шаг 91: взгляд по выученному периоду
           if (p.hb >= 0 && p.hAge > 0) {  // цикл закрыт: чистый доход за круг -- и учёба периода возмущением
             const inc = ((p.ate - p.la0) - ACT * (p.nAct - p.ln0) - LOOK) / p.hAge;
             if (p.lb === undefined) p.lb = inc;
