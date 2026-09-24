@@ -145,6 +145,9 @@ const IMPRINT = K('IMPRINT', 0);      // шаг 86: 1 -- отмершая дол
 const IAGE = K('IAGE', 1000);         // сколько кругов связь должна прожить, чтобы оставить отпечаток
 const ISLOW = K('ISLOW', 0);          // шаг 88: 1 -- отпечаток хранит медленное среднее веса (окно IAGE), а не последний вес
 const IMAX = K('IMAX', 8);            // отпечатков на часть, старый вытесняется
+const LLEARN = K('LLEARN', 0);        // шаг 91: 1 (при HID) -- период взгляда учится на окупаемости: возмущение периода и чистый доход цикла
+const LLR = K('LLR', 0.05);           // скорость учёбы периода взгляда
+const LSIG = K('LSIG', 0.5);          // размах возмущения периода (в логарифме)
 const LNOS = K('LNOS', 0);            // шаг 85: 1 (при DLINE) -- линия не товар для частей медленного канала: их поиск выбирает товар, будто линий нет
 const LCAP = K('LCAP', 0);            // шаг 84: 1 (при LEXP) -- предел HCAP на всё усиление части медленного канала на ожидания в тишине: возврат плюс линии продавцов медленного канала
 const LFREEZE = K('LFREEZE', 0);      // шаг 82: 1 -- в тишине у линии нет данных: отводы не сдвигаются, текущий отдаёт последнее значение из жизни            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
@@ -352,6 +355,7 @@ function newPart(w, slot, par) {
     ph: [], ate: 0, nAct: 0, nHit: 0, hb: -1, hAge: 0, miss: 0,      // прошлые намерения (для нуля Б) и счёт действий
     q: DECIDE ? new Float64Array(M_PL) : null,   // оценка выгоды каждого сдвига, учится только на еде
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
+  if (LLEARN) { p.lth = par ? par.lth : Math.log(10); p.lb = par ? par.lb : undefined; p.leps = 0; p.lper = Math.exp(p.lth); p.la0 = 0; p.ln0 = 0; }   // шаг 91: наследуется, как связи
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
     p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } if (ISLOW) { m.mw = l.mw; if (l.mtw) m.mtw = Float64Array.from(l.mtw); } return m; });
     p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
@@ -681,6 +685,16 @@ function round(w) {
         else if (LOOKN > 0 && (p.hb < 0 || p.hAge >= LOOKN) && p.credit >= LOOK) {
           p.credit -= LOOK; p.hb = w.h; p.hAge = 0;
           if (w.round >= ROUNDS / 2) w.fs.looks++;
+        }
+        else if (LLEARN && (p.hb < 0 || p.hAge >= p.lper) && p.credit >= LOOK) {   // шаг 91: взгляд по выученному периоду
+          if (p.hb >= 0 && p.hAge > 0) {  // цикл закрыт: чистый доход за круг -- и учёба периода возмущением
+            const inc = ((p.ate - p.la0) - ACT * (p.nAct - p.ln0) - LOOK) / p.hAge;
+            if (p.lb === undefined) p.lb = inc;
+            p.lth = clamp(p.lth + LLR * (inc - p.lb) * p.leps, 0, Math.log(1000)); p.lb += 0.05 * (inc - p.lb);
+          }
+          p.credit -= LOOK; p.hb = w.h; p.hAge = 0;
+          if (w.round >= ROUNDS / 2) w.fs.looks++;
+          p.la0 = p.ate; p.ln0 = p.nAct; p.leps = LSIG * gauss(w.rnd); p.lper = Math.exp(p.lth + p.leps);
         }
         else if (LOSEK > 0 && p.miss >= LOSEK && p.credit >= LOOK) {   // K промахов подряд -- знание устарело
           p.credit -= LOOK; p.hb = w.h; p.hAge = 0; p.miss = 0;
