@@ -143,6 +143,7 @@ const QPAY = K('QPAY', 0);
 const LEXP = K('LEXP', 0);            // шаг 83: 1 -- в тишине линия продавца медленного канала несёт его ожидание на месте молчащего датчика
 const IMPRINT = K('IMPRINT', 0);      // шаг 86: 1 -- отмершая долгая связь оставляет отпечаток весов; новая связь того же рода начинает с него
 const IAGE = K('IAGE', 1000);         // сколько кругов связь должна прожить, чтобы оставить отпечаток
+const ISLOW = K('ISLOW', 0);          // шаг 88: 1 -- отпечаток хранит медленное среднее веса (окно IAGE), а не последний вес
 const IMAX = K('IMAX', 8);            // отпечатков на часть, старый вытесняется
 const LNOS = K('LNOS', 0);            // шаг 85: 1 (при DLINE) -- линия не товар для частей медленного канала: их поиск выбирает товар, будто линий нет
 const LCAP = K('LCAP', 0);            // шаг 84: 1 (при LEXP) -- предел HCAP на всё усиление части медленного канала на ожидания в тишине: возврат плюс линии продавцов медленного канала
@@ -352,7 +353,7 @@ function newPart(w, slot, par) {
     q: DECIDE ? new Float64Array(M_PL) : null,   // оценка выгоды каждого сдвига, учится только на еде
     mul: GAINM ? MUL0 : 1, mbase: 0 };                          // множитель прогноза и бегущее среднее своей еды
   if (par && par.ch === p.ch) {           // копия на том же месте уносит связи и веса
-    p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } return m; });
+    p.links = par.links.map((l) => { const m = { j: l.j, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.age }; if (l.tw) { m.tw = Float64Array.from(l.tw); m.buf = l.buf.slice(); if (LFREEZE) m.last = l.last; } if (ISLOW) { m.mw = l.mw; if (l.mtw) m.mtw = Float64Array.from(l.mtw); } return m; });
     p.wSelf = par.wSelf; p.mse = par.mse; if (PAYL) p.mseL = par.mseL; if (RELPRUNE) p.r2s = par.r2s; p.uSelf = par.uSelf;
     if (SELFREC) p.ws = par.ws;            // потомок наследует вес на себя
     if (IMPRINT && par.imp) p.imp = new Map(par.imp);   // шаг 86: и отпечатки
@@ -409,6 +410,7 @@ function kill(w, p, why) {
       if (!pick) pick = c[Math.floor(w.rnd() * c.length)];
       const nl = { j: pick.slot, k: l.k, w: l.w, u: l.u, r2: l.r2, age: l.k === 2 && !asKin ? 0 : l.age };
       if (l.tw) { nl.tw = Float64Array.from(l.tw); nl.buf = l.buf.slice(); if (LFREEZE) nl.last = l.last; }
+      if (ISLOW) { nl.mw = l.mw; if (l.mtw) nl.mtw = Float64Array.from(l.mtw); }
       q.links.push(nl);
     }
   }
@@ -426,7 +428,8 @@ function pickByGain(pool, r) {            // шанс растёт с доход
 const ikey = (P, j, k) => (k === 2 ? 's' + j : P[j].ch + ':' + k);
 function imprint(P, p, l) {
   const key = ikey(P, l.j, l.k); if (!p.imp) p.imp = new Map();
-  p.imp.delete(key); p.imp.set(key, { w: l.w, u: l.u, tw: l.tw ? Float64Array.from(l.tw) : null });
+  const sw = ISLOW && l.mw !== undefined, stw = ISLOW && l.mtw;   // шаг 88: устоявшийся вес
+  p.imp.delete(key); p.imp.set(key, { w: sw ? l.mw : l.w, u: l.u, tw: stw ? Float64Array.from(l.mtw) : l.tw ? Float64Array.from(l.tw) : null });
   if (p.imp.size > IMAX) p.imp.delete(p.imp.keys().next().value);
 }
 function recall(P, p, nl) {                // новая связь того же рода начинает с отпечатка
@@ -700,6 +703,11 @@ function round(w) {
     if (!p) continue;
     if (!frozenL) {
     for (const l of p.links) l.age++;
+    if (ISLOW) for (const l of p.links) {   // шаг 88: медленное среднее веса связи
+      if (l.mw === undefined) { l.mw = l.w; if (l.tw) l.mtw = Float64Array.from(l.tw); continue; }
+      l.mw += (l.w - l.mw) / IAGE;
+      if (l.tw) { if (!l.mtw) l.mtw = Float64Array.from(l.tw); else for (let j = 0; j < l.tw.length; j++) l.mtw[j] += (l.tw[j] - l.mtw[j]) / IAGE; }
+    }
     if (!grace) p.links = p.links.filter((l) => {    // связь живёт, пока несёт вес -- для прогноза или для сигнала
       const keep = l.age < TRIAL || (SIGNAL
         ? (l.tw ? Math.hypot(l.w, ...l.tw) : Math.abs(l.w)) * Math.sqrt(RELPRUNE ? l.r2 * ((SLOW && p.ch === SCH) ? VS : V) / Math.max(p.r2s, 1e-300) : l.r2) >= PRUNE ||   // вклад в свой прогноз
