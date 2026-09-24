@@ -141,6 +141,7 @@ const ORDERSHUF = K('ORDERSHUF', 0);
 const ORDERTSHUF = K('ORDERTSHUF', 0);
 const QPAY = K('QPAY', 0);
 const LEXP = K('LEXP', 0);            // шаг 83: 1 -- в тишине линия продавца медленного канала несёт его ожидание на месте молчащего датчика
+const LNOS = K('LNOS', 0);            // шаг 85: 1 (при DLINE) -- линия не товар для частей медленного канала: их поиск выбирает товар, будто линий нет
 const LCAP = K('LCAP', 0);            // шаг 84: 1 (при LEXP) -- предел HCAP на всё усиление части медленного канала на ожидания в тишине: возврат плюс линии продавцов медленного канала
 const LFREEZE = K('LFREEZE', 0);      // шаг 82: 1 -- в тишине у линии нет данных: отводы не сдвигаются, текущий отдаёт последнее значение из жизни            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
 const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
@@ -704,7 +705,7 @@ function round(w) {
         let best = -1; j = -1; k = 0;
         for (let c = 0; c < CSEARCH; c++) {
           const jj = Math.floor(w.rnd() * N), q = w.rnd();
-          const kk = DLINE ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
+          const kk = (DLINE && !(LNOS && p.ch === SCH)) ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
           if (!(P[jj] && jj !== p.slot && !p.links.some((l) => l.j === jj && l.k === kk))) continue;
           if (!full) { if (best < 0) { best = 0; j = jj; k = kk; } continue; }   // окно не набрано -- первый годный, как слепой
           const sc = cscore(w, p, jj, kk);
@@ -713,14 +714,14 @@ function round(w) {
       }
       else {
         j = Math.floor(w.rnd() * N); const q = w.rnd();   // товар: 0 датчик, 1 прогноз, 2 сигнал
-        k = DLINE ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
+        k = (DLINE && !(LNOS && p.ch === SCH)) ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : SIGNAL ? (q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2) : (q < 0.5 ? 0 : 1);
       }
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
         p.links.push({ j, k, w: 0, u: SIGNAL ? 0.05 * gauss(w.rnd) : 0, r2: 1, age: 0 });
     }
     if (DEMAND && !frozenL && !money && p.links.length < LMAX && p.credit >= C_LINK && w.rnd() < DEMAND * Math.min(1, p.dem)) {
       p.credit -= C_LINK;                 // покупатели недовольны -- продавец ищет новый вход для сигнала
-      const j = Math.floor(w.rnd() * N), q = w.rnd(), k = DLINE ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2;
+      const j = Math.floor(w.rnd() * N), q = w.rnd(), k = (DLINE && !(LNOS && p.ch === SCH)) ? (q < 0.25 ? 0 : q < 0.5 ? 1 : q < 0.75 ? 2 : 3) : q < 1 / 3 ? 0 : q < 2 / 3 ? 1 : 2;
       if (P[j] && j !== p.slot && !p.links.some((l) => l.j === j && l.k === k))
         p.links.push({ j, k, w: 0, u: 0.05 * gauss(w.rnd), r2: 1, age: 0 });
     }
