@@ -137,7 +137,6 @@ const PAYL   = K('PAYL', 0);          // 1: мир платит медленно
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
 const ORDERSHUF = K('ORDERSHUF', 0);
-const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
 const DLINE = K('DLINE', 0);          // > 0: товар «датчик с линией» -- покупатель сам держит историю входа на DLINE кругов, у связи DLINE+1 отводов
 const PROTECTQ = K('PROTECTQ', 0);    // разбор строки 8: части канала Q без аренды и бессмертны
@@ -545,7 +544,7 @@ function round(w) {
   const zr = SIGNAL ? new Float64Array(N) : null;   // сколько раз купили сигнал части
   for (const p of P) {
     if (!p) continue;
-    if (!(SPROTECT && p.ch === SCH) && !(PROTECTQ && p.ch === OCH + 2) && !money && !(YOUTH && p.age < YOUTH)) p.credit -= RENT;
+    if (!(SPROTECT && p.ch === SCH) && !(PROTECTQ && p.ch === OCH + 2) && !money) p.credit -= RENT;
     const order = p.links.slice().sort((a, b) =>
       (b.age < TRIAL) - (a.age < TRIAL) || Math.abs(b.w) - Math.abs(a.w));
     const sv = quiet ? p.sh : p.s, capq = quiet && HCAP > 0 && HOLD;
@@ -672,12 +671,11 @@ function round(w) {
   // смерть: банкротство или сбой
   for (const p of P) {
     if (!p) continue;
-    const young = YOUTH && p.age < YOUTH;   // в детстве счётчик кругов в минусе стоит
-    if (!sleep && !young) p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
+    if (!sleep) p.hungry = p.credit < 0 ? p.hungry + 1 : 0;
     if (SPROTECT && p.ch === SCH) continue;
     if (PROTECTQ && p.ch === OCH + 2) continue;
     if (noMeta) continue;
-    if (!sleep && !young && p.hungry > DIE) kill(w, p, 'bank');   // во сне банкротства нет, сбои идут
+    if (!sleep && p.hungry > DIE) kill(w, p, 'bank');   // во сне банкротства нет, сбои идут
     else if (!(quiet && NOFAULTQUIET) && w.rnd() < FAULT) kill(w, p, 'fault');
   }
 
