@@ -35,4 +35,5 @@ const QP = w.parts.filter((p) => p && p.ch === O + 2);
 const hasLine = (p, ch) => p.links.some((l) => l.k === 3 && w.parts[l.j] && w.parts[l.j].ch === ch);
 const lineAB = QP.length ? QP.filter((p) => hasLine(p, O) && hasLine(p, O + 1)).length / QP.length : NaN;
 const lineAny = QP.length ? QP.filter((p) => hasLine(p, O) || hasLine(p, O + 1)).length / QP.length : NaN;
-console.log([cond, seed, tot ? (hit / tot).toFixed(4) : 'NaN', tot, (dh / X.length).toFixed(4), X.length, st.alive, QP.length, lineAB.toFixed(3), lineAny.toFixed(3)].join('\t'));
+const qa = QP.map((p) => p.age).sort((x, y) => x - y), qAge = qa.length ? qa[Math.floor(qa.length / 2)] : NaN;   // с шага 80: медианный возраст частей Q
+console.log([cond, seed, tot ? (hit / tot).toFixed(4) : 'NaN', tot, (dh / X.length).toFixed(4), X.length, st.alive, QP.length, lineAB.toFixed(3), lineAny.toFixed(3), qAge].join('\t'));

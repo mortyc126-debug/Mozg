@@ -138,7 +138,8 @@ const PAYL   = K('PAYL', 0);          // 1: мир платит медленно
 const SPROTECT = K('SPROTECT', 0);      // разбор: части медленного канала без аренды и бессмертны
 const ORDER  = K('ORDER', 0);         // проба строки 8: каналы событий A, B и отчёта Q о порядке A->B (+) или B->A (-)
 const ORDERSHUF = K('ORDERSHUF', 0);
-const ORDERTSHUF = K('ORDERTSHUF', 0); // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
+const ORDERTSHUF = K('ORDERTSHUF', 0);
+const QPAY = K('QPAY', 0);            // шаг 80: > 0 -- каналу Q мир платит не за сжатие, а ставкой за знак отчёта: +QPAY за верный, -QPAY за неверный // нуль шага 69: отчёт Q в моменты, не связанные с событиями (частота 1/13.5, знак -- жребий)
 const YOUTH = K('YOUTH', 0);          // > 0: детство -- первые YOUTH кругов жизни часть не платит аренду и не гибнет от банкротства
 const PAUSEX = K('PAUSEX', 0);        // 1: пауза записывает входы своего прогноза, как круг жизни (учёба первого круга после паузы -- по верной паре)
 const DLINE = K('DLINE', 0);          // > 0: товар «датчик с линией» -- покупатель сам держит историю входа на DLINE кругов, у связи DLINE+1 отводов
@@ -566,7 +567,11 @@ function round(w) {
   const shared = SHARE && w.round >= SHARE_AT;
   for (const p of P) {
     if (!p) continue;
-    const pay = quiet ? 0 : (EAT && p.ch === FCH) ? 0 : (shared ? bank / alive : PAY * p.bits);
+    let pay = quiet ? 0 : (EAT && p.ch === FCH) ? 0 : (shared ? bank / alive : PAY * p.bits);
+    if (QPAY && ORDER && p.ch === OCH + 2) {   // шаг 80: ставка на знак отчёта прогнозом прошлого круга
+      const q = w.c[OCH + 2];
+      pay = quiet || q === 0 || p.pred === 0 ? 0 : (Math.sign(p.pred) === Math.sign(q) ? QPAY : -QPAY);
+    }
     p.credit += pay; p.fromWorld += pay;
   }
 
