@@ -81,6 +81,7 @@ def simulate(
     stimulus_amp=0.0,
     stimulus_period=0.4,
     stimulus_dur=0.020,
+    stimulus_until=None,
     state_from_activity=1.0,
     activity_memory=0.0,
     activity_affinity=0.0,
@@ -436,7 +437,8 @@ def simulate(
     либо ПРАВИЛО: функция от координат, возвращающая маску или номера.
     Правило пересчитывается, когда ткань подросла: при росте делением
     узлов в начале ещё нет, и задать образ списком номеров нельзя. stimulus_amp -- величина
-    добавки, stimulus_period -- как часто, stimulus_dur -- как долго.
+    добавки, stimulus_period -- как часто, stimulus_dur -- как долго,
+    stimulus_until -- до какой секунды (None -- весь прогон).
     При stimulus_amp = 0 или stimulus = None не добавляется ни одной
     операции и поведение побитово прежнее.
 
@@ -848,9 +850,16 @@ def simulate(
         available = alive & (refractory == 0.0)
 
         current = maturity * drive + syn - adaptation
-        if world is not None and stim_by_rule and (step % stim_per) == 0:
+        # stimulus_until -- до какой секунды приходит воздействие. Дальше
+        # ткань живёт сама: динамика, пластичность и рост связей идут как
+        # шли, но входа больше нет. None -- как прежде, воздействие весь
+        # прогон. Ни одна ветка ниже не тратит случайных чисел, поэтому
+        # при None поведение побитово прежнее (проверено сверкой с
+        # нетронутым ядром).
+        stim_live = stimulus_until is None or t < stimulus_until
+        if stim_live and world is not None and stim_by_rule and (step % stim_per) == 0:
             stim_on = _stim_sets()      # мир сдвинулся -- образ пересчитан
-        if stim_on is not None and (step % stim_per) < stim_len:
+        if stim_live and stim_on is not None and (step % stim_per) < stim_len:
             current[stim_on[(step // stim_per) % len(stim_on)]] += stimulus_amp
         noise = 0.012 * rng.standard_normal(N)
 
@@ -1225,7 +1234,22 @@ def free_run_snapshots(
     snapshot_times=(2.0, 3.0, 4.0, 5.0, 6.0),
     pre_run=2.0,
     seed=5000,
+    coupling=1.0,
 ):
+    """ВНИМАНИЕ, СИЛА ПЕРЕДАЧИ. simulate() и probe() умножают
+    доставленный вес на coupling, а эта функция исторически -- нет.
+    Это та же ошибка, которую v0.21 поймал у probe и описал: "сила
+    влияла на развитие сети, а сама проба всегда шла при 1.0". Здесь
+    она уцелела и найдена в v60.
+
+    До v0.20 сила была 1.0, и множитель был бы пустым, поэтому ранние
+    результаты не задеты. Умолчание оставлено 1.0, чтобы поведение
+    прежних вызовов осталось ПОБИТОВО прежним; кто зовёт эту функцию
+    для сети, выросшей при силе 10, обязан передать coupling=10.
+
+    То же относится к trace_probe_preserve_syn, trace_probe_dt и
+    simulate_with_snapshots -- они тоже передают без множителя.
+    """
     """
     Берёт УЖЕ развитую и структурно зафиксированную сеть
     (результат simulate()) и запускает только электрическую
@@ -1281,7 +1305,7 @@ def free_run_snapshots(
         fired = available & (v >= threshold)
 
         if np.any(fired):
-            syn += W[:, fired].sum(axis=1)
+            syn += coupling * W[:, fired].sum(axis=1)
 
         v[fired] = 0.0
         refractory[fired] = 0.005

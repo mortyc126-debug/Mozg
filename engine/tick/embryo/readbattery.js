@@ -1,0 +1,65 @@
+function mwE(n, m) { const max = n*m, N = n+m; let dp = Array.from({length: n+1}, () => new Float64Array(max+1)); dp[0][0] = 1;
+  for (let i = 1; i <= N; i++) { const nd = Array.from({length: n+1}, () => new Float64Array(max+1));
+    for (let k = 0; k <= Math.min(i, n); k++) for (let u = 0; u <= max; u++) { const v = dp[k][u]; if (!v) continue;
+      if (k+1 <= n) nd[k+1][u+(i-1-k)] += v; nd[k][u] += v; } dp = nd; } return dp[n]; }
+function mw(a, b) { const n = a.length, m = b.length; let U = 0; for (const x of a) for (const y of b) U += x > y ? 1 : x === y ? 0.5 : 0;
+  const d = mwE(n, m); let t = 0; for (let u = 0; u <= n*m; u++) t += d[u]; let ge = 0; for (let u = Math.ceil(U); u <= n*m; u++) ge += d[u];
+  return { U, p: ge / t }; }
+const fs = require('fs');
+const FILE = process.argv[2] || 'out/battery.tsv', RULEB = process.argv[3] || '1';
+const L = fs.readFileSync(FILE, 'utf8').trim().split('\n').map((l) => l.split('\t'));
+const med = (a) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : NaN; };
+const f = (x, d = 3) => (Number.isFinite(x) ? x.toFixed(d) : 'NaN');
+const E = L.filter((r) => r[0] === 'зародыш').sort((a, b) => a[1] - b[1]).map((r) => ({ seed: +r[1], alive: +r[2], right: +r[3], nul: +r[4], b9: +r[5], hold9: +r[6], kept: +r[7], ch: r[8].split(',').map(Number), food: +r[9], H10: +r[10], H30: +r[11], Rmix: +r[12], RS: +r[13], RmixL: +r[14], RSL: +r[15], s10: r[16] ? r[16].split(',').map(Number) : null, s30: r[17] ? r[17].split(',').map(Number) : null, t3: r[19] ? r[19].split(',').map(Number) : null, t3L: r[20] ? r[20].split(',').map(Number) : null, tk: r[21] ? r[21].split(',').map(Number) : null }));
+const N = new Map(L.filter((r) => r[0] === 'нульА').map((r) => [+r[1], +r[2]]));
+const dead = E.filter((e) => !(e.alive > 0)).map((e) => e.seed), live = E.filter((e) => e.alive > 0);
+const m = (k) => med(live.map((e) => e[k]));
+const rows = [];
+const put = (line, name, status, detail) => rows.push({ line, name, status, detail });
+// с шага 63: статистика А -- отношение сумм по всем сидам, разброс -- бутстреп по сидам
+const HA = (xs) => xs.reduce((s, x) => s + x[1] - x[0], 0) / xs.reduce((s, x) => s + x[1] - x[2], 0);
+function hstat(k) { const xs = live.map((e) => e[k]).filter(Boolean); if (!xs.length) return null;
+  let rs = 12345; const rnd = () => { rs = (rs * 1103515245 + 12345) >>> 0; return rs / 4294967296; };
+  const bt = []; for (let b = 0; b < 2000; b++) { const s = []; for (let i = 0; i < xs.length; i++) s.push(xs[Math.floor(rnd() * xs.length)]); bt.push(HA(s)); }
+  const mb = bt.reduce((s, x) => s + x, 0) / bt.length; return [HA(xs), Math.sqrt(bt.reduce((s, x) => s + (x - mb) ** 2, 0) / bt.length)]; }
+const A10 = hstat('s10'), A30 = hstat('s30');
+if (A10 && A30) put(0, 'живёт между касаниями', A10[0] >= 0.5 && A30[0] >= 0.5 ? 'ЕСТЬ' : 'нет', `H(10) ${f(A10[0])} ± ${f(A10[1])}, H(30) ${f(A30[0])} ± ${f(A30[1])} (статистика А; порог 0.5)`);
+else { const h10 = m('H10'), h30 = m('H30'); put(0, 'живёт между касаниями', h10 >= 0.5 && h30 >= 0.5 ? 'ЕСТЬ' : 'нет', `H(10) ${f(h10)}, H(30) ${f(h30)} (старая мера; порог 0.5)`); }
+put(1, 'принимает мир', 'дана', 'конструкцией мира');
+put(2, 'держит след опыта', m('right') >= 0.95 ? 'ЕСТЬ' : 'нет', `вес на верных связях ${f(100 * m('right'), 1)}% (порог 95%, нуль ${f(100 * m('nul'), 1)}%)`);
+// путь В: в прогоне 1 -- удержание и смена состава; с шага 48 -- только удержание (смена состава оказалась полной всегда)
+const pathB = live.filter((e) => e.hold9 >= 0.9 && (RULEB === '2' || e.kept <= 0.5)).length;
+put('3В', 'след во времени, путь В', pathB >= 6 ? 'ЕСТЬ' : 'нет', `в ${pathB} сидах из 12 канал 9 держит прошлое в 90% замеров${RULEB === '2' ? '' : ' при смене большей части состава'} (порог 6); доля замеров медиана ${f(m('hold9'), 2)}, дожило частей медиана ${f(m('kept'), 2)}`);
+// с шага 75: строки 3 -- статистика А: сумма знания после тишины по сидам на сумму знания до неё, разброс -- бутстреп по сидам
+const V3 = 1.01, VS3 = 2.01;   // V = 1 + SN², VS = 1 + SSIG² + SN² при постоянных зародыша
+const RA = (xs, j) => { const Vx = j ? VS3 : V3; let a = 0, b = 0; for (const t of xs) { a += Vx - t[4 + 2 * j] / t[5 + 2 * j]; b += Vx - t[2 * j] / t[1 + 2 * j]; } return a / b; };
+function r3(k, j) { const xs = live.map((e) => e[k]).filter(Boolean); if (xs.length < live.length || !xs.length) return null;
+  let rs = 12345; const rnd = () => { rs = (rs * 1103515245 + 12345) >>> 0; return rs / 4294967296; };
+  const bt = []; for (let b = 0; b < 2000; b++) { const s = []; for (let i = 0; i < xs.length; i++) s.push(xs[Math.floor(rnd() * xs.length)]); bt.push(RA(s, j)); }
+  const mb = bt.reduce((s, x) => s + x, 0) / bt.length; return [RA(xs, j), Math.sqrt(bt.reduce((s, x) => s + (x - mb) ** 2, 0) / bt.length)]; }
+// с шага 76: медленный канал -- R_K, против оптимального наблюдателя на том же окне (статистика А); смеси -- как в шаге 75
+const RK = (xs, o) => { let an = 0, ad = 0, bn = 0, bd = 0; for (const t of xs) { bn += t[o + 1] - t[o]; bd += t[o + 1] - t[o + 2]; an += t[o + 4] - t[o + 3]; ad += t[o + 4] - t[o + 5]; } return (an / ad) / (bn / bd); };
+function rk(o) { const xs = live.map((e) => e.tk).filter(Boolean); if (xs.length < live.length || !xs.length) return null;
+  let rs = 12345; const rnd = () => { rs = (rs * 1103515245 + 12345) >>> 0; return rs / 4294967296; };
+  const bt = []; for (let b = 0; b < 2000; b++) { const s = []; for (let i = 0; i < xs.length; i++) s.push(xs[Math.floor(rnd() * xs.length)]); bt.push(RK(s, o)); }
+  const mb = bt.reduce((s, x) => s + x, 0) / bt.length; return [RK(xs, o), Math.sqrt(bt.reduce((s, x) => s + (x - mb) ** 2, 0) / bt.length)]; }
+const nm3 = [['3', 'след во времени, прямо', 't3', 'Rmix', 'RS', 'после 100 кругов', 0], ['3Д', 'след, длинная тишина', 't3L', 'RmixL', 'RSL', 'после 1000 кругов', 6]];
+for (const [ln, name, k, km, ks, when, ko] of nm3) {
+  if (!live.some((e) => Number.isFinite(e[km]))) continue;
+  const am = r3(k, 0), as = rk(ko) || r3(k, 1);
+  if (am && as) put(ln, name, am[0] >= 0.9 && as[0] >= 0.9 ? 'ЕСТЬ' : 'нет', `${when} свободной активности R смеси ${f(am[0])} ± ${f(am[1])}, канал S ${f(as[0])} ± ${f(as[1])} (${live.every((e) => e.tk) ? 'против наблюдателя, ' : ''}статистика А; порог 0.9; старая мера -- медианы ${f(m(km))} / ${f(m(ks))})`);
+  else put(ln, name, m(km) >= 0.9 && m(ks) >= 0.9 ? 'ЕСТЬ' : 'нет', `${when} свободной активности R смеси ${f(m(km))}, канал S ${f(m(ks))} (старая мера; порог 0.9)`);
+}
+const n4 = live.filter((e) => e.b9 > 0.6).length;
+put(4, 'проводит на расстояние', n4 >= 6 ? 'ЕСТЬ' : 'нет', `bits9 > 0.6 в ${n4} сидах из 12 (порог 6), медиана ${f(m('b9'))}`);
+put(5, 'собственное прошлое', 'нет', 'меры нет');
+const fa = live.map((e) => e.food), fn = live.map((e) => N.get(e.seed)), t6 = mw(fa, fn);
+put(6, 'действует и различает удачу', t6.p < 0.01 ? 'наполовину' : 'нет', `доля верных действий ${f(100 * med(fa), 1)}% против жребия ${f(100 * med(fn), 1)}%, U = ${t6.U}, p = ${t6.p.toExponential(1)} (порог 0.01)`);
+const b7 = med(live.map((e) => med(e.ch)));
+put(7, 'сводит два входа', b7 >= 1.5 ? 'ЕСТЬ' : 'нет', `биты каналов 3,4,5,7 ${f(b7, 2)} (порог 1.5; потолок одного входа 0.68, двух 2.55-2.83)`);
+put(8, 'различает порядок', 'нет', 'меры нет');
+console.log(`вымерших миров: ${dead.length ? dead.join(' ') : 'нет'}; живых частей медиана ${med(live.map((e) => e.alive))}\n`);
+for (const r of rows) console.log(`${String(r.line).padEnd(3)} ${r.name.padEnd(28)} ${r.status.padEnd(11)} ${r.detail}`);
+console.log('\nпо сидам:');
+for (const e of E) console.log(`  ${e.seed}: живых ${e.alive}, H ${f(e.H10, 2)}/${f(e.H30, 2)}, верные ${f(100 * e.right, 0)}%, bits9 ${f(e.b9, 2)} (держит ${f(e.hold9, 2)}, дожило ${f(e.kept, 2)}), биты 3,4,5,7 ${e.ch.map((x) => f(x, 2)).join('/')}, еда ${f(100 * e.food, 1)}% (жребий ${f(100 * N.get(e.seed), 1)}%), R ${f(e.Rmix, 2)}/${f(e.RS, 2)}`);
+module.exports = rows;

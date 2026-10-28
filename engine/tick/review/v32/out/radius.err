@@ -1,0 +1,112 @@
+/home/user/Mozg/engine/tick/review/v32/lin.js:46
+  if (r.status !== 0) throw new Error(r.stderr.toString());
+                      ^
+
+Error: Traceback (most recent call last):
+  File "/home/user/Mozg/engine/tick/review/v32/eig.py", line 9, in <module>
+    i = int(np.argmax(np.abs(ev)))
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 1314, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 54, in _wrapfunc
+    return bound(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^
+ValueError: attempt to get argmax of an empty sequence
+
+    at Object.eig (/home/user/Mozg/engine/tick/review/v32/lin.js:46:29)
+    at Object.<anonymous> (/home/user/Mozg/engine/tick/review/v32/radius.js:34:76)
+    at Module._compile (node:internal/modules/cjs/loader:1705:14)
+    at Object..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/home/user/Mozg/engine/tick/review/v32/lin.js:46
+  if (r.status !== 0) throw new Error(r.stderr.toString());
+                      ^
+
+Error: Traceback (most recent call last):
+  File "/home/user/Mozg/engine/tick/review/v32/eig.py", line 9, in <module>
+    i = int(np.argmax(np.abs(ev)))
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 1314, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 54, in _wrapfunc
+    return bound(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^
+ValueError: attempt to get argmax of an empty sequence
+
+    at Object.eig (/home/user/Mozg/engine/tick/review/v32/lin.js:46:29)
+    at Object.<anonymous> (/home/user/Mozg/engine/tick/review/v32/radius.js:34:76)
+    at Module._compile (node:internal/modules/cjs/loader:1705:14)
+    at Object..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/home/user/Mozg/engine/tick/review/v32/lin.js:46
+  if (r.status !== 0) throw new Error(r.stderr.toString());
+                      ^
+
+Error: Traceback (most recent call last):
+  File "/home/user/Mozg/engine/tick/review/v32/eig.py", line 9, in <module>
+    i = int(np.argmax(np.abs(ev)))
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 1314, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 54, in _wrapfunc
+    return bound(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^
+ValueError: attempt to get argmax of an empty sequence
+
+    at Object.eig (/home/user/Mozg/engine/tick/review/v32/lin.js:46:29)
+    at Object.<anonymous> (/home/user/Mozg/engine/tick/review/v32/radius.js:34:76)
+    at Module._compile (node:internal/modules/cjs/loader:1705:14)
+    at Object..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/home/user/Mozg/engine/tick/review/v32/lin.js:46
+  if (r.status !== 0) throw new Error(r.stderr.toString());
+                      ^
+
+Error: Traceback (most recent call last):
+  File "/home/user/Mozg/engine/tick/review/v32/eig.py", line 9, in <module>
+    i = int(np.argmax(np.abs(ev)))
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 1314, in argmax
+    return _wrapfunc(a, 'argmax', axis=axis, out=out, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/numpy/_core/fromnumeric.py", line 54, in _wrapfunc
+    return bound(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^
+ValueError: attempt to get argmax of an empty sequence
+
+    at Object.eig (/home/user/Mozg/engine/tick/review/v32/lin.js:46:29)
+    at Object.<anonymous> (/home/user/Mozg/engine/tick/review/v32/radius.js:34:76)
+    at Module._compile (node:internal/modules/cjs/loader:1705:14)
+    at Object..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Function._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2

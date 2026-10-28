@@ -15,6 +15,11 @@ function makeRNG(seed) {
     while (v === 0) v = f();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
   };
+  /* Позиция генератора, чтобы мир можно было точно раздвоить. Чтение и
+     установка НЕ трогают поток: без вызова setState поведение побитово
+     прежнее. Нужно для src/clone.js. */
+  f.getState = () => s;
+  f.setState = (v) => { s = (v >>> 0) || 1; };
   return f;
 }
 module.exports = { makeRNG };
