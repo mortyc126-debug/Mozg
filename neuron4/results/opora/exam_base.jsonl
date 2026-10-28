@@ -1,0 +1,23 @@
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":2,"res":{"bits":-0.021945068357463463}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":2,"res":{"bits":1.1053757655898977}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":1,"res":{"bits":0.04092291383990906}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":1,"res":{"bits":1.1196254557912984}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":3,"res":{"bits":1.112009756848016}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":4,"res":{"bits":-0.013929004381014744}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":4,"res":{"bits":1.1003737034670613}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":3,"res":{"bits":-0.010876574864456619}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":5,"res":{"bits":1.0780043909314554}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":5,"res":{"bits":-0.006857432375263648}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":6,"res":{"bits":0.013698599036518242}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":6,"res":{"bits":1.1089626137441126}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":8,"res":{"bits":-0.024995987497387}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":8,"res":{"bits":1.1027320957209374}}
+{"test":"привязка","cond":"main","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5},"brain":{"BRAIN":8},"seed":7,"res":{"bits":1.102120609989337}}
+{"test":"привязка","cond":"ctrl","world":{"WORDS":2,"WDLAG":1,"DEYE":0,"WSAL":5,"WFAKE":1},"brain":{"BRAIN":8},"seed":7,"res":{"bits":-0.011641631364417697}}
+{"test":"я и мир","cond":"ctrl","world":{"WORDS":1,"WSAL":5,"NOCOPY":1},"brain":{"BRAIN":8},"seed":2,"res":{"self":0.6735112936344969,"oth":0.8424657534246576}}
+{"test":"я и мир","cond":"ctrl","world":{"WORDS":1,"WSAL":5,"NOCOPY":1},"brain":{"BRAIN":8},"seed":1,"res":{"self":0.5844827586206897,"oth":0.8972477064220183}}
+{"test":"я и мир","cond":"main","world":{"WORDS":1,"WSAL":5},"brain":{"BRAIN":8},"seed":2,"res":{"self":0.8672291296625222,"oth":0.95}}
+{"test":"я и мир","cond":"main","world":{"WORDS":1,"WSAL":5},"brain":{"BRAIN":8},"seed":1,"res":{"self":0.75165319617928,"oth":0.9068901303538175}}
+{"test":"я и мир","cond":"main","world":{"WORDS":1,"WSAL":5},"brain":{"BRAIN":8},"seed":3,"res":{"self":0.7916174734356553,"oth":0.9154135338345865}}
+{"test":"я и мир","cond":"ctrl","world":{"WORDS":1,"WSAL":5,"NOCOPY":1},"brain":{"BRAIN":8},"seed":4,"res":{"self":0.5434985968194574,"oth":0.9017467248908297}}
+{"test":"я и мир","cond":"ctrl","world":{"WORDS":1,"WSAL":5,"NOCOPY":1},"brain":{"BRAIN":8},"seed":3,"res":{"self":0.5481132075471699,"oth":0.8696461824953445}}
