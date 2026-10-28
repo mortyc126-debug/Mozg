@@ -10,8 +10,8 @@ run nk_9-16_base.txt node tools/newkind.js SEEDS=9-16 SIZES=1 BRAIN=8
 run nk_9-16_sup.txt node tools/newkind.js SEEDS=9-16 SIZES=1 BRAIN=8 SUPLOO=1
 run mix_base.txt node neuron4.js WORLD=mix WK=32 SEEDS=1-8 BRAIN=8
 run mix_sup.txt node neuron4.js WORLD=mix WK=32 SEEDS=1-8 BRAIN=8 SUPLOO=1
-run exam_base.txt node tools/exam.js SEEDS=1-8 BRAIN=8
-run exam_sup.txt node tools/exam.js SEEDS=1-8 BRAIN=8 SUPLOO=1
-run ready_base.txt node tools/ready.js SEEDS=1-8 SIZES=1,4 BRAIN=8
-run ready_sup.txt node tools/ready.js SEEDS=1-8 SIZES=1,4 BRAIN=8 SUPLOO=1
+run exam_base.txt node tools/exam.js SEEDS=1-8 BRAIN=8 JOBFILE=$O/exam_base.jsonl
+run exam_sup.txt node tools/exam.js SEEDS=1-8 BRAIN=8 SUPLOO=1 JOBFILE=$O/exam_sup.jsonl
+run ready_base.txt node tools/ready.js SEEDS=1-8 SIZES=1,4 BRAIN=8 JOBFILE=$O/ready_base.jsonl
+run ready_sup.txt node tools/ready.js SEEDS=1-8 SIZES=1,4 BRAIN=8 SUPLOO=1 JOBFILE=$O/ready_sup.jsonl
 echo done > $O/run.done
