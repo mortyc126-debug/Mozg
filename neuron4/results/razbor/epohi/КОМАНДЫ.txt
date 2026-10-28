@@ -1,0 +1,8 @@
+Мир эпох на итоговом коде (разбор 22.10). Сводка против порогов раунда 9: node results/razbor/epohi_svod.js
+  nohib_sN  node tools/epochs.js EPL=8000 ROUNDS=64000 SEED=N BRAIN=8           (миры 1-4; миры 1-2 совпали с round9/epohi/ep_sN бит в бит)
+  hib1_sN   node tools/epochs.js EPL=8000 ROUNDS=64000 SEED=N BRAIN=8 HIB=1     (миры 1-2)
+  hib2_sN   node tools/epochs.js EPL=8000 ROUNDS=64000 SEED=N BRAIN=8 HIB=2     (миры 1-4)
+  onlyW_sN  node tools/epochs.js EPL=8000 ROUNDS=16000 SEED=N BRAIN=8 EPONLY=W  (мозг одного мира W; цена -- вторая эпоха)
+  OUT=файл.json -- сохранить строки эпох
+budget_hH_s3.txt   HIB=H SEED=3 node results/razbor/budget.js      -- примерки строителя по эпохам, живой мир и прочие
+hibprobeH.txt      HIB=H node results/razbor/hibprobe.js           -- какие каналы спящих миров засыпают (базовый мозг, мир 1)

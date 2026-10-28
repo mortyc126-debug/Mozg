@@ -1,0 +1,37 @@
+цепочка, 8 миров, x1 (диагностические прогоны по ходу починки)
+== KHOLD
+     ждёт C на 25% от того, как ждёт его после B (порог 50%), контроль - (порог 20%)  [контроль: C шло за другим событием]
+     по мирам: {"ref":0.96,"test":0.14,"chain":0.14,"n":30} {"ref":0.97,"test":0.44,"chain":0.46,"n":30} {"ref":0.96,"test":0.4,"chain":0.41,"n":30} {"ref":0.9,"test":0.05,"chain":0.06,"n":30} {"ref":0.94,"test":-0.02,"chain":-0.02,"n":30} {"ref":0.94,"test":0.26,"chain":0.27,"n":30} {"ref":0.95,"test":0.61,"chain":0.64,"n":30} {"ref":0.99,"test":-0.01,"chain":-0.01,"n":30}
+== KHOLD+KPRIOR
+     ждёт C на 8% от того, как ждёт его после B (порог 50%), контроль - (порог 20%)  [контроль: C шло за другим событием]
+     по мирам: {"ref":0.94,"test":-0.06,"chain":-0.06,"n":30} {"ref":0.97,"test":0.47,"chain":0.48,"n":30} {"ref":0.96,"test":0.05,"chain":0.05,"n":30} {"ref":0.99,"test":-0.09,"chain":-0.09,"n":30} {"ref":0.94,"test":-0.02,"chain":-0.02,"n":30} {"ref":0.94,"test":0.14,"chain":0.15,"n":30} {"ref":0.96,"test":0.17,"chain":0.17,"n":30} {"ref":1,"test":0,"chain":0,"n":30}
+== KHOLD+KPRIOR+ONEIN (квадрат слова -- другой вход)
+     ждёт C на 15% от того, как ждёт его после B (порог 50%), контроль - (порог 20%)  [контроль: C шло за другим событием]
+     по мирам: {"ref":0.85,"test":0.01,"chain":0.01,"n":30} {"ref":0.97,"test":0.29,"chain":0.3,"n":30} {"ref":0.97,"test":0.2,"chain":0.21,"n":30} {"ref":0.97,"test":0.31,"chain":0.32,"n":30} {"ref":0.99,"test":0,"chain":0,"n":30} {"ref":0.94,"test":0.11,"chain":0.12,"n":30} {"ref":0.95,"test":0.2,"chain":0.21,"n":30} {"ref":0.99,"test":-0.01,"chain":-0.01,"n":30}
+== KHOLD+KPRIOR+ONEIN
+     ждёт C на 22% от того, как ждёт его после B (порог 50%), контроль - (порог 20%)  [контроль: C шло за другим событием]
+     по мирам: {"ref":0.96,"test":0.39,"chain":0.4,"n":30} {"ref":0.97,"test":0.32,"chain":0.33,"n":30} {"ref":0.97,"test":0.26,"chain":0.27,"n":30} {"ref":1,"test":0.17,"chain":0.17,"n":30} {"ref":0.96,"test":0.24,"chain":0.25,"n":30} {"ref":0.94,"test":0.33,"chain":0.35,"n":30} {"ref":0.95,"test":0.02,"chain":0.02,"n":30} {"ref":1,"test":-0.01,"chain":-0.01,"n":30}
+== KHOLD+KPRIOR+ONEIN+REGA+STAGE
+     ждёт C на 24% от того, как ждёт его после B (порог 50%), контроль - (порог 20%)  [контроль: C шло за другим событием]
+     по мирам: {"ref":0.96,"test":0.26,"chain":0.27,"n":30} {"ref":0.97,"test":0.4,"chain":0.41,"n":30} {"ref":0.97,"test":0.44,"chain":0.46,"n":30} {"ref":1,"test":0.22,"chain":0.22,"n":30} {"ref":1,"test":0,"chain":0,"n":30} {"ref":0.97,"test":0.46,"chain":0.48,"n":30} {"ref":0.97,"test":0.06,"chain":0.06,"n":30} {"ref":0.99,"test":-0.01,"chain":-0.01,"n":30}
+
+перенос, x1 (поиск причины потери)
+миры 1-8: без починок 59% (ready_3_final); KHOLD 67%; ONEIN 63%; KHOLD+KPRIOR 67%; MHOLD 59% (бит в бит как без него);
+          KHOLD+KPRIOR+ONEIN 41%; все четыре 41%
+миры 9-16: без починок (PARA=1 -- то же, что все механизмы) 69%; KHOLD+KPRIOR+ONEIN 57%; KHOLD 48%; ONEIN 54%
+по 16 мирам: без починок 64%, KHOLD 57%, ONEIN 58%, вместе 49%; в сборке с отделами и сном (sborka_pochinka.txt) -- 72%
+построчно (миры 1-8, затем 9-16):
+== MHOLD=1
+перенос 59% "transfer":0.61 "transfer":0 "transfer":0.91 "transfer":0.94 "transfer":0.61 "transfer":0.34 "transfer":0.7 "transfer":0.59 
+== KHOLD=1 KPRIOR=1 ONEIN=1
+перенос 41% "transfer":0 "transfer":0.38 "transfer":0.37 "transfer":0.85 "transfer":0.81 "transfer":0 "transfer":0.86 "transfer":-0.01 
+== KHOLD=1 KPRIOR=1 ONEIN=1 MHOLD=1
+перенос 41% "transfer":0 "transfer":0.38 "transfer":0.37 "transfer":0.85 "transfer":0.81 "transfer":0 "transfer":0.86 "transfer":-0.01 
+== PARA=1
+перенос 69% "transfer":0.65 "transfer":0.94 "transfer":0.77 "transfer":0.68 "transfer":0.71 "transfer":0.44 "transfer":0.66 "transfer":0.64 
+== KHOLD=1 KPRIOR=1 ONEIN=1
+перенос 57% "transfer":0 "transfer":0.88 "transfer":0.85 "transfer":0.31 "transfer":0.68 "transfer":0.91 "transfer":0.42 "transfer":0.51 
+== KHOLD=1
+перенос 48% "transfer":0 "transfer":0.54 "transfer":0.3 "transfer":0.62 "transfer":0.55 "transfer":0.71 "transfer":0.69 "transfer":0.41 
+== ONEIN=1
+перенос 54% "transfer":0 "transfer":0.82 "transfer":0.78 "transfer":0 "transfer":0.57 "transfer":0.87 "transfer":0.58 "transfer":0.73 

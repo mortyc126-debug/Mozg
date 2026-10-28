@@ -1,0 +1,8 @@
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":1,"res":{"all":0.6349348899865289,"move":0.6627906976744186}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":2,"res":{"all":0.6135159010600707,"move":0.7110694183864915}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":3,"res":{"all":0.7073496659242762,"move":0.010471204188481676}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":4,"res":{"all":0.3993696533093201,"move":0.0036231884057971015}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":5,"res":{"all":0.6988054607508533,"move":0.7310924369747899}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":6,"res":{"all":0.7096219931271478,"move":0.6349614395886889}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":7,"res":{"all":0.7133838383838383,"move":0.031578947368421054}}
+{"test":"диалог","cond":"main","world":{"WORDS":7,"SPEAK":1,"ASK":1,"OWNV":1,"WSAL":5},"brain":{"BRAIN":8},"seed":8,"res":{"all":0.6024503591043515,"move":0.7920604914933838}}

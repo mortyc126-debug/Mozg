@@ -1,0 +1,1 @@
+node --max-old-space-size=6000 tools/llmlink.js results/llm/big1000 WNS=200 WNM=650 WNH=50 DEYE=60 DDUD=38 WNORM=1   (REPMAX=80; остальное по умолчанию: SEEDS=1 ROUNDS=20000 TPLUG=4000 TSWAP=12000 SWAPK=2)

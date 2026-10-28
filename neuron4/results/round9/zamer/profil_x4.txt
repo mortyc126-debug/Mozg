@@ -1,0 +1,26 @@
+по файлам: market.js 28%, compose.js 26%, memory.js 22%, collector) 10%, concepts.js 8%, cost.js 2%, explorer.js 1%,  1%, linalg.js 0%, ledger.js 0%
+10.5% (garbage collector) :0
+8.3% gainOf market.js:343
+7.2% (anon) memory.js:360
+6.6% key compose.js:62
+4.9% support concepts.js:59
+4.7% score memory.js:233
+4.4% fit market.js:213
+4.1% valAt market.js:26
+3.4% step market.js:54
+3.2% search market.js:282
+3.2% leaves compose.js:150
+3.1% build compose.js:109
+2.7% (anon) memory.js:416
+2.5% (anon) memory.js:261
+2.4% (anon) compose.js:152
+1.8% (anon) concepts.js:66
+1.7% (anon) compose.js:21
+1.6% (anon) cost.js:1
+1.6% add compose.js:136
+1.4% scan memory.js:219
+1.4% candidates compose.js:168
+1.1% (anon) compose.js:193
+0.9% (anon) compose.js:24
+0.9% events concepts.js:48
+0.8% candidatesLong compose.js:200
