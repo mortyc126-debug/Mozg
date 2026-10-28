@@ -412,6 +412,7 @@ function scan(B, c) {
       // само, с проверкой на нечётных кругах; у долгой записи её нет, и на частых событиях она находила совпадения
       const rareW = new Map(), isRare = (k, md) => { if (!rareW.has(k)) { let n2 = 0; const gk = B.ch[k].good; for (let t = w0; t <= t1; t++) if (G.at(t, gk) > md) n2++; rareW.set(k, n2 < 8); ops += t1 - w0; } return rareW.get(k); };
       for (const n of CL2.list) { if (cfg.CFAST >= 3 && clock(n)) continue; if (cfg.CFAST) { const lv = []; (function walk(q) { if (q.op === 'событие') lv.push([q.k, q.mid]); if (q.K) for (const x of q.K) lv.push(x); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n); if (!lv.every(([k, md]) => isRare(k, md))) continue; }
+        if (cfg.CLONGF) { ops += B.lrec.rows.length * CP.size(n) * 3; if (CP.longReject(B, n)) continue; }   // правка «опора-2»: пересказ и постоянное при чтении -- и по долгой записи
         const L = CP.scoreLong(B, c, n); if (!L) break; ops += L.ops;
       if (L.z > zl && L.g > cfg.MGAIN && L.g > (best3['сборка'].long ? best3['сборка'].g : 0)) best3['сборка'] = { g: L.g, z: Math.max(L.z, zc + 1e-9), long: true, tpl: { type: 'сборка', prog: n, long: { w: L.w, n: L.n } } }; } } }
   // похожесть: ключи по записи, ответ на каждом круге окна -- по более ранним кругам записи (точный перебор)

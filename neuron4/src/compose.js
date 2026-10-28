@@ -224,4 +224,17 @@ function scoreLong(B, c, n) {
   // и то, что сборка говорит, должно быть разным (иначе связь -- просто среднее ошибки в кругах её событий)
   return { g: r2, z: Math.sqrt(r2 * m), w: vx > 1e-9 ? cv / vx : 0, n: m, ops: R * size(n) };
 }
-module.exports = { compileFresh, compile, key, size, show, shape, candidates, candidatesLong, scoreLong, variants };
+// CLONGF (правка «опора-2», results/opora2/): по долгой записи -- те же проверки, что CFAST на окне: (1) пересказ -- выход по
+// строкам почти равен копии без памяти; (2) в строках, где звучит условие чтения (при / отклонение), выход почти постоянен.
+// Возвращает true, если сборку примерять не надо
+function longReject(B, n) {
+  const rows = B.lrec.rows, R = rows.length; const f = compile(n), ff = compileFresh(n), rf = n.op === 'при' || n.op === 'отклонение' ? compile(n.r) : null;
+  let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, nr = 0, sm = 0, sq = 0;
+  for (let i = 0; i < R; i++) { const v = rows[i].v, get = (k) => v[k], x = f(get), y = ff(get); sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+    if (rf && rf(get)) { nr++; sm += x; sq += x * x; } }
+  const vx = sxx - sx * sx / R, vy = syy - sy * sy / R;
+  if (vx > 1e-12 && vy > 1e-12 && (sxy - sx * sy / R) / Math.sqrt(vx * vy) > 0.95) return true;
+  if (rf && (nr < 6 || sq / nr - (sm / nr) ** 2 < 0.05 * sq / nr + 1e-9)) return true;
+  return false;
+}
+module.exports = { compileFresh, compile, key, size, show, shape, candidates, candidatesLong, scoreLong, variants, longReject };
