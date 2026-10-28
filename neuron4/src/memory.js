@@ -238,7 +238,14 @@ function scan(B, c) {
     for (let t = t0; t <= t1; t++) { let x = xs[t - t0]; if (!Number.isFinite(x)) continue; x = Math.max(xm - xl, Math.min(xm + xl, x)); xs[t - t0] = x; const r = res[t - t0], h = s[t & 1]; h[0]++; h[1] += x; h[2] += r; h[3] += x * x; h[4] += r * r; h[5] += x * r; }
     // опора: ни одна точка не даёт больше четверти связи (у почти постоянного нерва с редкими всплесками одно совпадение
     // всплесков давало корреляцию под 1)
-    if (!noSup) for (const par of [0, 1]) { const [m, sx, sr, , , sxr] = s[par]; if (m < 30) continue; const mx = sx / m, mr = sr / m, cv = sxr - sx * sr / m; let mc = 0;
+    if (!noSup && cfg.SUPLOO) for (const par of [0, 1]) {   // правка «опора» (results/opora/): без двух самых весомых точек связь та же по знаку и не меньше трети
+      const [m, sx, sr, , , sxr] = s[par]; if (m < 30) continue; const mx = sx / m, mr = sr / m, cv = sxr - sx * sr / m; let i1 = -1, i2 = -1, c1 = -1, c2 = -1;
+      for (let t = t0 + ((t0 & 1) === par ? 0 : 1); t <= t1; t += 2) { const x = xs[t - t0]; if (!Number.isFinite(x)) continue; const c = Math.abs((x - mx) * (res[t - t0] - mr));
+        if (c > c1) { c2 = c1; i2 = i1; c1 = c; i1 = t; } else if (c > c2) { c2 = c; i2 = t; } }
+      let m2 = m, sx2 = sx, sr2 = sr, sxr2 = sxr; for (const t of [i1, i2]) if (t >= 0) { const x = xs[t - t0], r = res[t - t0]; m2--; sx2 -= x; sr2 -= r; sxr2 -= x * r; }
+      const cv2 = sxr2 - sx2 * sr2 / m2;
+      if (!(cv2 * cv > 0) || Math.abs(cv2) / m2 < Math.abs(cv) / m / 3) return [0, 0]; }
+    else if (!noSup) for (const par of [0, 1]) { const [m, sx, sr, , , sxr] = s[par]; if (m < 30) continue; const mx = sx / m, mr = sr / m, cv = sxr - sx * sr / m; let mc = 0;
       for (let t = t0 + ((t0 & 1) === par ? 0 : 1); t <= t1; t += 2) { const x = xs[t - t0]; if (Number.isFinite(x)) mc = Math.max(mc, Math.abs((x - mx) * (res[t - t0] - mr))); }
       if (mc > 0.25 * Math.abs(cv)) return [0, 0]; }
     ops += 8 * res.length;
