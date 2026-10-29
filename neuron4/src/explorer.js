@@ -527,13 +527,14 @@ function planU(B, m) {
 // MFEARX (Колония К1м): страх -- множитель руля. m = min(4, F+ / среднее F+), F+ = max(0, страх) -- выход органа страха
 // (src/fear.js); среднее -- скользящее (~5000 кругов), в среднем m около 1. Пока у органа нет подгонки -- 1. MFEARX=3 --
 // контроль: множитель, каким он был 1000 кругов назад (то же распределение, со страхом сейчас не связан). Раз в круг.
+// MFEARX=4 (К1м2): m = max(1, ...) -- страх только прибавляет силу, в покое руль как прежде; 5 -- он же со сдвигом на 1000 кругов.
 function fearGain(B) {
   const F = B.fear; if (!F) return 1; const X = F.gx || (F.gx = { t: -1, g: 1, m: 0, n: 0, ring: new Float64Array(1000) });
   if (X.t === B.t) return X.g; X.t = B.t;
   if (!F.org || !F.org.w) { X.cur = 1; return (X.g = 1); }
   const f = Math.max(0, B.goods.val[F.good]); X.n++; X.m += (f - X.m) / Math.min(X.n, 5000);
-  const g = X.m > 1e-9 ? Math.min(4, f / X.m) : 1, slot = X.n % 1000, old = X.ring[slot]; X.ring[slot] = g;
-  X.cur = B.cfg.MFEARX === 3 ? (X.n > 1000 ? old : 1) : g; return (X.g = X.cur);
+  const g0 = X.m > 1e-9 ? Math.min(4, f / X.m) : 1, g = B.cfg.MFEARX >= 4 ? Math.max(1, g0) : g0, slot = X.n % 1000, old = X.ring[slot]; X.ring[slot] = g;
+  X.cur = B.cfg.MFEARX === 3 || B.cfg.MFEARX === 5 ? (X.n > 1000 ? old : 1) : g; return (X.g = X.cur);
 }
 function motorU(B, m) {
   const cfg = B.cfg, G = B.goods, M = m.good; let u, lim = cfg.BAMP, q;
