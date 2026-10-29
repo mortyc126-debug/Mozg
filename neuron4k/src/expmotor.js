@@ -23,6 +23,7 @@
 const { solve } = require('./linalg');
 const { priceAt } = require('./expect');
 const ECON = require('./econ');
+const CER = require('./cerebellum');
 // Э2 (нейрон Колонии, CER): руль цели видит и нервы x, и прогноз мозжечка x~ (src/cerebellum.js) -- признаков вдвое больше;
 // цель руля (сигнатура) -- по нервам.
 const HOLD = 1.2, FMIN = 3, NEEDF = 0.3;
@@ -37,11 +38,11 @@ function fit(B, m, v, T, ord) {
   const cfg = B.cfg, X = B.exp, W = B.world; if (!X || m.port.k !== W.motorNerve) return;
   const F = v.F, n = X.ks.length; if (F !== n) return;   // запись мотора -- те же нервы, что у органов
   const own = new Set(cfg.MNOPE ? (m.port.eff || []).map((e) => B.ch[e.j] && B.ch[e.j].good) : []), use = v.ids.map((id) => !own.has(id));
-  const FZ = cfg.CER && v.ce ? 2 * F : F, zx = (r, k) => (k < F ? v.x[r * F + k] : v.ce.xt[r * F + k - F]), useZ = FZ > F ? [...use, ...use] : use;   // Э2: нервы и прогноз мозжечка
+  const est = cfg.CER >= 3 && v.ce, FZ = cfg.CER && cfg.CER < 3 && v.ce ? 2 * F : F, zx = (r, k) => (est ? v.ce.xb[r * F + k] : k < F ? v.x[r * F + k] : v.ce.xt[r * F + k - F]), useZ = FZ > F ? [...use, ...use] : use;   // Э2: нервы и прогноз мозжечка; Э3: только оценка мозжечка
   const mu = new Float64Array(FZ); for (let i = 0; i < T; i++) for (let k = 0; k < FZ; k++) mu[k] += zx(ord[i], k) / T;
   for (const Q of X.types.values()) { if (!ready(Q, cfg)) continue; let psi;
     if (cfg.MEXP === 4) needFit(X, Q, use);
-    if (cfg.MEXP >= 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += v.x[r * F + i]; return s; }; }
+    if (cfg.MEXP >= 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += zx(r, i); return s; }; }
     else { const w = Q.org.w; psi = (r) => { let s = w[0]; for (let k = 0; k < F; k++) { const x = use[k] ? v.x[r * F + k] : mu[k]; s += w[1 + 2 * k] * x + w[2 + 2 * k] * x * x; } return s; }; }
     const d = 2 * FZ + 2, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0, prev = psi(ord[0]);
     for (let i = 0; i < T - 1; i++) { const r = ord[i], nx = psi(ord[i + 1]), y = nx - prev, u = v.u[r]; prev = nx; yy += y * y;
@@ -77,7 +78,7 @@ function command(B, m, v) {
     if (cfg.MEXP === 4) { if (!Q.need) continue; const n = G.val[B.ch[Q.need.k].good]; p = Q.need.c[0] + Q.need.c[1] * n + Q.need.c[2] * n * n; }
     else p = priceAt(cfg, Q, X.ks.map((k) => G.val[B.ch[k].good]));
     if (!(p > 0) || T0(Q) !== '+') continue;   // М3: только цели «к» -- виды со скачком пользы вверх и ценой больше 0
-    let ue = 0; for (let k = 0; k < Q.goal.a.length; k++) ue += Q.goal.a[k] * ((k < v.F ? ECON.xhat(B, v.ids[k]) : v.ce && v.ce.pred ? v.ce.pred[k - v.F] : ECON.xhat(B, v.ids[k - v.F])) - Q.goal.mu[k]); Q.ue = ue;   // Э1: MANT -- прогноз канала; Э2: и прогноз мозжечка
+    let ue = 0; for (let k = 0; k < Q.goal.a.length; k++) ue += Q.goal.a[k] * ((cfg.CER >= 3 ? CER.estNow(v, k, ECON.xhat(B, v.ids[k])) : k < v.F ? ECON.xhat(B, v.ids[k]) : v.ce && v.ce.pred ? v.ce.pred[k - v.F] : ECON.xhat(B, v.ids[k - v.F])) - Q.goal.mu[k]); Q.ue = ue;   // Э1: MANT -- прогноз канала; Э2: и прогноз мозжечка
     const s = cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g; Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
   if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
