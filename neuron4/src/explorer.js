@@ -524,10 +524,22 @@ function planU(B, m) {
   let r = 0; if (pl.Rw && pl.Rw.length === 2 + 2 * k) { r = pl.Rw[1]; for (let i = 0; i < k; i++) r += pl.Rw[2 + i] * x[i]; }
   return (jStar - jNo) / F[2] - r / (2 * V[2] * F[2] * F[2]);
 }
+// MFEARX (Колония К1м): страх -- множитель руля. m = min(4, F+ / среднее F+), F+ = max(0, страх) -- выход органа страха
+// (src/fear.js); среднее -- скользящее (~5000 кругов), в среднем m около 1. Пока у органа нет подгонки -- 1. MFEARX=3 --
+// контроль: множитель, каким он был 1000 кругов назад (то же распределение, со страхом сейчас не связан). Раз в круг.
+function fearGain(B) {
+  const F = B.fear; if (!F) return 1; const X = F.gx || (F.gx = { t: -1, g: 1, m: 0, n: 0, ring: new Float64Array(1000) });
+  if (X.t === B.t) return X.g; X.t = B.t;
+  if (!F.org || !F.org.w) { X.cur = 1; return (X.g = 1); }
+  const f = Math.max(0, B.goods.val[F.good]); X.n++; X.m += (f - X.m) / Math.min(X.n, 5000);
+  const g = X.m > 1e-9 ? Math.min(4, f / X.m) : 1, slot = X.n % 1000, old = X.ring[slot]; X.ring[slot] = g;
+  X.cur = B.cfg.MFEARX === 3 ? (X.n > 1000 ? old : 1) : g; return (X.g = X.cur);
+}
 function motorU(B, m) {
   const cfg = B.cfg, G = B.goods, M = m.good; let u, lim = cfg.BAMP, q;
   if (cfg.MVAL === 2) { const v = vrOf(B, m);   // форма правки 39: команда линейна по нервам
     if (v && v.lin) { let s = 0; for (let k = 0; k < v.F; k++) s += v.lin.a[k] * (G.val[v.ids[k]] - v.lin.mu[k]); B.led.work(m, 2 * v.F + 2);
+      if (cfg.MFEARX) s *= fearGain(B);   // К1м: страх -- множитель руля
       return Math.max(-cfg.UMAX, Math.min(cfg.UMAX, s + cfg.MVSIG * B.rng.gauss())); } }
   motorCheck(B, m);
   if (cfg.MPLAN && m.pl && m.pl.ok && m.pl.V && m.pl.F && m.pl.V.length === 3 + 2 * m.pl.S.length && m.pl.S.every((d) => pAlive(G, d)) && (!m.arb || m.arb.mode === 'план')) {   // действие по модели мира
