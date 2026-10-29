@@ -12,6 +12,8 @@
 // М2 (results/kolonia/ПЛАН_М2.md): цена вида w(x) = c0 + c x -- скачок пользы в круге события по нервам перед ним (все, кроме
 // двигателя), гребень, подгонка после каждого события с PMIN-го. Цена принадлежит виду, не органу. В М2 она ни на что не
 // влияет и работы не стоит (поведение -- как в М1 бит в бит); мера -- связь цены с настоящей сытостью и точность.
+// MEXP=3 (М3г, ПЛАН_М3г.md): цена -- по нервам и их квадратам, w(x) = c0 + сумма (c_k x_k + d_k x_k²): прирост от еды по
+// устройству мира квадратичен по сытости, и квадрат ловит «ноль при полной сытости».
 // KEXP=2 (М3, results/kolonia/ПЛАН_М3.md §1 с поправкой §8): вид -- как в М1 (знак и величина скачка пользы); положительные
 // события (еда, вода) внутри ступени величины делятся по прототипу набора скачков: нервы, у которых среднее за 3 круга после
 // события (круг события и два следующих) отличается от среднего за 3 круга до него больше чем на JZ обычных разбросов этой
@@ -61,7 +63,7 @@ function step(B) {
   X.lastC = C; for (const k of X.ks) X.lastX[k] = G.val[B.ch[k].good];
   if (cfg.KEXP >= 2) ev = typeStep(B, X, t, late);
   // М2, мера: цена по нынешним нервам против настоящей сытости (мир знает), вторая половина жизни
-  if (late && W.E !== undefined) for (const T of X.types.values()) { const P = T.pr; if (!P.w) continue; let p = P.w[0]; for (let i = 0; i < X.ks.length; i++) p += P.w[1 + i] * X.lastX[X.ks[i]];
+  if (late && W.E !== undefined) for (const T of X.types.values()) { if (!T.pr.w) continue; const p = priceAt(cfg, T, X.ks.map((k) => X.lastX[k]));
     const s = T.ps, e = W.E; s.sp += p; s.se += e; s.spp += p * p; s.see += e * e; s.spe += p * e; s.n++; }
   // органы: рождение
   const d = 2 * X.ks.length + 1;
@@ -98,9 +100,14 @@ function step(B) {
     if (o.hungry > cfg.DIE && !(cfg.MLOAN && o.credit > -cfg.MLOAN)) { led.close(o); T.org = null; T.next = t + REBORN; T.deaths++; G.val[T.good] = 0; } }
 }
 // KEXP=2: история нервов, разброс разности средних, назначение вида событию двухкруговой давности
-function newType(X, key) {
+// признаки цены: [1, x] или (MEXP=3) [1, x, x²]
+const priceDim = (cfg, n) => (cfg.MEXP === 3 ? 2 * n + 1 : n + 1);
+function priceFeat(cfg, xs) { const n = xs.length, f = new Float64Array(priceDim(cfg, n)); f[0] = 1; for (let i = 0; i < n; i++) { f[1 + i] = xs[i]; if (cfg.MEXP === 3) f[1 + n + i] = xs[i] * xs[i]; } return f; }
+function priceAt(cfg, T, xs) { const w = T.pr.w; if (!w) return null; const f = priceFeat(cfg, xs); let p = 0; for (let i = 0; i < f.length; i++) p += w[i] * f[i]; return p; }
+function newType(X, key, cfg) {
+  const dp = priceDim(cfg, X.ks.length);
   return { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
-    pr: { A: new Float64Array((X.ks.length + 1) ** 2), cv: new Float64Array(X.ks.length + 1), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 }, proto: new Map(), pn: 0 };
+    pr: { A: new Float64Array(dp * dp), cv: new Float64Array(dp), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 }, proto: new Map(), pn: 0 };
 }
 function typeStep(B, X, t, late) {
   X.hist.push(X.ks.map((k) => X.lastX[k])); if (X.hist.length > 6) X.hist.shift(); if (X.hist.length < 6) { X.pend = X.pend.filter((p) => p.t > t - 2); return null; }
@@ -114,12 +121,12 @@ function typeStep(B, X, t, late) {
   const grp = B.cfg.KEXP === 3 && p.dC > 0 ? '+' : p.base;   // KEXP=3: положительные -- одна группа на все величины
   if (p.dC > 0 && S.length) { for (const Q of X.types.values()) { if (Q.base !== grp || !Q.pn) continue; let inS = 0, all = 0; for (const [j, c] of Q.proto) { all += c / Q.pn; if (S.includes(j)) inS += c / Q.pn; }
       const sim = inS / (all + S.length - inS); if (sim > bs) { bs = sim; T = Q; } }
-    if (!T || bs < JSIM) { T = newType(X, `${grp}.${X.nid++}`); T.base = grp; X.types.set(T.key, T); } }
-  else { T = X.types.get(grp); if (!T) { T = newType(X, grp); T.base = grp; X.types.set(T.key, T); } }
+    if (!T || bs < JSIM) { T = newType(X, `${grp}.${X.nid++}`, B.cfg); T.base = grp; X.types.set(T.key, T); } }
+  else { T = X.types.get(grp); if (!T) { T = newType(X, grp, B.cfg); T.base = grp; X.types.set(T.key, T); } }
   T.pn++; for (const j of S) T.proto.set(j, (T.proto.get(j) || 0) + 1);
   T.cnt++; if (late && p.truth) T.tr[p.truth]++;
   // цена (М2) -- по нервам перед событием
-  const P = T.pr, dp = n + 1, fp = new Float64Array(dp); fp[0] = 1; for (let i = 0; i < n; i++) fp[1 + i] = p.fp[i];
+  const P = T.pr, fp = priceFeat(B.cfg, p.fp), dp = fp.length;
   if (late && P.w) { let q = 0; for (let i = 0; i < dp; i++) q += P.w[i] * fp[i]; T.ps.rel.push(Math.abs(q - p.dC) / Math.abs(p.dC)); T.ps.pS += q; T.ps.pN++; }
   for (let i = 0; i < dp; i++) { P.cv[i] += fp[i] * p.dC; for (let j = 0; j < dp; j++) P.A[i * dp + j] += fp[i] * fp[j]; } P.yy += p.dC * p.dC; P.n++;
   if (P.n >= PMIN) { const mask = new Float64Array(dp).fill(1e-3); mask[0] = 0; const r = solve(P.A, P.cv, dp, P.yy, mask); if (r) P.w = Float64Array.from(r.w); }
@@ -137,4 +144,4 @@ function priceSum(T) {
   const s = T.ps, rel = s.rel.slice().sort((a, b) => a - b), den = Math.sqrt((s.n * s.spp - s.sp * s.sp) * (s.n * s.see - s.se * s.se));
   return { n: T.pr.n, corrE: s.n > 2 && den > 0 ? (s.n * s.spe - s.sp * s.se) / den : null, predMean: s.pN ? s.pS / s.pN : null, relMed: rel.length ? rel[rel.length >> 1] : null };
 }
-module.exports = { step, summary };
+module.exports = { step, summary, priceAt };

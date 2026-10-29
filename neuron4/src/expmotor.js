@@ -15,12 +15,15 @@
 // MEXP=2 (М3в, ПЛАН_М3в.md): цель руля -- не ожидание, а сигнатура вида: сумма нервов, которые в событиях вида падают не реже
 // чем в половине (у еды -- её запахи: еда исчезла), кроме своих нервов мотора. Сигнал каждого круга; органу ожидания цель
 // не нужна -- нужны цена и сигнатура.
+// MEXP=3 (М3г, ПЛАН_М3г.md): то же, цена квадратичная (src/expect.js), и «нет цели -- нет тяги»: когда руль цели уже бывал, а
+// сейчас ни одна цель не заметна, команда -- 0 (только проба MVSIG), а не прежний мотор.
 const { solve } = require('./linalg');
+const { priceAt } = require('./expect');
 const HOLD = 1.2, FMIN = 3;
 const T0 = (Q) => Q.key[0];
 
 // подогнанные цели: вид с живым органом (веса), ценой и (для команды) рулём
-const ready = (T, cfg) => (cfg.MEXP === 2 ? T.pr.w && T.pn : T.org && T.org.w && T.pr.w);
+const ready = (T, cfg) => (cfg.MEXP >= 2 ? T.pr.w && T.pn : T.org && T.org.w && T.pr.w);
 // сигнатура вида -- номера столбцов записи (порядок X.ks) нервов, которые в его событиях падают не реже чем в половине
 const sigOf = (X, Q, use) => X.ks.map((k, i) => ((Q.proto.get(`${k}-`) || 0) / Q.pn >= 0.5 && use[i] ? i : -1)).filter((i) => i >= 0);
 
@@ -30,7 +33,7 @@ function fit(B, m, v, T, ord) {
   const own = new Set(cfg.MNOPE ? (m.port.eff || []).map((e) => B.ch[e.j] && B.ch[e.j].good) : []), use = v.ids.map((id) => !own.has(id));
   const mu = new Float64Array(F); for (let i = 0; i < T; i++) for (let k = 0; k < F; k++) mu[k] += v.x[ord[i] * F + k] / T;
   for (const Q of X.types.values()) { if (!ready(Q, cfg)) continue; let psi;
-    if (cfg.MEXP === 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += v.x[r * F + i]; return s; }; }
+    if (cfg.MEXP >= 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += v.x[r * F + i]; return s; }; }
     else { const w = Q.org.w; psi = (r) => { let s = w[0]; for (let k = 0; k < F; k++) { const x = use[k] ? v.x[r * F + k] : mu[k]; s += w[1 + 2 * k] * x + w[2 + 2 * k] * x * x; } return s; }; }
     const d = 2 * F + 2, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0, prev = psi(ord[0]);
     for (let i = 0; i < T - 1; i++) { const r = ord[i], nx = psi(ord[i + 1]), y = nx - prev, u = v.u[r]; prev = nx; yy += y * y;
@@ -54,12 +57,12 @@ function command(B, m, v) {
   const X = B.exp, G = B.goods, cfg = B.cfg; if (!X || m.port.k !== B.world.motorNerve) return null;
   let best = null, bs = -1, cur = null, cs = -1;
   for (const Q of X.types.values()) { if (!ready(Q, cfg) || !Q.goal || !(Q.goal.F >= FMIN)) continue;
-    let p = Q.pr.w[0]; for (let i = 0; i < X.ks.length; i++) p += Q.pr.w[1 + i] * G.val[B.ch[X.ks[i]].good];
+    X.hadGoal = true; const p = priceAt(cfg, Q, X.ks.map((k) => G.val[B.ch[k].good]));
     if (!(p > 0) || T0(Q) !== '+') continue;   // М3: только цели «к» -- виды со скачком пользы вверх и ценой больше 0
     let ue = 0; for (let k = 0; k < v.F; k++) ue += Q.goal.a[k] * (G.val[v.ids[k]] - Q.goal.mu[k]); Q.ue = ue;
     const s = Math.abs(p) * ue * ue / Q.goal.g; Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
-  if (!best) { if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { 'прежний': ((X.goalRounds || {})['прежний'] || 0) + 1 }); return null; }
+  if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
   const Q = cur && !(bs > HOLD * cs) ? cur : best; X.cur = Q.key;
   if (B.t > cfg.ROUNDS / 2) { Q.goal.rounds++; (X.goalRounds || (X.goalRounds = {}))[Q.key] = (X.goalRounds[Q.key] || 0) + 1; }
   B.led.work(m, (2 * v.F + 4) * X.types.size);
