@@ -9,8 +9,11 @@
 // своего события KFPAY (среднее ожидание за BEFORE кругов до него - среднее вообще); кредит FCRED без налога до первой
 // подгонки, кредитная линия MLOAN, банкротство -- новый орган через REBORN кругов. Правда мира (съел, умер, удар) мозгу не
 // видна -- она только считается для мер (B.exp.tr, B.exp.tot).
+// М2 (results/kolonia/ПЛАН_М2.md): цена вида w(x) = c0 + c x -- скачок пользы в круге события по нервам перед ним (все, кроме
+// двигателя), гребень, подгонка после каждого события с PMIN-го. Цена принадлежит виду, не органу. В М2 она ни на что не
+// влияет и работы не стоит (поведение -- как в М1 бит в бит); мера -- связь цены с настоящей сытостью и точность.
 const { solve } = require('./linalg');
-const LAG = 150, FIT = 200, BEFORE = 50, REBORN = 500, FCRED = 1500, FIRST = 1000, FORGET = 1 - 1 / 5000, EVZ = 10, EVMIN = 3, MAXT = 6;
+const LAG = 150, FIT = 200, BEFORE = 50, REBORN = 500, FCRED = 1500, FIRST = 1000, FORGET = 1 - 1 / 5000, EVZ = 10, EVMIN = 3, MAXT = 6, PMIN = 5;
 
 function openOrgan(B, T, d) {
   T.built++;
@@ -36,10 +39,19 @@ function step(B) {
     X.nx++;
     const back = X.lastEv && X.lastEv.t === t - 1 && dC * X.lastEv.dC < 0 && Math.abs(dC) > 0.5 * Math.abs(X.lastEv.dC) && Math.abs(dC) < 2 * Math.abs(X.lastEv.dC);   // польза вернулась -- конец того же события
     if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { const size = Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4)), key = `${dC > 0 ? '+' : '-'}${size}`;
-      let T = X.types.get(key); if (!T) X.types.set(key, T = { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] } });
-      T.cnt++; if (late) T.tr[truth]++; if (best >= 0) T.nv.set(best, (T.nv.get(best) || 0) + 1); ev = T; X.lastEv = { t, dC }; }
+      let T = X.types.get(key); if (!T) X.types.set(key, T = { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
+        pr: { A: new Float64Array((X.ks.length + 1) ** 2), cv: new Float64Array(X.ks.length + 1), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 } });
+      T.cnt++; if (late) T.tr[truth]++; if (best >= 0) T.nv.set(best, (T.nv.get(best) || 0) + 1); ev = T; X.lastEv = { t, dC };
+      // М2: цена -- предсказание до события (для меры), затем подгонка по нервам перед событием
+      const P = T.pr, dp = X.ks.length + 1, fp = new Float64Array(dp); fp[0] = 1; for (let i = 0; i < X.ks.length; i++) fp[1 + i] = X.lastX[X.ks[i]];
+      if (late && P.w) { let p = 0; for (let i = 0; i < dp; i++) p += P.w[i] * fp[i]; T.ps.rel.push(Math.abs(p - dC) / Math.abs(dC)); T.ps.pS += p; T.ps.pN++; }
+      for (let i = 0; i < dp; i++) { P.cv[i] += fp[i] * dC; for (let j = 0; j < dp; j++) P.A[i * dp + j] += fp[i] * fp[j]; } P.yy += dC * dC; P.n++;
+      if (P.n >= PMIN) { const mask = new Float64Array(dp).fill(1e-3); mask[0] = 0; const r = solve(P.A, P.cv, dp, P.yy, mask); if (r) P.w = Float64Array.from(r.w); } }
     else if (!back) { X.sC += (Math.abs(dC) - X.sC) / Math.min(X.nC + 1, 100); X.nC++; } }
   X.lastC = C; for (const k of X.ks) X.lastX[k] = G.val[B.ch[k].good];
+  // М2, мера: цена по нынешним нервам против настоящей сытости (мир знает), вторая половина жизни
+  if (late && W.E !== undefined) for (const T of X.types.values()) { const P = T.pr; if (!P.w) continue; let p = P.w[0]; for (let i = 0; i < X.ks.length; i++) p += P.w[1 + i] * X.lastX[X.ks[i]];
+    const s = T.ps, e = W.E; s.sp += p; s.se += e; s.spp += p * p; s.see += e * e; s.spe += p * e; s.n++; }
   // органы: рождение
   const d = 2 * X.ks.length + 1;
   for (const T of X.types.values()) if (!T.org && T.cnt >= EVMIN && t >= T.next && (T.built > 0 || X.organs < MAXT)) { if (T.good < 0) { T.good = G.add('ожидание', 'world', -1, t); X.organs++; } openOrgan(B, T, d); }
@@ -78,6 +90,10 @@ function step(B) {
 function summary(B, kinds) {
   const X = B.exp; if (!X) return null;
   return { tot: X.tot, types: [...X.types.values()].map((T) => ({ key: T.key, nerve: T.nv.size ? kinds[[...T.nv.entries()].sort((a, b) => b[1] - a[1])[0][0]] : null, cnt: T.cnt, built: T.built, deaths: T.deaths, alive: !!T.org, paid: T.paid, tr: T.tr,
-    antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null })) };
+    antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null, price: priceSum(T) })) };
+}
+function priceSum(T) {
+  const s = T.ps, rel = s.rel.slice().sort((a, b) => a - b), den = Math.sqrt((s.n * s.spp - s.sp * s.sp) * (s.n * s.see - s.se * s.se));
+  return { n: T.pr.n, corrE: s.n > 2 && den > 0 ? (s.n * s.spe - s.sp * s.se) / den : null, predMean: s.pN ? s.pS / s.pN : null, relMed: rel.length ? rel[rel.length >> 1] : null };
 }
 module.exports = { step, summary };
