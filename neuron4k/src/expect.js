@@ -76,7 +76,8 @@ function step(B) {
     const mine = ev === T ? 1 : 0;
     // доход за ожидание
     if (mine && o.w && o.fn >= BEFORE) { let s = 0; for (let i = 0; i < BEFORE; i++) s += o.fr[i]; const pay = cfg.KFPAY * (s / BEFORE - o.fm);
-      if (pay > 0) led.earn('world', o, pay, 'мир->ожидание: доход за ожидание'); else if (pay < 0) led.move(o, 'world', -pay, 'ожидание->мир: не ждал');
+      if (cfg.KECON && t > cfg.KCHILD) {}   // Э1: после детства доход за ожидание не платится
+      else if (pay > 0) led.earn('world', o, pay, 'мир->ожидание: доход за ожидание'); else if (pay < 0) led.move(o, 'world', -pay, 'ожидание->мир: не ждал');
       T.paid += pay; }
     if (o.w) { o.fr[o.fn % BEFORE] = psi; o.fn++; o.fm += (psi - o.fm) / Math.min(o.fn, 5000); }
     G.val[T.good] = psi;

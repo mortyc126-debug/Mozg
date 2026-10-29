@@ -22,6 +22,7 @@
 // заметность цели -- цена сейчас (выбирает нужда, руль ведёт); нет цели -- прежний мотор.
 const { solve } = require('./linalg');
 const { priceAt } = require('./expect');
+const ECON = require('./econ');
 const HOLD = 1.2, FMIN = 3, NEEDF = 0.3;
 const T0 = (Q) => Q.key[0];
 
@@ -73,13 +74,14 @@ function command(B, m, v) {
     if (cfg.MEXP === 4) { if (!Q.need) continue; const n = G.val[B.ch[Q.need.k].good]; p = Q.need.c[0] + Q.need.c[1] * n + Q.need.c[2] * n * n; }
     else p = priceAt(cfg, Q, X.ks.map((k) => G.val[B.ch[k].good]));
     if (!(p > 0) || T0(Q) !== '+') continue;   // М3: только цели «к» -- виды со скачком пользы вверх и ценой больше 0
-    let ue = 0; for (let k = 0; k < v.F; k++) ue += Q.goal.a[k] * (G.val[v.ids[k]] - Q.goal.mu[k]); Q.ue = ue;
+    let ue = 0; for (let k = 0; k < v.F; k++) ue += Q.goal.a[k] * (ECON.xhat(B, v.ids[k]) - Q.goal.mu[k]); Q.ue = ue;   // Э1: MANT -- прогноз канала
     const s = cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g; Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
   if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
   const Q = cur && !(bs > HOLD * cs) ? cur : best; X.cur = Q.key;
   if (B.t > cfg.ROUNDS / 2) { Q.goal.rounds++; (X.goalRounds || (X.goalRounds = {}))[Q.key] = (X.goalRounds[Q.key] || 0) + 1; }
   B.led.work(m, (2 * v.F + 4) * X.types.size);
+  if (cfg.MANT) ECON.credit(B, v.ids, Q.goal.a, Q.sign * Q.ue);   // Э1: вклад частей в команду
   return Q.sign * Q.ue;
 }
 module.exports = { fit, command };

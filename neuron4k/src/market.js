@@ -16,6 +16,7 @@ const MEM = require('./memory');
 const CC = require('./concepts');
 const FEAR = require('./fear');
 const EXP = require('./expect');
+const ECON = require('./econ');
 
 // Вход части -- товар (номер) или признак-произведение: набор нервов-листьев (массив номеров по возрастанию), значение --
 // их произведение (правки 27-28 нейрона-3: произведения -- только из нервов; этаж любой высоты -- тот же признак с большим
@@ -120,12 +121,13 @@ class Brain {
             led.work(p, 3 * p.x.length); } } }
       p.bits = Math.max(0, 0.5 * Math.log2(Math.max(c.var, 1e-9) / Math.max(p.mse, 1e-9)));
       p.bitsAvg += 0.01 * (p.bits - p.bitsAvg);
-      if (p.bits > 0) led.earn('world', p, cfg.PAY * p.bits * (W.salience ? W.salience(c.k) : 1), 'мир->часть: биты');
+      if (p.bits > 0 && !ECON.grown(this)) led.earn('world', p, cfg.PAY * p.bits * (W.salience ? W.salience(c.k) : 1), 'мир->часть: биты');   // Э1: после детства за биты не платят
     }
     // 3. польза движений -- общий сигнал; плата мира -- вклад команды, сдвинувшей z, тому, кто её подал DLAG кругов назад
     const C = W.comfort(); G.val[this.comfortGood] = C;
     if (W.plugged) { const h = this.drvHist[cfg.DLAG - 1], who = h && h[W.motorNerve];
-      if (who && who.alive) led.earn('world', who, W.marginal(), `мир->${who.kind}: польза движений`); }
+      if (who && who.alive && !ECON.grown(this)) led.earn('world', who, W.marginal(), `мир->${who.kind}: польза движений`); }
+    if (cfg.KECON) ECON.meal(this);   // Э1: деньги мозга -- из еды
     { const sp = W.speechPay ? W.speechPay() : null, h = this.drvHist[0];   // сказанное слово: ответ родителя -- тому, кто говорил
       if (sp && h && h[sp[0]] && h[sp[0]].alive) { h[sp[0]].lastPay = sp[1]; h[sp[0]].lastPayT = this.t; }
       if (sp && h && h[sp[0]] && h[sp[0]].alive && sp[1]) { if (sp[1] > 0) led.earn('world', h[sp[0]], sp[1], `мир->${h[sp[0]].kind}: ответ родителя`); else led.move(h[sp[0]], 'world', -sp[1], `${h[sp[0]].kind}->мир: ответ родителя`); } }

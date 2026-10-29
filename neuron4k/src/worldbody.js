@@ -96,6 +96,9 @@ class WorldBody {
   // К1ж: страх -- средний прогноз частей канала «смерть» в 50 кругах перед смертью против остальных кругов (вторая половина жизни)
   score(B) {
     const c = this.cfg; if (B.exp) this.expB = B;   // М1: итог органов ожидания
+    // Э1, мера: части по каналам во второй половине -- полезные (запахи: входят в сигнатуры еды и воды) и все; хозяйство
+    this.ledB = B.led; if (this.t > c.ROUNDS / 2) { const E = this.econ || (this.econ = { n: 0, tot: 0, use: 0 }); E.n++;
+      for (const ch of B.ch) { const np = ch.parts.length; E.tot += np; if (/^запах/.test(this.nerves[ch.k] ? this.nerves[ch.k].kind : '')) E.use += np; } }
     if (this.deathNerve < 0 || this.t <= c.ROUNDS / 2) return;
     const C = B.ch[this.deathNerve]; if (!C) return; let s = 0; for (const q of C.parts) s += q.pred; let pr = C.parts.length ? s / C.parts.length : C.mean;
     if (B.fear) { pr = B.goods.val[B.fear.good]; this.fearInfo = B.fear; this.ds.fAlive = (this.ds.fAlive || 0) + (B.fear.org ? 1 : 0); this.ds.fN = (this.ds.fN || 0) + 1; }   // К1к: страх -- выход органа страха
@@ -110,7 +113,9 @@ class WorldBody {
     const s = this.st, n = Math.max(1, s.n), rf = (a) => (a[0] + a[1] ? a[0] / (a[0] + a[1]) : NaN);
     return { eat: 1000 * (s.food + s.water) / n, food: 1000 * s.food / n, water: 1000 * s.water / n, need: s.byNeed[1] ? s.byNeed[0] / s.byNeed[1] : NaN, nNeed: s.byNeed[1],
       deaths1: 1000 * this.ds.half[0] / (this.cfg.ROUNDS / 2), deaths2: 1000 * this.ds.half[1] / (this.cfg.ROUNDS / 2), fear: this.ds.fearBn && this.ds.fearAn ? (this.ds.fearB / this.ds.fearBn) / (this.ds.fearA / this.ds.fearAn) : NaN, fearB: this.ds.fearBn ? this.ds.fearB / this.ds.fearBn : NaN, fearA: this.ds.fearAn ? this.ds.fearA / this.ds.fearAn : NaN,
-      fSat: rf(s.blk.sat), fNorm: rf(s.blk.norm), deval: rf(s.blk.sat) / rf(s.blk.norm), nSat: s.blk.sat[0] + s.blk.sat[1], nNorm: s.blk.norm[0] + s.blk.norm[1], wall: s.wall / n, ...(this.cfg.KDEBT ? { debtShare: (s.debtN || 0) / n } : {}), ...(this.expB ? { exp: EXP.summary(this.expB, this.truth()) } : {}), ...(this.ds.gAn ? { gainB: this.ds.gBn ? this.ds.gB / this.ds.gBn : NaN, gainA: this.ds.gA / this.ds.gAn } : {}),
+      fSat: rf(s.blk.sat), fNorm: rf(s.blk.norm), deval: rf(s.blk.sat) / rf(s.blk.norm), nSat: s.blk.sat[0] + s.blk.sat[1], nNorm: s.blk.norm[0] + s.blk.norm[1], wall: s.wall / n, ...(this.cfg.KDEBT ? { debtShare: (s.debtN || 0) / n } : {}), ...(this.expB ? { exp: EXP.summary(this.expB, this.truth()) } : {}),
+      ...(this.econ ? { parts2: this.econ.tot / this.econ.n, partsUse: this.econ.use / this.econ.n, useShare: this.econ.tot ? this.econ.use / this.econ.tot : NaN } : {}),
+      ...(this.ledB ? (() => { const f = this.ledB.flow; let rent = 0, food = 0; for (const [k, v] of Object.entries(f)) { if (/аренда/.test(k)) rent += v; if (/: еда$/.test(k)) food += v; } return { rent: rent / this.cfg.ROUNDS, foodPay: food }; })() : {}), ...(this.ds.gAn ? { gainB: this.ds.gBn ? this.ds.gB / this.ds.gBn : NaN, gainA: this.ds.gA / this.ds.gAn } : {}),
       ...(this.fearInfo ? { fAlive: this.ds.fAlive / this.ds.fN, fDeaths: this.fearInfo.deaths, fBuilt: this.fearInfo.built, fPaid: this.fearInfo.paid } : {}) };
   }
   truth() { return this.nerves.map((nv) => nv.kind); }

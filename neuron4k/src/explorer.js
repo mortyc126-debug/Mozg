@@ -18,6 +18,7 @@
 const { solve } = require('./linalg');
 const CC = require('./concepts');
 const EXM = require('./expmotor');
+const ECON = require('./econ');
 
 function init(B) {
   return { agent: null, motors: [], choosers: [], oracle: null, built: 0, firstEff: -1, firstMotor: -1, log: [], body: [] };
@@ -176,7 +177,7 @@ function valRecord(B, m) {
   const ids = B.ch.filter((c) => c.k !== own).map((c) => c.good); if (cfg.KFEAR === 2 && B.fear) ids.push(B.fear.good);   // К1к: страх -- ещё один нерв мотора
   let v = vrOf(B, m); if (!v || v.ids.length !== ids.length || v.ids.some((id, i) => id !== ids[i])) B.vrs.set(own, v = { ids, F: ids.length, n: 0, x: new Float32Array(cfg.MVH * ids.length), c: new Float32Array(cfg.MVH), b: null, ok: false, td: new Float64Array(cfg.H), last: null, u: new Float32Array(cfg.MVH), lin: null });
   const row = v.n % cfg.MVH, F = v.F, x = new Float64Array(F);
-  for (let i = 0; i < F; i++) { x[i] = G.val[ids[i]]; v.x[row * F + i] = x[i]; } v.c[row] = G.val[B.comfortGood]; v.u[row] = B.u[own]; v.n++;
+  for (let i = 0; i < F; i++) { x[i] = ECON.xhat(B, ids[i]); v.x[row * F + i] = x[i]; } v.c[row] = G.val[B.comfortGood]; v.u[row] = B.u[own]; v.n++;   // Э1: MANT -- прогноз канала
   if (v.ok) { const V = (z) => { let s = v.b[0]; for (let i = 0; i < F; i++) s += v.b[1 + i] * z[i]; return s; };
     v.td[B.t % cfg.H] = G.val[B.comfortGood] + cfg.MGAMV * V(x) - (v.last ? V(v.last) : V(x)); }
   v.last = x; B.led.work(m, 2 * F + 2);
