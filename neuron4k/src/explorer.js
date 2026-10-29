@@ -19,6 +19,7 @@ const { solve } = require('./linalg');
 const CC = require('./concepts');
 const EXM = require('./expmotor');
 const ECON = require('./econ');
+const CER = require('./cerebellum');
 
 function init(B) {
   return { agent: null, motors: [], choosers: [], oracle: null, built: 0, firstEff: -1, firstMotor: -1, log: [], body: [] };
@@ -181,6 +182,7 @@ function valRecord(B, m) {
   if (v.ok) { const V = (z) => { let s = v.b[0]; for (let i = 0; i < F; i++) s += v.b[1 + i] * z[i]; return s; };
     v.td[B.t % cfg.H] = G.val[B.comfortGood] + cfg.MGAMV * V(x) - (v.last ? V(v.last) : V(x)); }
   v.last = x; B.led.work(m, 2 * F + 2);
+  if (cfg.CER) CER.record(B, m, v, x, row);   // Э2: мозжечок -- прогноз следующего круга с копией команды
 }
 function valFit(B, m) {
   const cfg = B.cfg, v = vrOf(B, m); if (!v) return;
@@ -199,6 +201,7 @@ function valFit(B, m) {
   for (let i = n0; i < T; i++) { const t = B.t - (T - 1 - i); v.td[t % H] = v.c[ord[i]] + cfg.MGAMV * V(ord[i]) - V(ord[i - 1]); }
   B.led.work(m, H * 2 * F);
   if (cfg.MVAL === 2) linFit(B, m, v, T, ord);
+  if (cfg.CER) CER.fit(B, m, v, T, ord);   // Э2: прямая модель мозжечка
   if (cfg.MVAL === 2 && cfg.MEXP) EXM.fit(B, m, v, T, ord);   // М3: руль каждой цели
 }
 // MVAL=2: какая команда при каких нервах ведёт к приросту ценности -- d(j+1) ~ b0 + b (x(j) - mu) + u(j) (a0 + a (x(j) - mu)).
