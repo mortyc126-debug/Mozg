@@ -15,6 +15,7 @@ const EX = require('./explorer');
 const MEM = require('./memory');
 const CC = require('./concepts');
 const FEAR = require('./fear');
+const EXP = require('./expect');
 
 // Вход части -- товар (номер) или признак-произведение: набор нервов-листьев (массив номеров по возрастанию), значение --
 // их произведение (правки 27-28 нейрона-3: произведения -- только из нервов; этаж любой высоты -- тот же признак с большим
@@ -93,6 +94,7 @@ class Brain {
         if (!c.parts.length) { const p = this.newPart(c, 'bank', cfg.START, null); this.stat.imm++; this.inherit(p); p.dormant = false; continue; }   // частей нет -- память приводит свою
         for (const p of c.parts) { if (p.inputs.length >= cfg.LMAX || p.inputs.some((d) => keyOf(d) === k)) continue;
           if (p.w.length !== p.inputs.length) continue; p.inputs.push(e.d); p.w = Float64Array.from([...p.w, e.w]); (p.gw = p.gw || new Map()).set(k, e.w); p.x = null; p.dormant = false; this.memOf(p); led.work(p, p.inputs.length); } } }
+    if (cfg.KEXP) EXP.step(this);     // органы ожидания (мотор ожиданий, М1)
     if (cfg.KFEAR) FEAR.step(this);   // орган страха (Колония К1к): прогноз смерти заранее, доход за страх
     // 2. расчёт за прошлый прогноз: учёба между подгонками и плата мира за биты
     for (const c of this.ch) for (const p of c.parts) {
