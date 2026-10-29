@@ -172,7 +172,7 @@ function tdNow(B, m) {
 }
 function valRecord(B, m) {
   const cfg = B.cfg, G = B.goods, own = m.port.k;
-  const ids = B.ch.filter((c) => c.k !== own).map((c) => c.good);
+  const ids = B.ch.filter((c) => c.k !== own).map((c) => c.good); if (cfg.KFEAR === 2 && B.fear) ids.push(B.fear.good);   // К1к: страх -- ещё один нерв мотора
   let v = vrOf(B, m); if (!v || v.ids.length !== ids.length || v.ids.some((id, i) => id !== ids[i])) B.vrs.set(own, v = { ids, F: ids.length, n: 0, x: new Float32Array(cfg.MVH * ids.length), c: new Float32Array(cfg.MVH), b: null, ok: false, td: new Float64Array(cfg.H), last: null, u: new Float32Array(cfg.MVH), lin: null });
   const row = v.n % cfg.MVH, F = v.F, x = new Float64Array(F);
   for (let i = 0; i < F; i++) { x[i] = G.val[ids[i]]; v.x[row * F + i] = x[i]; } v.c[row] = G.val[B.comfortGood]; v.u[row] = B.u[own]; v.n++;

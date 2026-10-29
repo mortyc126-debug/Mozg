@@ -88,7 +88,8 @@ class WorldBody {
   // К1ж: страх -- средний прогноз частей канала «смерть» в 50 кругах перед смертью против остальных кругов (вторая половина жизни)
   score(B) {
     const c = this.cfg; if (this.deathNerve < 0 || this.t <= c.ROUNDS / 2) return;
-    const C = B.ch[this.deathNerve]; if (!C) return; let s = 0; for (const q of C.parts) s += q.pred; const pr = C.parts.length ? s / C.parts.length : C.mean;
+    const C = B.ch[this.deathNerve]; if (!C) return; let s = 0; for (const q of C.parts) s += q.pred; let pr = C.parts.length ? s / C.parts.length : C.mean;
+    if (B.fear) { pr = B.goods.val[B.fear.good]; this.fearInfo = B.fear; this.ds.fAlive = (this.ds.fAlive || 0) + (B.fear.org ? 1 : 0); this.ds.fN = (this.ds.fN || 0) + 1; }   // К1к: страх -- выход органа страха
     const D = this.ds; if (this.died) { for (const v of D.buf) { D.fearB += v; D.fearBn++; } D.buf = []; }
     D.buf.push(pr); if (D.buf.length > 50) { const v = D.buf.shift(); D.fearA += v; D.fearAn++; }
   }
@@ -96,7 +97,8 @@ class WorldBody {
     const s = this.st, n = Math.max(1, s.n), rf = (a) => (a[0] + a[1] ? a[0] / (a[0] + a[1]) : NaN);
     return { eat: 1000 * (s.food + s.water) / n, food: 1000 * s.food / n, water: 1000 * s.water / n, need: s.byNeed[1] ? s.byNeed[0] / s.byNeed[1] : NaN, nNeed: s.byNeed[1],
       deaths1: 1000 * this.ds.half[0] / (this.cfg.ROUNDS / 2), deaths2: 1000 * this.ds.half[1] / (this.cfg.ROUNDS / 2), fear: this.ds.fearBn && this.ds.fearAn ? (this.ds.fearB / this.ds.fearBn) / (this.ds.fearA / this.ds.fearAn) : NaN, fearB: this.ds.fearBn ? this.ds.fearB / this.ds.fearBn : NaN, fearA: this.ds.fearAn ? this.ds.fearA / this.ds.fearAn : NaN,
-      fSat: rf(s.blk.sat), fNorm: rf(s.blk.norm), deval: rf(s.blk.sat) / rf(s.blk.norm), nSat: s.blk.sat[0] + s.blk.sat[1], nNorm: s.blk.norm[0] + s.blk.norm[1], wall: s.wall / n };
+      fSat: rf(s.blk.sat), fNorm: rf(s.blk.norm), deval: rf(s.blk.sat) / rf(s.blk.norm), nSat: s.blk.sat[0] + s.blk.sat[1], nNorm: s.blk.norm[0] + s.blk.norm[1], wall: s.wall / n,
+      ...(this.fearInfo ? { fAlive: this.ds.fAlive / this.ds.fN, fDeaths: this.fearInfo.deaths, fBuilt: this.fearInfo.built, fPaid: this.fearInfo.paid } : {}) };
   }
   truth() { return this.nerves.map((nv) => nv.kind); }
 }
