@@ -11,7 +11,7 @@ const label = (T) => Object.entries(T.tr).sort((a, b) => b[1] - a[1])[0];
 const found = (x, what) => { const ts = x.exp.types.filter((T) => { const [l, n] = label(T); return n > 0 && l === what; }); const hit = ts.reduce((s, T) => s + T.tr[what], 0), all = ts.reduce((s, T) => s + Object.values(T.tr).reduce((a, b) => a + b, 0), 0);
   return { cover: x.exp.tot[what] ? hit / x.exp.tot[what] : NaN, prec: all ? hit / all : NaN, n: ts.length, ok: x.exp.tot[what] > 0 && hit / x.exp.tot[what] >= 0.8 && hit / all >= 0.8, ts }; };
 const seeds = [...E.keys()].sort((a, b) => a - b);
-for (const s of seeds) { const x = E.get(s); console.log(`мир ${s}: правда ${JSON.stringify(x.exp.tot)}; виды: ` + x.exp.types.map((T) => `${T.key}[${label(T)[0]} ${T.cnt}${T.alive ? '' : ', органа нет'}]`).join(' ')); }
+for (const s of seeds) { const x = E.get(s); console.log(`мир ${s}: правда ${JSON.stringify(x.exp.tot)}; виды: ` + x.exp.types.map((T) => `${T.key}[${label(T)[1] ? label(T)[0] : 'нет во 2-й половине'} ${T.cnt}${T.alive ? '' : ', органа нет'}]`).join(' ')); }
 for (const [i, what] of [[1, 'еда'], [2, 'смерть']]) { const r = seeds.map((s) => found(E.get(s), what)), ok = r.filter((q) => q.ok).length;
   console.log(`\n${i}. нашёл «${what}»: в ${ok} из ${r.length} мирах -> ${ok >= 20 ? 'ДА' : 'нет'}; покрытие -- медиана ${f(med(r.map((q) => q.cover)))}, точность -- ${f(med(r.map((q) => q.prec)))}; видов -- ${r.map((q) => q.n).join(' ')}`); }
 const ant = (what) => seeds.map((s) => { const q = found(E.get(s), what); const T = q.ts.sort((a, b) => b.tr[what] - a.tr[what])[0]; return T && T.antB !== null && T.antA !== null ? T.antB - T.antA : NaN; });
