@@ -364,7 +364,7 @@ function scan(B, c) {
     // эпохи, а не память о событиях (при примерке с чистого начала окна он ещё растёт, и проверки его не видят)
     const clock = (q) => (q.op === 'накопить' && q.lam === 1 && !q.z) || ['a', 'b', 'w', 'v', 'r', 'z'].some((k) => q[k] && clock(q[k]));
     for (const n of C.list) { if (cfg.CFAST >= 3 && clock(n)) continue; const f = CP.compile(n), sz = CP.size(n); let tt = -1, v = 0, prev = NaN, ch = 0; const ys = cfg.CFAST ? new Float64Array(t1 - w0 + 1) : null;
-      const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; if (v !== prev) ch++; prev = v; if (ys) ys[t - w0] = v; } return v; }, 'сборка', Wc, false, cfg.SUPLOO === 1 || (cfg.SUPLOO === 2 && CP.otherMem(n)));   // SUPLOO=2 (правка «опора-3»): смягчённая опора -- только памяти о других событиях ops += (t1 - w0) * sz;
+      const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; if (v !== prev) ch++; prev = v; if (ys) ys[t - w0] = v; } return v; }, 'сборка', Wc, false, cfg.SUPLOO === 1 || (cfg.SUPLOO === 2 && CP.otherMem(n))); ops += (t1 - w0) * sz;   // SUPLOO=2 (правка «опора-3»): смягчённая опора -- только памяти о других событиях
       // память, которая на записи почти не меняется (ступенька «однажды было» -- держать(событие, единица)), объясняет не
       // события, а сдвиг среднего остатка; такая не примеряется
       if (!(z > 1) || ch < 8) continue;
