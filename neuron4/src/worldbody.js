@@ -11,6 +11,8 @@
 // только в первом круге касания (К1б, results/kolonia/ПЛАН_К1б.md).
 // KDEATH=1 -- смерть (К1ж): сытость (напоённость) до нуля -- штраф KDPEN, тело возрождается сытым в новом месте, мозг помнит;
 // KDNERVE=1 -- нерв «смерть» (1 в круге смерти); 2 -- тот же нерв, всегда 0; 3 -- вспышки наугад с шансом KDRATE (К1з).
+// KDEBT -- долг после смерти (К1л): тело возрождается с долгом KDEBT в пользе и отдаёт его по KDPAY за круг (двойник -- так же);
+// KDEBTN=1 -- нерв «долг» (долг / KDEBT), 2 -- тот же нерв, всегда 0.
 // KSAT=1 -- обесценивание: во второй половине жизни через блок по KSATL кругов мир держит E = 1 (тело накормлено извне).
 const { stream } = require('./rng');
 
@@ -24,6 +26,7 @@ class WorldBody {
     this.chs = { fl: ch('запах еды слева'), fr: ch('запах еды справа'), wl: ch('запах воды слева'), wr: ch('запах воды справа'),
       tl: ch('касание слева'), tr: ch('касание справа'), e: ch('сытость'), h: ch('напоённость'), p: ch('положение'), m: ch('двигатель') };
     if (cfg.KDNERVE) this.chs.d = ch('смерть');   // К1ж: нерв «смерть» -- 1 в круге смерти
+    if (cfg.KDEBTN) this.chs.b = ch('долг');      // К1л: нерв «долг»
     this.nerves = Object.values(this.chs).map((x) => ({ ch: x, kind: x.kind }));
     for (let i = this.nerves.length - 1; i > 0; i--) { const j = r.int(i + 1); [this.nerves[i], this.nerves[j]] = [this.nerves[j], this.nerves[i]]; }
     this.deathNerve = this.chs.d ? this.nerves.findIndex((nv) => nv.ch === this.chs.d) : -1; this.died = 0;
@@ -31,7 +34,7 @@ class WorldBody {
     this.ds = { half: [0, 0], fearB: 0, fearBn: 0, fearA: 0, fearAn: 0, buf: [] };   // смерти по половинам жизни; прогноз смерти перед ней и всегда
     this.motorNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.m); this.propNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.p);
     this.plugged = true; this.t = 0; this.z = { val: 0 }; this.g = { val: 0 };   // z, g -- для общих замеров (польза меряется через comfort)
-    this.C = 0; this.marg = 0; this.touch = 0; this.prevTouch = 0; this.Et = 1; this.Ht = 1;   // Et, Ht -- двойник, который никогда не двигался (KTWIN)
+    this.C = 0; this.marg = 0; this.touch = 0; this.prevTouch = 0; this.Et = 1; this.Ht = 1; this.debt = 0; this.debtT = 0;   // Et, Ht -- двойник, который никогда не двигался (KTWIN)
     this.st = { food: 0, water: 0, n: 0, byNeed: [0, 0], blk: { sat: [0, 0], norm: [0, 0] }, wall: 0, nSat: 0, nNorm: 0 };
     this.sense();
   }
@@ -46,6 +49,7 @@ class WorldBody {
     const S = this.chs;
     S.fl.val = 3 * this.odor(this.food, 0.6); S.fr.val = 3 * this.odor(this.food, -0.6); S.wl.val = this.cfg.KWATER ? 3 * this.odor(this.water, 0.6) : 0; S.wr.val = this.cfg.KWATER ? 3 * this.odor(this.water, -0.6) : 0;
     S.e.val = this.E; S.h.val = this.H; S.p.val = this.turn; S.m.val = 0; if (S.d) S.d.val = this.cfg.KDNERVE === 1 ? this.died : this.cfg.KDNERVE === 3 ? (this.rd() < this.cfg.KDRATE ? 1 : 0) : 0;   // К1з: 2 -- нерв молчит, 3 -- вспышки наугад
+    if (S.b) S.b.val = this.cfg.KDEBTN === 1 && this.cfg.KDEBT ? this.debt / this.cfg.KDEBT : 0;   // К1л: 2 -- нерв молчит
   }
   advance(u) {
     const c = this.cfg, t = ++this.t, S = this.chs;
@@ -80,9 +84,12 @@ class WorldBody {
       if (this.E <= 0 || (c.KWATER && this.H <= 0)) { died = 1; this.ds.half[t > c.ROUNDS / 2 ? 1 : 0]++; this.E = 1; this.H = 1; this.x = c.KA * this.rp(); this.y = c.KA * this.rp(); this.th = 2 * Math.PI * this.rp(); }
       if (this.Et <= 0 || (c.KWATER && this.Ht <= 0)) { tdied = 1; this.Et = 1; this.Ht = 1; } }
     this.died = died;
+    // К1л: долг после смерти -- рассрочка, досрочно не отдать
+    let pay = 0, payT = 0;
+    if (c.KDEBT) { if (died) this.debt += c.KDEBT; if (tdied) this.debtT += c.KDEBT; pay = Math.min(this.debt, c.KDPAY); this.debt -= pay; payT = Math.min(this.debtT, c.KDPAY); this.debtT -= payT; }
     const pain = c.KPAINEV ? (this.touch && !this.prevTouch ? 1 : 0) : this.touch; this.prevTouch = this.touch;   // KPAINEV: боль -- за удар, а не за прижатость
-    this.C = this.util(this.E, this.H, pain) - c.KDPEN * died; this.marg = this.C - (c.KTWIN ? this.util(this.Et, this.Ht, 0) - c.KDPEN * tdied : this.util(Eb, Hb, 0));
-    if (late) { this.st.n++; this.st.wall += this.touch; if (sat) this.st.nSat++; else this.st.nNorm++; }
+    this.C = this.util(this.E, this.H, pain) - c.KDPEN * died - pay; this.marg = this.C - (c.KTWIN ? this.util(this.Et, this.Ht, 0) - c.KDPEN * tdied - payT : this.util(Eb, Hb, 0) - pay);
+    if (late) { this.st.n++; this.st.wall += this.touch; if (this.debt > 0) this.st.debtN = (this.st.debtN || 0) + 1; if (sat) this.st.nSat++; else this.st.nNorm++; }
     S.tl.val = tl; S.tr.val = tr; this.sense();
   }
   // К1ж: страх -- средний прогноз частей канала «смерть» в 50 кругах перед смертью против остальных кругов (вторая половина жизни)
@@ -97,7 +104,7 @@ class WorldBody {
     const s = this.st, n = Math.max(1, s.n), rf = (a) => (a[0] + a[1] ? a[0] / (a[0] + a[1]) : NaN);
     return { eat: 1000 * (s.food + s.water) / n, food: 1000 * s.food / n, water: 1000 * s.water / n, need: s.byNeed[1] ? s.byNeed[0] / s.byNeed[1] : NaN, nNeed: s.byNeed[1],
       deaths1: 1000 * this.ds.half[0] / (this.cfg.ROUNDS / 2), deaths2: 1000 * this.ds.half[1] / (this.cfg.ROUNDS / 2), fear: this.ds.fearBn && this.ds.fearAn ? (this.ds.fearB / this.ds.fearBn) / (this.ds.fearA / this.ds.fearAn) : NaN, fearB: this.ds.fearBn ? this.ds.fearB / this.ds.fearBn : NaN, fearA: this.ds.fearAn ? this.ds.fearA / this.ds.fearAn : NaN,
-      fSat: rf(s.blk.sat), fNorm: rf(s.blk.norm), deval: rf(s.blk.sat) / rf(s.blk.norm), nSat: s.blk.sat[0] + s.blk.sat[1], nNorm: s.blk.norm[0] + s.blk.norm[1], wall: s.wall / n,
+      fSat: rf(s.blk.sat), fNorm: rf(s.blk.norm), deval: rf(s.blk.sat) / rf(s.blk.norm), nSat: s.blk.sat[0] + s.blk.sat[1], nNorm: s.blk.norm[0] + s.blk.norm[1], wall: s.wall / n, ...(this.cfg.KDEBT ? { debtShare: (s.debtN || 0) / n } : {}),
       ...(this.fearInfo ? { fAlive: this.ds.fAlive / this.ds.fN, fDeaths: this.fearInfo.deaths, fBuilt: this.fearInfo.built, fPaid: this.fearInfo.paid } : {}) };
   }
   truth() { return this.nerves.map((nv) => nv.kind); }
