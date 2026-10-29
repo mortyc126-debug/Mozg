@@ -22,12 +22,13 @@ const { WorldTxt } = require('./src/worldtxt');
 const { WorldX } = require('./src/worldx');
 const { WorldOne } = require('./src/worldone');
 const { WorldEp } = require('./src/worldep');
+const { WorldBody } = require('./src/worldbody');
 const { Brain } = require('./src/market');
 const { Meter, KINDS, med } = require('./src/stats');
 
 function runSeed(over, seed) {
   const cfg = K.makeConfig(over), t0 = Date.now();
-  const W = cfg.WORLD === 'mix' ? new World3(cfg, seed) : cfg.WORLD === 'img' ? new WorldImg(cfg, seed) : cfg.WORLD === 'txt' ? new WorldTxt(cfg, seed) : cfg.WORLD === 'exam' ? new WorldX(cfg, seed) : cfg.WORLD === 'one' ? new WorldOne(cfg, seed) : cfg.WORLD === 'ep' ? new WorldEp(cfg, seed) : new World(cfg, seed), B = new Brain(cfg, W, seed), M = new Meter(B);
+  const W = cfg.WORLD === 'mix' ? new World3(cfg, seed) : cfg.WORLD === 'img' ? new WorldImg(cfg, seed) : cfg.WORLD === 'txt' ? new WorldTxt(cfg, seed) : cfg.WORLD === 'exam' ? new WorldX(cfg, seed) : cfg.WORLD === 'one' ? new WorldOne(cfg, seed) : cfg.WORLD === 'ep' ? new WorldEp(cfg, seed) : cfg.WORLD === 'body' ? new WorldBody(cfg, seed) : new World(cfg, seed), B = new Brain(cfg, W, seed), M = new Meter(B);
   const snaps = [];
   for (let r = 1; r <= cfg.ROUNDS; r++) { B.step(); if (W.score) W.score(B); M.each(); if (r % cfg.EVERY === 0) snaps.push(M.snap()); }
   const ex = B.ex, ceil = M.ceiling();
