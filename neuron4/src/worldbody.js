@@ -10,7 +10,7 @@
 // KTWIN=1 -- плата двигателю против двойника, который никогда не двигался (влечения только убывают); KPAINEV=1 -- боль
 // только в первом круге касания (К1б, results/kolonia/ПЛАН_К1б.md).
 // KDEATH=1 -- смерть (К1ж): сытость (напоённость) до нуля -- штраф KDPEN, тело возрождается сытым в новом месте, мозг помнит;
-// KDNERVE=1 -- нерв «смерть» (1 в круге смерти).
+// KDNERVE=1 -- нерв «смерть» (1 в круге смерти); 2 -- тот же нерв, всегда 0; 3 -- вспышки наугад с шансом KDRATE (К1з).
 // KSAT=1 -- обесценивание: во второй половине жизни через блок по KSATL кругов мир держит E = 1 (тело накормлено извне).
 const { stream } = require('./rng');
 
@@ -27,6 +27,7 @@ class WorldBody {
     this.nerves = Object.values(this.chs).map((x) => ({ ch: x, kind: x.kind }));
     for (let i = this.nerves.length - 1; i > 0; i--) { const j = r.int(i + 1); [this.nerves[i], this.nerves[j]] = [this.nerves[j], this.nerves[i]]; }
     this.deathNerve = this.chs.d ? this.nerves.findIndex((nv) => nv.ch === this.chs.d) : -1; this.died = 0;
+    if (cfg.KDNERVE === 3) this.rd = stream(seed, 'смерть-шум');   // К1з: вспышки нерва наугад -- свой жребий, мир не трогает
     this.ds = { half: [0, 0], fearB: 0, fearBn: 0, fearA: 0, fearAn: 0, buf: [] };   // смерти по половинам жизни; прогноз смерти перед ней и всегда
     this.motorNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.m); this.propNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.p);
     this.plugged = true; this.t = 0; this.z = { val: 0 }; this.g = { val: 0 };   // z, g -- для общих замеров (польза меряется через comfort)
@@ -44,7 +45,7 @@ class WorldBody {
   sense() {
     const S = this.chs;
     S.fl.val = 3 * this.odor(this.food, 0.6); S.fr.val = 3 * this.odor(this.food, -0.6); S.wl.val = this.cfg.KWATER ? 3 * this.odor(this.water, 0.6) : 0; S.wr.val = this.cfg.KWATER ? 3 * this.odor(this.water, -0.6) : 0;
-    S.e.val = this.E; S.h.val = this.H; S.p.val = this.turn; S.m.val = 0; if (S.d) S.d.val = this.died;
+    S.e.val = this.E; S.h.val = this.H; S.p.val = this.turn; S.m.val = 0; if (S.d) S.d.val = this.cfg.KDNERVE === 1 ? this.died : this.cfg.KDNERVE === 3 ? (this.rd() < this.cfg.KDRATE ? 1 : 0) : 0;   // К1з: 2 -- нерв молчит, 3 -- вспышки наугад
   }
   advance(u) {
     const c = this.cfg, t = ++this.t, S = this.chs;
