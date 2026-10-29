@@ -17,13 +17,16 @@
 // не нужна -- нужны цена и сигнатура.
 // MEXP=3 (М3г, ПЛАН_М3г.md): то же, цена квадратичная (src/expect.js), и «нет цели -- нет тяги»: когда руль цели уже бывал, а
 // сейчас ни одна цель не заметна, команда -- 0 (только проба MVSIG), а не прежний мотор.
+// MEXP=4 (М3д, ПЛАН_М3д.md): руль по сигнатуре (как MEXP=2); нерв нужды вида -- самый частый нерв, который в его событиях
+// растёт (не реже NEEDF); цена -- c0 + c1 n + c2 n² по нерву нужды перед событием (последние 300 событий вида, гребень);
+// заметность цели -- цена сейчас (выбирает нужда, руль ведёт); нет цели -- прежний мотор.
 const { solve } = require('./linalg');
 const { priceAt } = require('./expect');
-const HOLD = 1.2, FMIN = 3;
+const HOLD = 1.2, FMIN = 3, NEEDF = 0.3;
 const T0 = (Q) => Q.key[0];
 
 // подогнанные цели: вид с живым органом (веса), ценой и (для команды) рулём
-const ready = (T, cfg) => (cfg.MEXP >= 2 ? T.pr.w && T.pn : T.org && T.org.w && T.pr.w);
+const ready = (T, cfg) => (cfg.MEXP >= 2 ? (T.pr.w || cfg.MEXP === 4) && T.pn : T.org && T.org.w && T.pr.w);
 // сигнатура вида -- номера столбцов записи (порядок X.ks) нервов, которые в его событиях падают не реже чем в половине
 const sigOf = (X, Q, use) => X.ks.map((k, i) => ((Q.proto.get(`${k}-`) || 0) / Q.pn >= 0.5 && use[i] ? i : -1)).filter((i) => i >= 0);
 
@@ -33,6 +36,7 @@ function fit(B, m, v, T, ord) {
   const own = new Set(cfg.MNOPE ? (m.port.eff || []).map((e) => B.ch[e.j] && B.ch[e.j].good) : []), use = v.ids.map((id) => !own.has(id));
   const mu = new Float64Array(F); for (let i = 0; i < T; i++) for (let k = 0; k < F; k++) mu[k] += v.x[ord[i] * F + k] / T;
   for (const Q of X.types.values()) { if (!ready(Q, cfg)) continue; let psi;
+    if (cfg.MEXP === 4) needFit(X, Q, use);
     if (cfg.MEXP >= 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += v.x[r * F + i]; return s; }; }
     else { const w = Q.org.w; psi = (r) => { let s = w[0]; for (let k = 0; k < F; k++) { const x = use[k] ? v.x[r * F + k] : mu[k]; s += w[1 + 2 * k] * x + w[2 + 2 * k] * x * x; } return s; }; }
     const d = 2 * F + 2, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0, prev = psi(ord[0]);
@@ -53,14 +57,24 @@ function fit(B, m, v, T, ord) {
     Q.goal = { a: a.map((x) => Math.max(-8, Math.min(8, g * x))), g, mu, F: Fr, fits: (Q.goal ? Q.goal.fits : 0) + 1, rounds: Q.goal ? Q.goal.rounds : 0 }; }
 }
 
+// М3д: нерв нужды и цена по нему
+function needFit(X, Q, use) {
+  let best = -1, bf = 0; X.ks.forEach((k, i) => { const fr = (Q.proto.get(`${k}+`) || 0) / Q.pn; if (use[i] && fr >= NEEDF && fr > bf) { bf = fr; best = i; } });
+  if (best < 0 || !Q.evs || Q.evs.length < 5) { Q.need = null; return; }
+  const A = new Float64Array(9), cv = new Float64Array(3); let yy = 0;
+  for (const [xs, dC] of Q.evs) { const n = xs[best], f = [1, n, n * n]; yy += dC * dC; for (let a = 0; a < 3; a++) { cv[a] += f[a] * dC; for (let b = 0; b < 3; b++) A[a * 3 + b] += f[a] * f[b]; } }
+  const r = solve(A, cv, 3, yy, Float64Array.from([0, 1e-3, 1e-3])); Q.need = r ? { i: best, k: X.ks[best], c: Array.from(r.w) } : null;
+}
 function command(B, m, v) {
   const X = B.exp, G = B.goods, cfg = B.cfg; if (!X || m.port.k !== B.world.motorNerve) return null;
   let best = null, bs = -1, cur = null, cs = -1;
   for (const Q of X.types.values()) { if (!ready(Q, cfg) || !Q.goal || !(Q.goal.F >= FMIN)) continue;
-    X.hadGoal = true; const p = priceAt(cfg, Q, X.ks.map((k) => G.val[B.ch[k].good]));
+    X.hadGoal = true; let p;
+    if (cfg.MEXP === 4) { if (!Q.need) continue; const n = G.val[B.ch[Q.need.k].good]; p = Q.need.c[0] + Q.need.c[1] * n + Q.need.c[2] * n * n; }
+    else p = priceAt(cfg, Q, X.ks.map((k) => G.val[B.ch[k].good]));
     if (!(p > 0) || T0(Q) !== '+') continue;   // М3: только цели «к» -- виды со скачком пользы вверх и ценой больше 0
     let ue = 0; for (let k = 0; k < v.F; k++) ue += Q.goal.a[k] * (G.val[v.ids[k]] - Q.goal.mu[k]); Q.ue = ue;
-    const s = Math.abs(p) * ue * ue / Q.goal.g; Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
+    const s = cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g; Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
   if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
   const Q = cur && !(bs > HOLD * cs) ? cur : best; X.cur = Q.key;

@@ -125,6 +125,7 @@ function typeStep(B, X, t, late) {
   else { T = X.types.get(grp); if (!T) { T = newType(X, grp, B.cfg); T.base = grp; X.types.set(T.key, T); } }
   T.pn++; for (const j of S) T.proto.set(j, (T.proto.get(j) || 0) + 1);
   T.cnt++; if (late && p.truth) T.tr[p.truth]++;
+  if (B.cfg.MEXP === 4) { (T.evs || (T.evs = [])).push([p.fp, p.dC]); if (T.evs.length > 300) T.evs.shift(); }   // М3д: события для цены по нерву нужды
   // цена (М2) -- по нервам перед событием
   const P = T.pr, fp = priceFeat(B.cfg, p.fp), dp = fp.length;
   if (late && P.w) { let q = 0; for (let i = 0; i < dp; i++) q += P.w[i] * fp[i]; T.ps.rel.push(Math.abs(q - p.dC) / Math.abs(p.dC)); T.ps.pS += q; T.ps.pN++; }
@@ -138,7 +139,8 @@ function summary(B, kinds) {
   return { tot: X.tot, types: [...X.types.values()].map((T) => ({ key: T.key, nerve: T.nv.size ? kinds[[...T.nv.entries()].sort((a, b) => b[1] - a[1])[0][0]] : null, cnt: T.cnt, built: T.built, deaths: T.deaths, alive: !!T.org, paid: T.paid, tr: T.tr,
     antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null, price: priceSum(T),
     proto: T.proto ? [...T.proto.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([j, c]) => `${kinds[parseInt(j, 10)]}${j.slice(-1)} ${(c / T.pn).toFixed(2)}`) : undefined,
-    goal: T.goal ? { rounds: T.goal.rounds, fits: T.goal.fits, F: +T.goal.F.toFixed(2) } : undefined, sig: T.sig ? T.sig.map((k) => kinds[k]) : undefined })), goals: X.goalRounds || null };
+    goal: T.goal ? { rounds: T.goal.rounds, fits: T.goal.fits, F: +T.goal.F.toFixed(2) } : undefined, sig: T.sig ? T.sig.map((k) => kinds[k]) : undefined,
+    need: T.need ? { nerve: kinds[T.need.k], c: T.need.c.map((x) => +x.toFixed(3)) } : undefined })), goals: X.goalRounds || null };
 }
 function priceSum(T) {
   const s = T.ps, rel = s.rel.slice().sort((a, b) => a - b), den = Math.sqrt((s.n * s.spp - s.sp * s.sp) * (s.n * s.see - s.se * s.se));
