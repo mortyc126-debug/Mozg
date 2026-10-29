@@ -547,7 +547,7 @@ function motorU(B, m) {
 function economy(B) {
   const cfg = B.cfg, ex = B.ex, led = B.led;
   for (const m of ex.motors.slice()) {
-    m.age++; const rent = led.rent(m, cfg.RENT);
+    m.age++; const rent = cfg.MYOUTH && m.age <= cfg.MYOUTH ? (m.opsRound = 0, 0) : led.rent(m, cfg.RENT);   // MYOUTH (Колония К1е3): молодость -- без аренды, работа прощается
     const inc = m.inc; m.incLast = inc; m.inc = 0; m.incAvg += 0.01 * (inc - m.incAvg);
     // ESAVG: доля строителя -- от средней прибыли, а не от каждого удачного круга: при скачущем доходе (±10 за круг при
     // среднем 3) доля с одних удачных кругов съедала у мотора ~1 за круг, и прибыльный мотор разорялся
