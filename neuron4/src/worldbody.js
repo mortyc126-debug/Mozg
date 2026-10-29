@@ -38,7 +38,7 @@ class WorldBody {
   odor(o, a) { const c = this.cfg, sx = this.x + 0.8 * Math.cos(this.th + a), sy = this.y + 0.8 * Math.sin(this.th + a); return Math.exp(-Math.hypot(sx - o.x, sy - o.y) / c.KLAM); }
   sense() {
     const S = this.chs;
-    S.fl.val = 3 * this.odor(this.food, 0.6); S.fr.val = 3 * this.odor(this.food, -0.6); S.wl.val = 3 * this.odor(this.water, 0.6); S.wr.val = 3 * this.odor(this.water, -0.6);
+    S.fl.val = 3 * this.odor(this.food, 0.6); S.fr.val = 3 * this.odor(this.food, -0.6); S.wl.val = this.cfg.KWATER ? 3 * this.odor(this.water, 0.6) : 0; S.wr.val = this.cfg.KWATER ? 3 * this.odor(this.water, -0.6) : 0;
     S.e.val = this.E; S.h.val = this.H; S.p.val = this.turn; S.m.val = 0;
   }
   advance(u) {
@@ -65,7 +65,8 @@ class WorldBody {
         if (!sat) { this.st.byNeed[1]++; if (need) this.st.byNeed[0]++; this.st.blk.norm[isFood ? 0 : 1]++; } else this.st.blk.sat[isFood ? 0 : 1]++; }
       const q = this.put(); o.x = q.x; o.y = q.y; return true; };
     if (take(this.food, true)) this.E = Math.min(1, this.E + c.KGAIN);
-    if (take(this.water, false)) this.H = Math.min(1, this.H + c.KGAIN);
+    if (c.KWATER && take(this.water, false)) this.H = Math.min(1, this.H + c.KGAIN);
+    if (!c.KWATER) { this.H = 1; this.Ht = 1; }   // К1е: воды нет, напоённость полная
     if (sat) this.E = 1;
     const pain = c.KPAINEV ? (this.touch && !this.prevTouch ? 1 : 0) : this.touch; this.prevTouch = this.touch;   // KPAINEV: боль -- за удар, а не за прижатость
     this.C = this.util(this.E, this.H, pain); this.marg = this.C - (c.KTWIN ? this.util(this.Et, this.Ht, 0) : this.util(Eb, Hb, 0));
