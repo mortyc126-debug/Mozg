@@ -33,10 +33,10 @@ function step(B) {
   const cfg = B.cfg, W = B.world, G = B.goods, led = B.led, t = B.t;
   if (!B.exp) { if (B.ch.length < W.n) return; const ks = B.ch.filter((c) => c.k !== W.motorNerve).map((c) => c.k);
     B.exp = { ks, types: new Map(), sC: 0, nC: 0, sx: new Float64Array(B.ch.length), nx: 0, lastC: null, lastX: new Float64Array(B.ch.length), organs: 0,
-      tot: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'смерть': 0, 'удар': 0 }, hist: [], jd: new Float64Array(B.ch.length), jn: 0, pend: [], nid: 0 }; }
+      tot: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'удар': 0 }, hist: [], jd: new Float64Array(B.ch.length), jn: 0, pend: [], nid: 0 }; }
   const X = B.exp, C = W.comfort(), late = t > cfg.ROUNDS / 2;
   // правда мира для мер: что случилось в прошлом шаге мира
-  const truth = W.died ? 'смерть' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.drankNow >= 0.1 ? 'вода' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
+  const truth = W.died ? 'смерть' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.drankNow >= 0.1 ? 'вода' : W.drankNow > 0 ? 'вода-мелкая' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
   if (late && truth !== 'другое') X.tot[truth]++;
   // событие: скачок пользы; вид -- нерв с самым большим скачком
   let ev = null;
@@ -99,7 +99,7 @@ function step(B) {
 }
 // KEXP=2: история нервов, разброс разности средних, назначение вида событию двухкруговой давности
 function newType(X, key) {
-  return { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
+  return { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
     pr: { A: new Float64Array((X.ks.length + 1) ** 2), cv: new Float64Array(X.ks.length + 1), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 }, proto: new Map(), pn: 0 };
 }
 function typeStep(B, X, t, late) {
@@ -131,7 +131,7 @@ function summary(B, kinds) {
   return { tot: X.tot, types: [...X.types.values()].map((T) => ({ key: T.key, nerve: T.nv.size ? kinds[[...T.nv.entries()].sort((a, b) => b[1] - a[1])[0][0]] : null, cnt: T.cnt, built: T.built, deaths: T.deaths, alive: !!T.org, paid: T.paid, tr: T.tr,
     antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null, price: priceSum(T),
     proto: T.proto ? [...T.proto.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([j, c]) => `${kinds[parseInt(j, 10)]}${j.slice(-1)} ${(c / T.pn).toFixed(2)}`) : undefined,
-    goal: T.goal ? { rounds: T.goal.rounds, fits: T.goal.fits, F: +T.goal.F.toFixed(2) } : undefined })), goals: X.goalRounds || null };
+    goal: T.goal ? { rounds: T.goal.rounds, fits: T.goal.fits, F: +T.goal.F.toFixed(2) } : undefined, sig: T.sig ? T.sig.map((k) => kinds[k]) : undefined })), goals: X.goalRounds || null };
 }
 function priceSum(T) {
   const s = T.ps, rel = s.rel.slice().sort((a, b) => a - b), den = Math.sqrt((s.n * s.spp - s.sp * s.sp) * (s.n * s.see - s.se * s.se));
