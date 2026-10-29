@@ -17,6 +17,7 @@
 // Бонгард, Зыков, Липсон (2006): робот выясняет устройство своего тела пробами и строит по нему поведение.
 const { solve } = require('./linalg');
 const CC = require('./concepts');
+const EXM = require('./expmotor');
 
 function init(B) {
   return { agent: null, motors: [], choosers: [], oracle: null, built: 0, firstEff: -1, firstMotor: -1, log: [], body: [] };
@@ -197,6 +198,7 @@ function valFit(B, m) {
   for (let i = n0; i < T; i++) { const t = B.t - (T - 1 - i); v.td[t % H] = v.c[ord[i]] + cfg.MGAMV * V(ord[i]) - V(ord[i - 1]); }
   B.led.work(m, H * 2 * F);
   if (cfg.MVAL === 2) linFit(B, m, v, T, ord);
+  if (cfg.MVAL === 2 && cfg.MEXP) EXM.fit(B, m, v, T, ord);   // М3: руль каждой цели
 }
 // MVAL=2: какая команда при каких нервах ведёт к приросту ценности -- d(j+1) ~ b0 + b (x(j) - mu) + u(j) (a0 + a (x(j) - mu)).
 // Команда -- сумма a (x - mu) с силой MVGAIN разброса по записи; a0 отброшено: «всегда в одну сторону» -- это кружение.
@@ -539,6 +541,8 @@ function fearGain(B) {
 function motorU(B, m) {
   const cfg = B.cfg, G = B.goods, M = m.good; let u, lim = cfg.BAMP, q;
   if (cfg.MVAL === 2) { const v = vrOf(B, m);   // форма правки 39: команда линейна по нервам
+    const ue = cfg.MEXP && v && v.ok ? EXM.command(B, m, v) : null;   // М3: мотор ожиданий -- команда выбранной цели
+    if (ue !== null) return Math.max(-cfg.UMAX, Math.min(cfg.UMAX, ue + cfg.MVSIG * B.rng.gauss()));
     if (v && v.lin) { let s = 0; for (let k = 0; k < v.F; k++) s += v.lin.a[k] * (G.val[v.ids[k]] - v.lin.mu[k]); B.led.work(m, 2 * v.F + 2);
       if (cfg.MFEARX) s *= fearGain(B);   // К1м: страх -- множитель руля
       return Math.max(-cfg.UMAX, Math.min(cfg.UMAX, s + cfg.MVSIG * B.rng.gauss())); } }

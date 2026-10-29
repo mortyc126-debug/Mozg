@@ -12,8 +12,14 @@
 // М2 (results/kolonia/ПЛАН_М2.md): цена вида w(x) = c0 + c x -- скачок пользы в круге события по нервам перед ним (все, кроме
 // двигателя), гребень, подгонка после каждого события с PMIN-го. Цена принадлежит виду, не органу. В М2 она ни на что не
 // влияет и работы не стоит (поведение -- как в М1 бит в бит); мера -- связь цены с настоящей сытостью и точность.
+// KEXP=2 (М3, results/kolonia/ПЛАН_М3.md §1 с поправкой §8): вид -- как в М1 (знак и величина скачка пользы); положительные
+// события (еда, вода) внутри ступени величины делятся по прототипу набора скачков: нервы, у которых среднее за 3 круга после
+// события (круг события и два следующих) отличается от среднего за 3 круга до него больше чем на JZ обычных разбросов этой
+// разности, с её знаком. Событие идёт к виду своей ступени с самым похожим прототипом (взвешенный Жаккар по частотам
+// «нерв-знак»), если похожесть не меньше JSIM; иначе -- новый вид; пустой набор -- к основе ступени. Вид назначается через
+// 2 круга после события, и для органа событие -- в круге назначения. Видов с органом -- не больше MAXT2. KEXP=1 -- виды М1-М2.
 const { solve } = require('./linalg');
-const LAG = 150, FIT = 200, BEFORE = 50, REBORN = 500, FCRED = 1500, FIRST = 1000, FORGET = 1 - 1 / 5000, EVZ = 10, EVMIN = 3, MAXT = 6, PMIN = 5;
+const LAG = 150, FIT = 200, BEFORE = 50, REBORN = 500, FCRED = 1500, FIRST = 1000, FORGET = 1 - 1 / 5000, EVZ = 10, EVMIN = 3, MAXT = 6, PMIN = 5, JZ = 4, JSIM = 0.3, MAXT2 = 8;
 
 function openOrgan(B, T, d) {
   T.built++;
@@ -25,10 +31,10 @@ function step(B) {
   const cfg = B.cfg, W = B.world, G = B.goods, led = B.led, t = B.t;
   if (!B.exp) { if (B.ch.length < W.n) return; const ks = B.ch.filter((c) => c.k !== W.motorNerve).map((c) => c.k);
     B.exp = { ks, types: new Map(), sC: 0, nC: 0, sx: new Float64Array(B.ch.length), nx: 0, lastC: null, lastX: new Float64Array(B.ch.length), organs: 0,
-      tot: { 'еда': 0, 'еда-мелкая': 0, 'смерть': 0, 'удар': 0 } }; }
+      tot: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'смерть': 0, 'удар': 0 }, hist: [], jd: new Float64Array(B.ch.length), jn: 0, pend: [], nid: 0 }; }
   const X = B.exp, C = W.comfort(), late = t > cfg.ROUNDS / 2;
   // правда мира для мер: что случилось в прошлом шаге мира
-  const truth = W.died ? 'смерть' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
+  const truth = W.died ? 'смерть' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.drankNow >= 0.1 ? 'вода' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
   if (late && truth !== 'другое') X.tot[truth]++;
   // событие: скачок пользы; вид -- нерв с самым большим скачком
   let ev = null;
@@ -38,7 +44,9 @@ function step(B) {
       X.sx[k] += (Math.abs(dx) - X.sx[k]) / Math.min(X.nx + 1, 100); }
     X.nx++;
     const back = X.lastEv && X.lastEv.t === t - 1 && dC * X.lastEv.dC < 0 && Math.abs(dC) > 0.5 * Math.abs(X.lastEv.dC) && Math.abs(dC) < 2 * Math.abs(X.lastEv.dC);   // польза вернулась -- конец того же события
-    if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { const size = Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4)), key = `${dC > 0 ? '+' : '-'}${size}`;
+    if (cfg.KEXP === 2) { if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { X.pend.push({ t, dC, base: `${dC > 0 ? '+' : '-'}${Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4))}`, truth: late ? truth : null, fp: X.ks.map((k) => X.lastX[k]) }); X.lastEv = { t, dC }; }
+      else if (!back) { X.sC += (Math.abs(dC) - X.sC) / Math.min(X.nC + 1, 100); X.nC++; } }
+    else if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { const size = Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4)), key = `${dC > 0 ? '+' : '-'}${size}`;
       let T = X.types.get(key); if (!T) X.types.set(key, T = { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
         pr: { A: new Float64Array((X.ks.length + 1) ** 2), cv: new Float64Array(X.ks.length + 1), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 } });
       T.cnt++; if (late) T.tr[truth]++; if (best >= 0) T.nv.set(best, (T.nv.get(best) || 0) + 1); ev = T; X.lastEv = { t, dC };
@@ -49,12 +57,13 @@ function step(B) {
       if (P.n >= PMIN) { const mask = new Float64Array(dp).fill(1e-3); mask[0] = 0; const r = solve(P.A, P.cv, dp, P.yy, mask); if (r) P.w = Float64Array.from(r.w); } }
     else if (!back) { X.sC += (Math.abs(dC) - X.sC) / Math.min(X.nC + 1, 100); X.nC++; } }
   X.lastC = C; for (const k of X.ks) X.lastX[k] = G.val[B.ch[k].good];
+  if (cfg.KEXP === 2) ev = typeStep(B, X, t, late);
   // М2, мера: цена по нынешним нервам против настоящей сытости (мир знает), вторая половина жизни
   if (late && W.E !== undefined) for (const T of X.types.values()) { const P = T.pr; if (!P.w) continue; let p = P.w[0]; for (let i = 0; i < X.ks.length; i++) p += P.w[1 + i] * X.lastX[X.ks[i]];
     const s = T.ps, e = W.E; s.sp += p; s.se += e; s.spp += p * p; s.see += e * e; s.spe += p * e; s.n++; }
   // органы: рождение
   const d = 2 * X.ks.length + 1;
-  for (const T of X.types.values()) if (!T.org && T.cnt >= EVMIN && t >= T.next && (T.built > 0 || X.organs < MAXT)) { if (T.good < 0) { T.good = G.add('ожидание', 'world', -1, t); X.organs++; } openOrgan(B, T, d); }
+  for (const T of X.types.values()) if (!T.org && T.cnt >= EVMIN && t >= T.next && (T.built > 0 || X.organs < (cfg.KEXP === 2 ? MAXT2 : MAXT))) { if (T.good < 0) { T.good = G.add('ожидание', 'world', -1, t); X.organs++; } openOrgan(B, T, d); }
   // признаки этого круга
   let f = null;
   for (const T of X.types.values()) { const o = T.org; if (!o) { if (T.good >= 0) G.val[T.good] = 0; continue; }
@@ -86,11 +95,40 @@ function step(B) {
     o.hungry = o.credit < 0 ? o.hungry + 1 : 0;
     if (o.hungry > cfg.DIE && !(cfg.MLOAN && o.credit > -cfg.MLOAN)) { led.close(o); T.org = null; T.next = t + REBORN; T.deaths++; G.val[T.good] = 0; } }
 }
+// KEXP=2: история нервов, разброс разности средних, назначение вида событию двухкруговой давности
+function newType(X, key) {
+  return { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
+    pr: { A: new Float64Array((X.ks.length + 1) ** 2), cv: new Float64Array(X.ks.length + 1), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 }, proto: new Map(), pn: 0 };
+}
+function typeStep(B, X, t, late) {
+  X.hist.push(X.ks.map((k) => X.lastX[k])); if (X.hist.length > 6) X.hist.shift(); if (X.hist.length < 6) { X.pend = X.pend.filter((p) => p.t > t - 2); return null; }
+  const n = X.ks.length, diff = new Float64Array(n);
+  for (let i = 0; i < n; i++) diff[i] = (X.hist[3][i] + X.hist[4][i] + X.hist[5][i] - X.hist[0][i] - X.hist[1][i] - X.hist[2][i]) / 3;
+  const p = X.pend.length && X.pend[0].t === t - 2 ? X.pend.shift() : null; X.pend = X.pend.filter((q) => q.t > t - 2);
+  if (!p) { for (let i = 0; i < n; i++) X.jd[i] += (Math.abs(diff[i]) - X.jd[i]) / Math.min(X.jn + 1, 200); X.jn++; return null; }
+  if (X.jn < 50) return null;
+  const S = []; for (let i = 0; i < n; i++) if (Math.abs(diff[i]) > JZ * 1.25 * X.jd[i]) S.push(`${X.ks[i]}${diff[i] > 0 ? '+' : '-'}`);
+  let T = null, bs = -1;
+  if (p.dC > 0 && S.length) { for (const Q of X.types.values()) { if (Q.base !== p.base || !Q.pn) continue; let inS = 0, all = 0; for (const [j, c] of Q.proto) { all += c / Q.pn; if (S.includes(j)) inS += c / Q.pn; }
+      const sim = inS / (all + S.length - inS); if (sim > bs) { bs = sim; T = Q; } }
+    if (!T || bs < JSIM) { T = newType(X, `${p.base}.${X.nid++}`); T.base = p.base; X.types.set(T.key, T); } }
+  else { T = X.types.get(p.base); if (!T) { T = newType(X, p.base); T.base = p.base; X.types.set(T.key, T); } }
+  T.pn++; for (const j of S) T.proto.set(j, (T.proto.get(j) || 0) + 1);
+  T.cnt++; if (late && p.truth) T.tr[p.truth]++;
+  // цена (М2) -- по нервам перед событием
+  const P = T.pr, dp = n + 1, fp = new Float64Array(dp); fp[0] = 1; for (let i = 0; i < n; i++) fp[1 + i] = p.fp[i];
+  if (late && P.w) { let q = 0; for (let i = 0; i < dp; i++) q += P.w[i] * fp[i]; T.ps.rel.push(Math.abs(q - p.dC) / Math.abs(p.dC)); T.ps.pS += q; T.ps.pN++; }
+  for (let i = 0; i < dp; i++) { P.cv[i] += fp[i] * p.dC; for (let j = 0; j < dp; j++) P.A[i * dp + j] += fp[i] * fp[j]; } P.yy += p.dC * p.dC; P.n++;
+  if (P.n >= PMIN) { const mask = new Float64Array(dp).fill(1e-3); mask[0] = 0; const r = solve(P.A, P.cv, dp, P.yy, mask); if (r) P.w = Float64Array.from(r.w); }
+  return T;
+}
 // итог для мер: виды событий с правдой и ожиданием
 function summary(B, kinds) {
   const X = B.exp; if (!X) return null;
   return { tot: X.tot, types: [...X.types.values()].map((T) => ({ key: T.key, nerve: T.nv.size ? kinds[[...T.nv.entries()].sort((a, b) => b[1] - a[1])[0][0]] : null, cnt: T.cnt, built: T.built, deaths: T.deaths, alive: !!T.org, paid: T.paid, tr: T.tr,
-    antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null, price: priceSum(T) })) };
+    antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null, price: priceSum(T),
+    proto: T.proto ? [...T.proto.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([j, c]) => `${kinds[parseInt(j, 10)]}${j.slice(-1)} ${(c / T.pn).toFixed(2)}`) : undefined,
+    goal: T.goal ? { rounds: T.goal.rounds, fits: T.goal.fits, F: +T.goal.F.toFixed(2) } : undefined })), goals: X.goalRounds || null };
 }
 function priceSum(T) {
   const s = T.ps, rel = s.rel.slice().sort((a, b) => a - b), den = Math.sqrt((s.n * s.spp - s.sp * s.sp) * (s.n * s.see - s.se * s.se));

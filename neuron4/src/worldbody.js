@@ -35,7 +35,7 @@ class WorldBody {
     this.ds = { half: [0, 0], fearB: 0, fearBn: 0, fearA: 0, fearAn: 0, buf: [] };   // смерти по половинам жизни; прогноз смерти перед ней и всегда
     this.motorNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.m); this.propNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.p);
     this.plugged = true; this.t = 0; this.z = { val: 0 }; this.g = { val: 0 };   // z, g -- для общих замеров (польза меряется через comfort)
-    this.C = 0; this.marg = 0; this.touch = 0; this.prevTouch = 0; this.Et = 1; this.Ht = 1; this.debt = 0; this.debtT = 0; this.ateNow = 0; this.painNow = 0;   // Et, Ht -- двойник, который никогда не двигался (KTWIN)
+    this.C = 0; this.marg = 0; this.touch = 0; this.prevTouch = 0; this.Et = 1; this.Ht = 1; this.debt = 0; this.debtT = 0; this.ateNow = 0; this.painNow = 0; this.drankNow = 0;   // Et, Ht -- двойник, который никогда не двигался (KTWIN)
     this.st = { food: 0, water: 0, n: 0, byNeed: [0, 0], blk: { sat: [0, 0], norm: [0, 0] }, wall: 0, nSat: 0, nNorm: 0 };
     this.sense();
   }
@@ -53,7 +53,7 @@ class WorldBody {
     if (S.b) S.b.val = this.cfg.KDEBTN === 1 && this.cfg.KDEBT ? this.debt / this.cfg.KDEBT : 0;   // К1л: 2 -- нерв молчит
   }
   advance(u) {
-    const c = this.cfg, t = ++this.t, S = this.chs; this.ateNow = 0;   // ateNow, painNow -- правда для мер М1, мозгу не видна
+    const c = this.cfg, t = ++this.t, S = this.chs; this.ateNow = 0; this.drankNow = 0;   // ateNow, drankNow, painNow -- правда для мер М1, мозгу не видна
     let cmd = u[this.motorNerve] || 0;
     if (c.KPLANK) cmd = 20 * ((1 - this.E) * (S.fl.val - S.fr.val) + (1 - this.H) * (S.wl.val - S.wr.val)) / 3;
     this.turn = Math.tanh(cmd);
@@ -76,7 +76,7 @@ class WorldBody {
         if (!sat) { this.st.byNeed[1]++; if (need) this.st.byNeed[0]++; this.st.blk.norm[isFood ? 0 : 1]++; } else this.st.blk.sat[isFood ? 0 : 1]++; }
       const q = this.put(); o.x = q.x; o.y = q.y; return true; };
     if (take(this.food, true)) { const e0 = this.E; this.E = Math.min(1, this.E + c.KGAIN); this.ateNow = this.util(this.E, this.H, 0) - this.util(e0, this.H, 0) || 1e-9; }   // М1: прирост пользы от еды
-    if (c.KWATER && take(this.water, false)) this.H = Math.min(1, this.H + c.KGAIN);
+    if (c.KWATER && take(this.water, false)) { const h0 = this.H; this.H = Math.min(1, this.H + c.KGAIN); this.drankNow = this.util(this.E, this.H, 0) - this.util(this.E, h0, 0) || 1e-9; }
     if (!c.KWATER) { this.H = 1; this.Ht = 1; }   // К1е: воды нет, напоённость полная
     if (sat) this.E = 1;
     // К1ж: смерть -- сытость (или напоённость, если есть вода) дошла до нуля: штраф, тело возрождается сытым в новом месте; двойник -- так же
