@@ -237,4 +237,13 @@ function longReject(B, n) {
   if (rf && (nr < 6 || sq / nr - (sm / nr) ** 2 < 0.05 * sq / nr + 1e-9)) return true;
   return false;
 }
-module.exports = { compileFresh, compile, key, size, show, shape, candidates, candidatesLong, scoreLong, variants, longReject };
+// SUPLOO=2 (правка «опора-3», results/opora3/): сборка с чтением при r -- память о других событиях: среди записываемых
+// событий памяти (w у держать / накопить) есть хоть одно не из условия чтения r. След или пересказ самого r -- не такая
+function otherMem(n) {
+  if (n.op !== 'при' && n.op !== 'отклонение') return false;
+  const ev = (q, acc) => { if (q.op === 'событие') acc.add(q.k); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) ev(q[k], acc); return acc; };
+  const rk = ev(n.r, new Set()), wk = new Set(); let mem = false;
+  (function walk(q) { if (q.op === 'держать' || q.op === 'накопить') { mem = true; ev(q.w, wk); } for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n.a);
+  return mem && [...wk].some((k) => !rk.has(k));   // хоть одно записываемое событие -- не из условия чтения (поправка после первой пробы, ПЛАН.md §6)
+}
+module.exports = { otherMem, compileFresh, compile, key, size, show, shape, candidates, candidatesLong, scoreLong, variants, longReject };

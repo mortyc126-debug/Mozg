@@ -230,7 +230,7 @@ function scan(B, c) {
   const W0 = mkRes(t0, t1);
   let ops = W0.res.length * 4; const ntests = { 'кольцо': 0, 'таблица': 0, 'похожесть': 0 };
   // порог с поправкой на число гипотез -- у каждой заготовки свой: z = r sqrt(m) на каждой половине больше sqrt(2 ln N) + 1.5
-  const score = (f, kind, Wn = W0, noSup = false) => { ntests[kind]++;        // f(t) -> значение товара в круге t (или NaN); доля остатка на чётных и проверка на нечётных
+  const score = (f, kind, Wn = W0, noSup = false, loo = cfg.SUPLOO === 1) => { ntests[kind]++;        // f(t) -> значение товара в круге t (или NaN); доля остатка на чётных и проверка на нечётных
     const { res, t0, t1 } = Wn, s = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], xs = new Float64Array(res.length); let xm = 0, xv = 0, nx = 0;
     for (let t = t0; t <= t1; t++) { const x = f(t); xs[t - t0] = x; if (Number.isFinite(x)) { xm += x; xv += x * x; nx++; } }
     if (nx < 60) return [0, 0];
@@ -238,7 +238,7 @@ function scan(B, c) {
     for (let t = t0; t <= t1; t++) { let x = xs[t - t0]; if (!Number.isFinite(x)) continue; x = Math.max(xm - xl, Math.min(xm + xl, x)); xs[t - t0] = x; const r = res[t - t0], h = s[t & 1]; h[0]++; h[1] += x; h[2] += r; h[3] += x * x; h[4] += r * r; h[5] += x * r; }
     // опора: ни одна точка не даёт больше четверти связи (у почти постоянного нерва с редкими всплесками одно совпадение
     // всплесков давало корреляцию под 1)
-    if (!noSup && cfg.SUPLOO) for (const par of [0, 1]) {   // правка «опора» (results/opora/): без двух самых весомых точек связь та же по знаку и не меньше трети
+    if (!noSup && loo) for (const par of [0, 1]) {   // правка «опора» (results/opora/): без двух самых весомых точек связь та же по знаку и не меньше трети
       const [m, sx, sr, , , sxr] = s[par]; if (m < 30) continue; const mx = sx / m, mr = sr / m, cv = sxr - sx * sr / m; let i1 = -1, i2 = -1, c1 = -1, c2 = -1;
       for (let t = t0 + ((t0 & 1) === par ? 0 : 1); t <= t1; t += 2) { const x = xs[t - t0]; if (!Number.isFinite(x)) continue; const c = Math.abs((x - mx) * (res[t - t0] - mr));
         if (c > c1) { c2 = c1; i2 = i1; c1 = c; i1 = t; } else if (c > c2) { c2 = c; i2 = t; } }
@@ -364,7 +364,7 @@ function scan(B, c) {
     // эпохи, а не память о событиях (при примерке с чистого начала окна он ещё растёт, и проверки его не видят)
     const clock = (q) => (q.op === 'накопить' && q.lam === 1 && !q.z) || ['a', 'b', 'w', 'v', 'r', 'z'].some((k) => q[k] && clock(q[k]));
     for (const n of C.list) { if (cfg.CFAST >= 3 && clock(n)) continue; const f = CP.compile(n), sz = CP.size(n); let tt = -1, v = 0, prev = NaN, ch = 0; const ys = cfg.CFAST ? new Float64Array(t1 - w0 + 1) : null;
-      const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; if (v !== prev) ch++; prev = v; if (ys) ys[t - w0] = v; } return v; }, 'сборка', Wc); ops += (t1 - w0) * sz;
+      const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; if (v !== prev) ch++; prev = v; if (ys) ys[t - w0] = v; } return v; }, 'сборка', Wc, false, cfg.SUPLOO === 1 || (cfg.SUPLOO === 2 && CP.otherMem(n)));   // SUPLOO=2 (правка «опора-3»): смягчённая опора -- только памяти о других событиях ops += (t1 - w0) * sz;
       // память, которая на записи почти не меняется (ступенька «однажды было» -- держать(событие, единица)), объясняет не
       // события, а сдвиг среднего остатка; такая не примеряется
       if (!(z > 1) || ch < 8) continue;
