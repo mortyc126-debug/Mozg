@@ -571,7 +571,8 @@ function economy(B) {
     // OLINE: в долгу дольше DIE кругов умирает только орган, который в среднем не окупается (средний доход за ~100 кругов
     // меньше аренды); прибыльный орган с провалом дохода живёт в долг (в общем мире доход мотора скачет, а запас -- CAP)
     const viable = (o, rent) => cfg.OLINE && o.incAvg > rent && o.credit > -cfg.OLINE * o.incAvg;
-    if (m.hungry > cfg.DIE && !viable(m, rent)) {                // орган разорился: нерв снова неизвестен -- может, это уже другой орган
+    // MLOAN (Колония К1и): мотор живёт в долг, пока счёт выше −MLOAN, и отдаёт его из будущего дохода
+    if (m.hungry > cfg.DIE && !viable(m, rent) && !(cfg.MLOAN && m.credit > -cfg.MLOAN)) {                // орган разорился: нерв снова неизвестен -- может, это уже другой орган
       led.close(m); ex.motors.splice(ex.motors.indexOf(m), 1);
       const P = m.port; P.owner = null; P.fails++;
       P.note = { t: B.t, lag: m.lag, S: m.S.slice(), good: m.good && m.good.S.every((id) => B.goods.alive[id]) ? { coef: Float64Array.from(m.good.coef), S: m.good.S.slice(), lim: m.good.lim } : null };
