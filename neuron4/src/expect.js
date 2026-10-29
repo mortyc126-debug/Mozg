@@ -18,6 +18,8 @@
 // разности, с её знаком. Событие идёт к виду своей ступени с самым похожим прототипом (взвешенный Жаккар по частотам
 // «нерв-знак»), если похожесть не меньше JSIM; иначе -- новый вид; пустой набор -- к основе ступени. Вид назначается через
 // 2 круга после события, и для органа событие -- в круге назначения. Видов с органом -- не больше MAXT2. KEXP=1 -- виды М1-М2.
+// KEXP=3 (М3б, ПЛАН_М3б.md): положительные события делятся только по прототипу набора -- одна группа на все величины
+// (вид -- «что», а «сколько» -- цена); отрицательные -- как при KEXP=2.
 const { solve } = require('./linalg');
 const LAG = 150, FIT = 200, BEFORE = 50, REBORN = 500, FCRED = 1500, FIRST = 1000, FORGET = 1 - 1 / 5000, EVZ = 10, EVMIN = 3, MAXT = 6, PMIN = 5, JZ = 4, JSIM = 0.3, MAXT2 = 8;
 
@@ -44,7 +46,7 @@ function step(B) {
       X.sx[k] += (Math.abs(dx) - X.sx[k]) / Math.min(X.nx + 1, 100); }
     X.nx++;
     const back = X.lastEv && X.lastEv.t === t - 1 && dC * X.lastEv.dC < 0 && Math.abs(dC) > 0.5 * Math.abs(X.lastEv.dC) && Math.abs(dC) < 2 * Math.abs(X.lastEv.dC);   // польза вернулась -- конец того же события
-    if (cfg.KEXP === 2) { if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { X.pend.push({ t, dC, base: `${dC > 0 ? '+' : '-'}${Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4))}`, truth: late ? truth : null, fp: X.ks.map((k) => X.lastX[k]) }); X.lastEv = { t, dC }; }
+    if (cfg.KEXP >= 2) { if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { X.pend.push({ t, dC, base: `${dC > 0 ? '+' : '-'}${Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4))}`, truth: late ? truth : null, fp: X.ks.map((k) => X.lastX[k]) }); X.lastEv = { t, dC }; }
       else if (!back) { X.sC += (Math.abs(dC) - X.sC) / Math.min(X.nC + 1, 100); X.nC++; } }
     else if (X.nC >= 50 && Math.abs(dC) > EVZ * X.sC && !back) { const size = Math.floor(Math.log(Math.abs(dC) / (EVZ * X.sC)) / Math.log(4)), key = `${dC > 0 ? '+' : '-'}${size}`;
       let T = X.types.get(key); if (!T) X.types.set(key, T = { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
@@ -57,13 +59,13 @@ function step(B) {
       if (P.n >= PMIN) { const mask = new Float64Array(dp).fill(1e-3); mask[0] = 0; const r = solve(P.A, P.cv, dp, P.yy, mask); if (r) P.w = Float64Array.from(r.w); } }
     else if (!back) { X.sC += (Math.abs(dC) - X.sC) / Math.min(X.nC + 1, 100); X.nC++; } }
   X.lastC = C; for (const k of X.ks) X.lastX[k] = G.val[B.ch[k].good];
-  if (cfg.KEXP === 2) ev = typeStep(B, X, t, late);
+  if (cfg.KEXP >= 2) ev = typeStep(B, X, t, late);
   // М2, мера: цена по нынешним нервам против настоящей сытости (мир знает), вторая половина жизни
   if (late && W.E !== undefined) for (const T of X.types.values()) { const P = T.pr; if (!P.w) continue; let p = P.w[0]; for (let i = 0; i < X.ks.length; i++) p += P.w[1 + i] * X.lastX[X.ks[i]];
     const s = T.ps, e = W.E; s.sp += p; s.se += e; s.spp += p * p; s.see += e * e; s.spe += p * e; s.n++; }
   // органы: рождение
   const d = 2 * X.ks.length + 1;
-  for (const T of X.types.values()) if (!T.org && T.cnt >= EVMIN && t >= T.next && (T.built > 0 || X.organs < (cfg.KEXP === 2 ? MAXT2 : MAXT))) { if (T.good < 0) { T.good = G.add('ожидание', 'world', -1, t); X.organs++; } openOrgan(B, T, d); }
+  for (const T of X.types.values()) if (!T.org && T.cnt >= EVMIN && t >= T.next && (T.built > 0 || X.organs < (cfg.KEXP >= 2 ? MAXT2 : MAXT))) { if (T.good < 0) { T.good = G.add('ожидание', 'world', -1, t); X.organs++; } openOrgan(B, T, d); }
   // признаки этого круга
   let f = null;
   for (const T of X.types.values()) { const o = T.org; if (!o) { if (T.good >= 0) G.val[T.good] = 0; continue; }
@@ -109,10 +111,11 @@ function typeStep(B, X, t, late) {
   if (X.jn < 50) return null;
   const S = []; for (let i = 0; i < n; i++) if (Math.abs(diff[i]) > JZ * 1.25 * X.jd[i]) S.push(`${X.ks[i]}${diff[i] > 0 ? '+' : '-'}`);
   let T = null, bs = -1;
-  if (p.dC > 0 && S.length) { for (const Q of X.types.values()) { if (Q.base !== p.base || !Q.pn) continue; let inS = 0, all = 0; for (const [j, c] of Q.proto) { all += c / Q.pn; if (S.includes(j)) inS += c / Q.pn; }
+  const grp = B.cfg.KEXP === 3 && p.dC > 0 ? '+' : p.base;   // KEXP=3: положительные -- одна группа на все величины
+  if (p.dC > 0 && S.length) { for (const Q of X.types.values()) { if (Q.base !== grp || !Q.pn) continue; let inS = 0, all = 0; for (const [j, c] of Q.proto) { all += c / Q.pn; if (S.includes(j)) inS += c / Q.pn; }
       const sim = inS / (all + S.length - inS); if (sim > bs) { bs = sim; T = Q; } }
-    if (!T || bs < JSIM) { T = newType(X, `${p.base}.${X.nid++}`); T.base = p.base; X.types.set(T.key, T); } }
-  else { T = X.types.get(p.base); if (!T) { T = newType(X, p.base); T.base = p.base; X.types.set(T.key, T); } }
+    if (!T || bs < JSIM) { T = newType(X, `${grp}.${X.nid++}`); T.base = grp; X.types.set(T.key, T); } }
+  else { T = X.types.get(grp); if (!T) { T = newType(X, grp); T.base = grp; X.types.set(T.key, T); } }
   T.pn++; for (const j of S) T.proto.set(j, (T.proto.get(j) || 0) + 1);
   T.cnt++; if (late && p.truth) T.tr[p.truth]++;
   // цена (М2) -- по нервам перед событием
