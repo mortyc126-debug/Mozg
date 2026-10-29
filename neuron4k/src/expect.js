@@ -35,10 +35,10 @@ function step(B) {
   const cfg = B.cfg, W = B.world, G = B.goods, led = B.led, t = B.t;
   if (!B.exp) { if (B.ch.length < W.n) return; const ks = B.ch.filter((c) => c.k !== W.motorNerve).map((c) => c.k);
     B.exp = { ks, types: new Map(), sC: 0, nC: 0, sx: new Float64Array(B.ch.length), nx: 0, lastC: null, lastX: new Float64Array(B.ch.length), organs: 0,
-      tot: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'удар': 0 }, hist: [], jd: new Float64Array(B.ch.length), jn: 0, pend: [], nid: 0 }; }
+      tot: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'укус': 0, 'удар': 0 }, hist: [], jd: new Float64Array(B.ch.length), jn: 0, pend: [], nid: 0 }; }
   const X = B.exp, C = W.comfort(), late = t > cfg.ROUNDS / 2;
   // правда мира для мер: что случилось в прошлом шаге мира
-  const truth = W.died ? 'смерть' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.drankNow >= 0.1 ? 'вода' : W.drankNow > 0 ? 'вода-мелкая' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
+  const truth = W.died ? 'смерть' : W.biteNow ? 'укус' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.drankNow >= 0.1 ? 'вода' : W.drankNow > 0 ? 'вода-мелкая' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
   if (late && truth !== 'другое') X.tot[truth]++;
   // событие: скачок пользы; вид -- нерв с самым большим скачком
   let ev = null;
@@ -107,7 +107,7 @@ function priceFeat(cfg, xs) { const n = xs.length, f = new Float64Array(priceDim
 function priceAt(cfg, T, xs) { const w = T.pr.w; if (!w) return null; const f = priceFeat(cfg, xs); let p = 0; for (let i = 0; i < f.length; i++) p += w[i] * f[i]; return p; }
 function newType(X, key, cfg) {
   const dp = priceDim(cfg, X.ks.length);
-  return { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
+  return { key, cnt: 0, org: null, good: -1, next: FIRST, deaths: 0, built: 0, paid: 0, tr: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'укус': 0, 'удар': 0, 'другое': 0 }, nv: new Map(), ant: { B: 0, Bn: 0, A: 0, An: 0, buf: [] },
     pr: { A: new Float64Array(dp * dp), cv: new Float64Array(dp), yy: 0, n: 0, w: null }, ps: { rel: [], pS: 0, pN: 0, sp: 0, se: 0, spp: 0, see: 0, spe: 0, n: 0 }, proto: new Map(), pn: 0 };
 }
 function typeStep(B, X, t, late) {
@@ -119,8 +119,8 @@ function typeStep(B, X, t, late) {
   if (X.jn < 50) return null;
   const S = []; for (let i = 0; i < n; i++) if (Math.abs(diff[i]) > JZ * 1.25 * X.jd[i]) S.push(`${X.ks[i]}${diff[i] > 0 ? '+' : '-'}`);
   let T = null, bs = -1;
-  const grp = B.cfg.KEXP === 3 && p.dC > 0 ? '+' : p.base;   // KEXP=3: положительные -- одна группа на все величины
-  if (p.dC > 0 && S.length) { for (const Q of X.types.values()) { if (Q.base !== grp || !Q.pn) continue; let inS = 0, all = 0; for (const [j, c] of Q.proto) { all += c / Q.pn; if (S.includes(j)) inS += c / Q.pn; }
+  const grp = (B.cfg.KEXP === 3 && p.dC > 0) || B.cfg.KEXP === 4 ? (p.dC > 0 ? '+' : '-') : p.base;   // KEXP=3: положительные -- одна группа на все величины; 4 -- и отрицательные (Э4)
+  if ((p.dC > 0 || B.cfg.KEXP === 4) && S.length) { for (const Q of X.types.values()) { if (Q.base !== grp || !Q.pn) continue; let inS = 0, all = 0; for (const [j, c] of Q.proto) { all += c / Q.pn; if (S.includes(j)) inS += c / Q.pn; }
       const sim = inS / (all + S.length - inS); if (sim > bs) { bs = sim; T = Q; } }
     if (!T || bs < JSIM) { T = newType(X, `${grp}.${X.nid++}`, B.cfg); T.base = grp; X.types.set(T.key, T); } }
   else { T = X.types.get(grp); if (!T) { T = newType(X, grp, B.cfg); T.base = grp; X.types.set(T.key, T); } }
