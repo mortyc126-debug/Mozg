@@ -79,10 +79,12 @@ function command(B, m, v) {
     else p = priceAt(cfg, Q, X.ks.map((k) => G.val[B.ch[k].good]));
     const toward = p > 0 && T0(Q) === '+';   // М3: цели «к» -- виды со скачком пользы вверх и ценой больше 0
     // Э4 (MAVOID): цели «от» -- вид со скачком вниз и ценой меньше 0; 1 -- только когда страх (ожидание события вида) выше двух средних
-    const away = cfg.MAVOID && p < 0 && T0(Q) === '-' && (cfg.MAVOID === 2 || (Q.org && Q.org.w && Q.org.fm > 0 && G.val[Q.good] > 2 * Q.org.fm));
+    // Э4б: 3 -- порог «страх выше одного среднего», 4 -- без порога, заметность умножена на страх / средний страх
+    const fear = Q.org && Q.org.w && Q.org.fm > 0 ? G.val[Q.good] / Q.org.fm : null;
+    const away = cfg.MAVOID && p < 0 && T0(Q) === '-' && (cfg.MAVOID === 2 || (fear !== null && (cfg.MAVOID === 4 ? fear > 0 : fear > (cfg.MAVOID === 3 ? 1 : 2))));
     if (!toward && !away) continue;
     let ue = 0; for (let k = 0; k < Q.goal.a.length; k++) ue += Q.goal.a[k] * ((cfg.CER >= 3 ? CER.estNow(v, k, ECON.xhat(B, v.ids[k])) : k < v.F ? ECON.xhat(B, v.ids[k]) : v.ce && v.ce.pred ? v.ce.pred[k - v.F] : ECON.xhat(B, v.ids[k - v.F])) - Q.goal.mu[k]); Q.ue = ue;   // Э1: MANT -- прогноз канала; Э2: и прогноз мозжечка
-    const s = cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g; Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
+    const s = (cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g) * (away && cfg.MAVOID === 4 ? fear : 1); Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
   if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
   const Q = cur && !(bs > HOLD * cs) ? cur : best; X.cur = Q.key;
