@@ -7,6 +7,8 @@
 // Польза (общий сигнал): C = CPAY (1 - 2(1-E)^2 - 2(1-H)^2) - KPAIN касание. Плата двигателю -- вклад этого круга: C минус
 // польза без движения в этом круге (не съел, не выпил, не коснулся).
 // KPLANK=1 -- планка: поворот по вшитому правилу «к запаху того, чего не хватает», команды мозга не действуют.
+// KTWIN=1 -- плата двигателю против двойника, который никогда не двигался (влечения только убывают); KPAINEV=1 -- боль
+// только в первом круге касания (К1б, results/kolonia/ПЛАН_К1б.md).
 // KSAT=1 -- обесценивание: во второй половине жизни через блок по KSATL кругов мир держит E = 1 (тело накормлено извне).
 const { stream } = require('./rng');
 
@@ -23,7 +25,7 @@ class WorldBody {
     for (let i = this.nerves.length - 1; i > 0; i--) { const j = r.int(i + 1); [this.nerves[i], this.nerves[j]] = [this.nerves[j], this.nerves[i]]; }
     this.motorNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.m); this.propNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.p);
     this.plugged = true; this.t = 0; this.z = { val: 0 }; this.g = { val: 0 };   // z, g -- для общих замеров (польза меряется через comfort)
-    this.C = 0; this.marg = 0; this.touch = 0;
+    this.C = 0; this.marg = 0; this.touch = 0; this.prevTouch = 0; this.Et = 1; this.Ht = 1;   // Et, Ht -- двойник, который никогда не двигался (KTWIN)
     this.st = { food: 0, water: 0, n: 0, byNeed: [0, 0], blk: { sat: [0, 0], norm: [0, 0] }, wall: 0, nSat: 0, nNorm: 0 };
     this.sense();
   }
@@ -48,6 +50,7 @@ class WorldBody {
     // влечения убывают; сытый блок -- мир кормит тело
     this.E = Math.max(0, this.E - c.KDEC); this.H = Math.max(0, this.H - c.KDEC);
     const sat = this.sated(); if (sat) this.E = 1;
+    this.Et = Math.max(0, this.Et - c.KDEC); this.Ht = Math.max(0, this.Ht - c.KDEC); if (sat) this.Et = 1;
     const Eb = this.E, Hb = this.H;   // без движения в этом круге -- только убыль
     this.th += c.KTURN * this.turn;
     let nx = this.x + c.KSPD * Math.cos(this.th), ny = this.y + c.KSPD * Math.sin(this.th), tl = 0, tr = 0;
@@ -64,7 +67,8 @@ class WorldBody {
     if (take(this.food, true)) this.E = Math.min(1, this.E + c.KGAIN);
     if (take(this.water, false)) this.H = Math.min(1, this.H + c.KGAIN);
     if (sat) this.E = 1;
-    this.C = this.util(this.E, this.H, this.touch); this.marg = this.C - this.util(Eb, Hb, 0);
+    const pain = c.KPAINEV ? (this.touch && !this.prevTouch ? 1 : 0) : this.touch; this.prevTouch = this.touch;   // KPAINEV: боль -- за удар, а не за прижатость
+    this.C = this.util(this.E, this.H, pain); this.marg = this.C - (c.KTWIN ? this.util(this.Et, this.Ht, 0) : this.util(Eb, Hb, 0));
     if (late) { this.st.n++; this.st.wall += this.touch; if (sat) this.st.nSat++; else this.st.nNorm++; }
     S.tl.val = tl; S.tr.val = tr; this.sense();
   }
