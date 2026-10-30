@@ -183,6 +183,7 @@ function valRecord(B, m) {
     v.td[B.t % cfg.H] = G.val[B.comfortGood] + cfg.MGAMV * V(x) - (v.last ? V(v.last) : V(x)); }
   v.last = x; B.led.work(m, 2 * F + 2);
   if (cfg.CER) CER.record(B, m, v, x, row);   // Э2: мозжечок -- прогноз следующего круга с копией команды
+  if (cfg.MBLEND) EXM.recProps(B, row);   // Э5: предложения целей этого круга
 }
 function valFit(B, m) {
   const cfg = B.cfg, v = vrOf(B, m); if (!v) return;
@@ -203,6 +204,7 @@ function valFit(B, m) {
   if (cfg.MVAL === 2) linFit(B, m, v, T, ord);
   if (cfg.CER) CER.fit(B, m, v, T, ord);   // Э2: прямая модель мозжечка
   if (cfg.MVAL === 2 && cfg.MEXP) EXM.fit(B, m, v, T, ord);   // М3: руль каждой цели
+  if (cfg.MBLEND) EXM.blendFit(B, m, v, T, ord);   // Э5: веса смеси предложений
 }
 // MVAL=2: какая команда при каких нервах ведёт к приросту ценности -- d(j+1) ~ b0 + b (x(j) - mu) + u(j) (a0 + a (x(j) - mu)).
 // Команда -- сумма a (x - mu) с силой MVGAIN разброса по записи; a0 отброшено: «всегда в одну сторону» -- это кружение.

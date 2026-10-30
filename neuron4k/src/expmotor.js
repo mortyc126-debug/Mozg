@@ -27,6 +27,10 @@ const CER = require('./cerebellum');
 // Э2 (нейрон Колонии, CER): руль цели видит и нервы x, и прогноз мозжечка x~ (src/cerebellum.js) -- признаков вдвое больше;
 // цель руля (сигнатура) -- по нервам.
 const HOLD = 1.2, FMIN = 3, NEEDF = 0.3;
+// Э5 (нейрон Колонии, MBLEND=1 -- results/e5/ПЛАН.md): отдел выбора учит смесь. Каждая цель с рулём предлагает команду
+// (цель «к» -- u_e, «от» -- -u_e) в своей обстановке (у «к» -- цена сейчас, у «от» -- страх / средний страх). Команда --
+// G · сумма (α_e + γ_e · обстановка_e) · предложение_e; веса -- подгонкой, как у прежнего мотора: прирост пользы с ценностью
+// d(t+1) ~ b0 + b (x - mu) + u (a0 + сумма (α_e пр_e + γ_e пр_e обст_e)). Пока весов нет -- самая заметная цель (MAVOID).
 const T0 = (Q) => Q.key[0];
 
 // подогнанные цели: вид с живым органом (веса), ценой и (для команды) рулём
@@ -70,9 +74,32 @@ function needFit(X, Q, use) {
   for (const [xs, dC] of Q.evs) { const n = xs[best], f = [1, n, n * n]; yy += dC * dC; for (let a = 0; a < 3; a++) { cv[a] += f[a] * dC; for (let b = 0; b < 3; b++) A[a * 3 + b] += f[a] * f[b]; } }
   const r = solve(A, cv, 3, yy, Float64Array.from([0, 1e-3, 1e-3])); Q.need = r ? { i: best, k: X.ks[best], c: Array.from(r.w) } : null;
 }
+// Э5: предложения этого круга -- в запись (строка записи мотора), для подгонки весов смеси
+function recProps(B, row) { const X = B.exp; if (!X) return; (X.prec || (X.prec = new Array(B.cfg.MVH))); X.prec[row] = X.curProps || null; X.curProps = null; }
+function blendFit(B, m, v, T, ord) {
+  const cfg = B.cfg, X = B.exp; if (!X || !X.prec || !v.ok || !v.b) return; const F = v.F;
+  const rows = Array.from(ord.subarray(0, T)), keys = [...new Set(rows.flatMap((r) => (X.prec[r] || []).map((p) => p.key)))], n = rows.filter((r) => X.prec[r] && X.prec[r].length).length;
+  if (!keys.length || n < 1000) return;
+  const V = (row) => { let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; return s; };
+  const mu = new Float64Array(F); for (let i = 0; i < T; i++) for (let k = 0; k < F; k++) mu[k] += v.x[ord[i] * F + k] / T;
+  const K = keys.length, d = F + 2 + 2 * K, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;
+  const pv = (r, j) => { const p = (X.prec[r] || []).find((q) => q.key === keys[j]); return p ? [p.u, p.u * p.ctx] : [0, 0]; };
+  for (let i = 0; i < T - 1; i++) { const r = ord[i], r1 = ord[i + 1], y = v.c[r1] + cfg.MGAMV * V(r1) - V(r), u = v.u[r]; yy += y * y;
+    f[0] = 1; for (let k = 0; k < F; k++) f[1 + k] = v.x[r * F + k] - mu[k]; f[F + 1] = u; for (let j = 0; j < K; j++) { const [a, b] = pv(r, j); f[F + 2 + 2 * j] = u * a; f[F + 3 + 2 * j] = u * b; }
+    for (let a = 0; a < d; a++) { cv[a] += f[a] * y; for (let b = 0; b <= a; b++) A[a * d + b] += f[a] * f[b]; } }
+  for (let a = 0; a < d; a++) for (let b = 0; b < a; b++) A[b * d + a] = A[a * d + b];
+  const mask = new Float64Array(d).fill(1e-3); mask[0] = 0; const r = solve(A, cv, d, yy, mask); B.led.work(m, T * d * d + (r ? r.ops : 0)); if (!r) return;
+  const al = keys.map((_, j) => r.w[F + 2 + 2 * j]), ga = keys.map((_, j) => r.w[F + 3 + 2 * j]);
+  let s2 = 0, ns = 0; for (let i = 0; i < T; i++) { const ps = X.prec[ord[i]]; if (!ps) continue; let s = 0; for (const p of ps) { const j = keys.indexOf(p.key); if (j >= 0) s += (al[j] + ga[j] * p.ctx) * p.u; } s2 += s * s; ns++; }
+  if (!(s2 > 0) || !al.concat(ga).every(Number.isFinite)) return;
+  X.blend = { keys, al, ga, G: cfg.MVGAIN / Math.sqrt(s2 / ns), fits: (X.blend ? X.blend.fits : 0) + 1 };
+  // мера: вес предложения в обстановке -- у «от» при страхе 3, у «к» при средней цене
+  X.blendInfo = keys.map((key, j) => { const cs = rows.flatMap((r) => (X.prec[r] || []).filter((p) => p.key === key).map((p) => p.ctx)); const mc = cs.length ? cs.reduce((a, b) => a + b, 0) / cs.length : 0;
+    const away = key[0] === '-'; return { key, kind: away ? 'от' : 'к', w: al[j] + ga[j] * (away ? 3 : mc), al: al[j], ga: ga[j], ctx: away ? 3 : mc }; });
+}
 function command(B, m, v) {
   const X = B.exp, G = B.goods, cfg = B.cfg; if (!X || m.port.k !== B.world.motorNerve) return null;
-  let best = null, bs = -1, cur = null, cs = -1;
+  let best = null, bs = -1, cur = null, cs = -1; const props = [];
   for (const Q of X.types.values()) { if (!ready(Q, cfg) || !Q.goal || !(Q.goal.F >= FMIN)) continue;
     X.hadGoal = true; let p;
     if (cfg.MEXP === 4) { if (!Q.need) continue; const n = G.val[B.ch[Q.need.k].good]; p = Q.need.c[0] + Q.need.c[1] * n + Q.need.c[2] * n * n; }
@@ -85,7 +112,10 @@ function command(B, m, v) {
     if (!toward && !away) continue;
     let ue = 0; for (let k = 0; k < Q.goal.a.length; k++) ue += Q.goal.a[k] * ((cfg.CER >= 3 ? CER.estNow(v, k, ECON.xhat(B, v.ids[k])) : k < v.F ? ECON.xhat(B, v.ids[k]) : v.ce && v.ce.pred ? v.ce.pred[k - v.F] : ECON.xhat(B, v.ids[k - v.F])) - Q.goal.mu[k]); Q.ue = ue;   // Э1: MANT -- прогноз канала; Э2: и прогноз мозжечка
     const s = (cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g) * (away && cfg.MAVOID === 4 ? fear : 1); Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
+    if (cfg.MBLEND) props.push({ key: Q.key, u: Q.sign * ue, ctx: away ? fear : p });   // Э5: предложение цели и её обстановка
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
+  if (cfg.MBLEND) { X.curProps = props; if (X.blend && props.length) { let s = 0; for (const p of props) { const j = X.blend.keys.indexOf(p.key); if (j >= 0) s += (X.blend.al[j] + X.blend.ga[j] * p.ctx) * p.u; }   // Э5: смесь
+      if (B.t > cfg.ROUNDS / 2) (X.goalRounds || (X.goalRounds = {}))['смесь'] = ((X.goalRounds || {})['смесь'] || 0) + 1; B.led.work(m, (2 * v.F + 4) * X.types.size); if (Number.isFinite(s)) return X.blend.G * s; } }
   if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
   const Q = cur && !(bs > HOLD * cs) ? cur : best; X.cur = Q.key;
   if (B.t > cfg.ROUNDS / 2) { Q.goal.rounds++; (X.goalRounds || (X.goalRounds = {}))[Q.key] = (X.goalRounds[Q.key] || 0) + 1; }
@@ -93,4 +123,4 @@ function command(B, m, v) {
   if (cfg.MANT) ECON.credit(B, v.ids, Q.goal.a, Q.sign * Q.ue);   // Э1: вклад частей в команду
   return Q.sign * Q.ue;
 }
-module.exports = { fit, command };
+module.exports = { fit, command, recProps, blendFit };
