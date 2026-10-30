@@ -31,7 +31,12 @@ const HOLD = 1.2, FMIN = 3, NEEDF = 0.3;
 // (цель «к» -- u_e, «от» -- -u_e) в своей обстановке (у «к» -- цена сейчас, у «от» -- страх / средний страх). Команда --
 // G · сумма (α_e + γ_e · обстановка_e) · предложение_e; веса -- подгонкой, как у прежнего мотора: прирост пользы с ценностью
 // d(t+1) ~ b0 + b (x - mu) + u (a0 + сумма (α_e пр_e + γ_e пр_e обст_e)). Пока весов нет -- самая заметная цель (MAVOID).
+// Э5б (MBLEND=2 -- results/e5b/ПЛАН.md): учёба по пробам. Команда -- сумма (α_e + ξ_e + (γ_e + ζ_e) · обстановка_e) ·
+// предложение_e в единицах руля; пробы ξ, ζ ~ N(0, MBSIG) -- новые каждые MBOUT кругов (свой жребий «проба»). Итог пробы --
+// сумма прироста пользы с ценностью за её круги минус ожидаемое по нервам в её начале; наклон итога по пробе каждой
+// цели и его ошибка -- шаг веса MBLR · clip(t, -3, 3). Новая цель начинает с α = 0.5, γ = 0.
 const T0 = (Q) => Q.key[0];
+const { stream } = require('./rng');
 
 // подогнанные цели: вид с живым органом (веса), ценой и (для команды) рулём
 const ready = (T, cfg) => (cfg.MEXP >= 2 ? (T.pr.w || cfg.MEXP === 4) && T.pn : T.org && T.org.w && T.pr.w);
@@ -75,8 +80,43 @@ function needFit(X, Q, use) {
   const r = solve(A, cv, 3, yy, Float64Array.from([0, 1e-3, 1e-3])); Q.need = r ? { i: best, k: X.ks[best], c: Array.from(r.w) } : null;
 }
 // Э5: предложения этого круга -- в запись (строка записи мотора), для подгонки весов смеси
-function recProps(B, row) { const X = B.exp; if (!X) return; (X.prec || (X.prec = new Array(B.cfg.MVH))); X.prec[row] = X.curProps || null; X.curProps = null; }
+function recProps(B, row) { const X = B.exp; if (!X) return; (X.prec || (X.prec = new Array(B.cfg.MVH))); X.prec[row] = X.curProps || null; X.curProps = null;
+  if (B.cfg.MBLEND === 2) (X.pbt || (X.pbt = new Int32Array(B.cfg.MVH).fill(-1)))[row] = Math.floor(B.t / B.cfg.MBOUT); }
+// Э5б: веса цели и её проба в этой пробе (новая проба -- новый жребий)
+function probeW(B, key, b) {
+  const X = B.exp, cfg = B.cfg, P = X.pw || (X.pw = new Map()); let w = P.get(key); if (!w) P.set(key, w = { al: 0.5, ga: 0, xi: 0, ze: 0, bout: -1, steps: 0, t: [0, 0] });
+  if (w.bout !== b) { const R = X.prng || (X.prng = stream(B.seed, 'проба')); w.xi = cfg.MBSIG * R.gauss(); w.ze = cfg.MBSIG * R.gauss(); w.bout = b; }
+  return w;
+}
+// Э5б: учёба по пробам записи
+function probeFit(B, m, v, T, ord) {
+  const cfg = B.cfg, X = B.exp; if (!X || !X.prec || !X.pbt || !X.pw || !v.ok || !v.b) return; const F = v.F;
+  const V = (row) => { let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; return s; };
+  const bouts = new Map();
+  for (let i = 0; i < T - 1; i++) { const r = ord[i], r1 = ord[i + 1], b = X.pbt[r]; if (b < 0) continue; let o = bouts.get(b); if (!o) bouts.set(b, o = { R: 0, r0: r, n: 0, k: new Map() });
+    o.R += v.c[r1] + cfg.MGAMV * V(r1) - V(r); o.n++;
+    for (const p of X.prec[r] || []) { const q = o.k.get(p.key); if (q) q.c++; else o.k.set(p.key, { c: 1, xi: p.xi, ze: p.ze }); } }
+  const L = [...bouts.values()].filter((o) => o.n >= cfg.MBOUT / 2); if (L.length < 50) return;
+  // ожидаемое по нервам в начале пробы -- линейная подгонка, остаток R̃
+  const d = F + 1, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;
+  for (const o of L) { f[0] = 1; for (let k = 0; k < F; k++) f[1 + k] = v.x[o.r0 * F + k]; yy += o.R * o.R; for (let a = 0; a < d; a++) { cv[a] += f[a] * o.R; for (let c = 0; c <= a; c++) A[a * d + c] += f[a] * f[c]; } }
+  for (let a = 0; a < d; a++) for (let c = 0; c < a; c++) A[c * d + a] = A[a * d + c];
+  const mask = new Float64Array(d).fill(1e-3); mask[0] = 0; const r = solve(A, cv, d, yy, mask); if (!r) return;
+  for (const o of L) { let e = r.w[0]; for (let k = 0; k < F; k++) e += r.w[1 + k] * v.x[o.r0 * F + k]; o.Rt = o.R - e; }
+  const tOf = (xs, ys) => { let sxx = 0, sxy = 0; for (let i = 0; i < xs.length; i++) { sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; } if (!(sxx > 0)) return 0;
+    const g = sxy / sxx; let rr = 0; for (let i = 0; i < xs.length; i++) rr += (ys[i] - g * xs[i]) ** 2; const se = Math.sqrt(rr / Math.max(1, xs.length - 1) / sxx); return se > 0 ? g / se : 0; };
+  const clip = (t) => Math.max(-3, Math.min(3, t)), lim = (w) => Math.max(-4, Math.min(4, w));
+  for (const [key, w] of X.pw) { const S = L.filter((o) => o.k.has(key) && o.k.get(key).c >= o.n / 2); if (S.length < 30) continue;
+    const ys = S.map((o) => o.Rt), ta = tOf(S.map((o) => o.k.get(key).xi), ys), tg = tOf(S.map((o) => o.k.get(key).ze), ys);
+    w.al = lim(w.al + cfg.MBLR * clip(ta)); w.ga = lim(w.ga + cfg.MBLR * clip(tg)); w.t = [ta, tg]; w.steps++; w.nb = S.length; }
+  B.led.work(m, T * (F + 4) + L.length * (d * d + 4 * X.pw.size) + (r.ops || 0));
+  // мера: вес в обстановке -- у «от» при страхе 3, у «к» при средней цене по записи
+  const ords = Array.from(ord.subarray(0, T));
+  X.blendInfo = [...X.pw].map(([key, w]) => { const cs = ords.flatMap((rw) => (X.prec[rw] || []).filter((p) => p.key === key).map((p) => p.ctx)); const mc = cs.length ? cs.reduce((a, c) => a + c, 0) / cs.length : 0;
+    const away = key[0] === '-'; return { key, kind: away ? 'от' : 'к', w: w.al + w.ga * (away ? 3 : mc), al: w.al, ga: w.ga, ctx: away ? 3 : mc, steps: w.steps, nb: w.nb || 0, tAl: w.t[0], tGa: w.t[1] }; });
+}
 function blendFit(B, m, v, T, ord) {
+  if (B.cfg.MBLEND === 2) return probeFit(B, m, v, T, ord);
   const cfg = B.cfg, X = B.exp; if (!X || !X.prec || !v.ok || !v.b) return; const F = v.F;
   const rows = Array.from(ord.subarray(0, T)), keys = [...new Set(rows.flatMap((r) => (X.prec[r] || []).map((p) => p.key)))], n = rows.filter((r) => X.prec[r] && X.prec[r].length).length;
   if (!keys.length || n < 1000) return;
@@ -114,7 +154,10 @@ function command(B, m, v) {
     const s = (cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g) * (away && cfg.MAVOID === 4 ? fear : 1); Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (cfg.MBLEND) props.push({ key: Q.key, u: Q.sign * ue, ctx: away ? fear : p });   // Э5: предложение цели и её обстановка
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
-  if (cfg.MBLEND) { X.curProps = props; if (X.blend && props.length) { let s = 0; for (const p of props) { const j = X.blend.keys.indexOf(p.key); if (j >= 0) s += (X.blend.al[j] + X.blend.ga[j] * p.ctx) * p.u; }   // Э5: смесь
+  if (cfg.MBLEND === 2) { props.b = Math.floor(B.t / cfg.MBOUT); X.curProps = props; if (props.length) { let s = 0;   // Э5б: смесь с пробами
+      for (const p of props) { const w = probeW(B, p.key, props.b); p.xi = w.xi; p.ze = w.ze; s += (w.al + w.xi + (w.ga + w.ze) * p.ctx) * p.u; }
+      if (B.t > cfg.ROUNDS / 2) (X.goalRounds || (X.goalRounds = {}))['смесь'] = ((X.goalRounds || {})['смесь'] || 0) + 1; B.led.work(m, (2 * v.F + 6) * X.types.size); if (Number.isFinite(s)) return s; } }
+  else if (cfg.MBLEND) { X.curProps = props; if (X.blend && props.length) { let s = 0; for (const p of props) { const j = X.blend.keys.indexOf(p.key); if (j >= 0) s += (X.blend.al[j] + X.blend.ga[j] * p.ctx) * p.u; }   // Э5: смесь
       if (B.t > cfg.ROUNDS / 2) (X.goalRounds || (X.goalRounds = {}))['смесь'] = ((X.goalRounds || {})['смесь'] || 0) + 1; B.led.work(m, (2 * v.F + 4) * X.types.size); if (Number.isFinite(s)) return X.blend.G * s; } }
   if (!best) { const none = cfg.MEXP === 3 && X.hadGoal ? 'нет цели' : 'прежний'; if (B.t > cfg.ROUNDS / 2) X.goalRounds = Object.assign(X.goalRounds || {}, { [none]: ((X.goalRounds || {})[none] || 0) + 1 }); return none === 'нет цели' ? 0 : null; }
   const Q = cur && !(bs > HOLD * cs) ? cur : best; X.cur = Q.key;
