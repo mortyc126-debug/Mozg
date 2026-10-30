@@ -91,18 +91,19 @@ function probeW(B, key, b) {
 // Э5б: учёба по пробам записи
 function probeFit(B, m, v, T, ord) {
   const cfg = B.cfg, X = B.exp; if (!X || !X.prec || !X.pbt || !X.pw || !v.ok || !v.b) return; const F = v.F;
-  const V = (row) => { let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; return s; };
+  const V = (row) => v.Vrow(v, row);
   const bouts = new Map();
   for (let i = 0; i < T - 1; i++) { const r = ord[i], r1 = ord[i + 1], b = X.pbt[r]; if (b < 0) continue; let o = bouts.get(b); if (!o) bouts.set(b, o = { R: 0, r0: r, n: 0, k: new Map() });
     o.R += v.c[r1] + cfg.MGAMV * V(r1) - V(r); o.n++;
     for (const p of X.prec[r] || []) { const q = o.k.get(p.key); if (q) q.c++; else o.k.set(p.key, { c: 1, xi: p.xi, ze: p.ze }); } }
   const L = [...bouts.values()].filter((o) => o.n >= cfg.MBOUT / 2); if (L.length < 50) return;
   // ожидаемое по нервам в начале пробы -- линейная подгонка, остаток R̃
-  const d = F + 1, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;
-  for (const o of L) { f[0] = 1; for (let k = 0; k < F; k++) f[1 + k] = v.x[o.r0 * F + k]; yy += o.R * o.R; for (let a = 0; a < d; a++) { cv[a] += f[a] * o.R; for (let c = 0; c <= a; c++) A[a * d + c] += f[a] * f[c]; } }
+  const pu = v.pu || [], PS = 8, d = F + 1 + pu.length, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;   // Э6: база -- нервы и ожидания
+  const feat0 = (r0) => { f[0] = 1; for (let k = 0; k < F; k++) f[1 + k] = v.x[r0 * F + k]; for (let j = 0; j < pu.length; j++) f[1 + F + j] = v.p[r0 * PS + pu[j]]; };
+  for (const o of L) { feat0(o.r0); yy += o.R * o.R; for (let a = 0; a < d; a++) { cv[a] += f[a] * o.R; for (let c = 0; c <= a; c++) A[a * d + c] += f[a] * f[c]; } }
   for (let a = 0; a < d; a++) for (let c = 0; c < a; c++) A[c * d + a] = A[a * d + c];
   const mask = new Float64Array(d).fill(1e-3); mask[0] = 0; const r = solve(A, cv, d, yy, mask); if (!r) return;
-  for (const o of L) { let e = r.w[0]; for (let k = 0; k < F; k++) e += r.w[1 + k] * v.x[o.r0 * F + k]; o.Rt = o.R - e; }
+  for (const o of L) { feat0(o.r0); let e = 0; for (let a = 0; a < d; a++) e += r.w[a] * f[a]; o.Rt = o.R - e; }
   const tOf = (xs, ys) => { let sxx = 0, sxy = 0; for (let i = 0; i < xs.length; i++) { sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; } if (!(sxx > 0)) return 0;
     const g = sxy / sxx; let rr = 0; for (let i = 0; i < xs.length; i++) rr += (ys[i] - g * xs[i]) ** 2; const se = Math.sqrt(rr / Math.max(1, xs.length - 1) / sxx); return se > 0 ? g / se : 0; };
   const clip = (t) => Math.max(-3, Math.min(3, t)), lim = (w) => Math.max(-4, Math.min(4, w));
@@ -120,7 +121,7 @@ function blendFit(B, m, v, T, ord) {
   const cfg = B.cfg, X = B.exp; if (!X || !X.prec || !v.ok || !v.b) return; const F = v.F;
   const rows = Array.from(ord.subarray(0, T)), keys = [...new Set(rows.flatMap((r) => (X.prec[r] || []).map((p) => p.key)))], n = rows.filter((r) => X.prec[r] && X.prec[r].length).length;
   if (!keys.length || n < 1000) return;
-  const V = (row) => { let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; return s; };
+  const V = (row) => v.Vrow(v, row);
   const mu = new Float64Array(F); for (let i = 0; i < T; i++) for (let k = 0; k < F; k++) mu[k] += v.x[ord[i] * F + k] / T;
   const K = keys.length, d = F + 2 + 2 * K, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;
   const pv = (r, j) => { const p = (X.prec[r] || []).find((q) => q.key === keys[j]); return p ? [p.u, p.u * p.ctx] : [0, 0]; };

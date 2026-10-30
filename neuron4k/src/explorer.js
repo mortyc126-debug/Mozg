@@ -167,21 +167,33 @@ function build(B, c) {
 // Еда редкая и приходит через десятки кругов, но запах растёт сразу -- и ценность это видит без подсказки.
 // запись принадлежит нерву, а не органу: разорившийся мотор не уносит её с собой
 const vrOf = (B, m) => (B.vrs || (B.vrs = new Map())).get(m.port.k);
+// Э6 (нейрон Колонии, MVPSI -- results/e6/ПЛАН.md, ИССЛЕДОВАНИЕ_СВЯЗИ.md шаг С1): ценность покупает ожидания. К сырым
+// нервам V добавлены выходы органов ожидания ψ (товары «ожидание», до PS видов): V = b0 + b x + c ψ. Вид входит в подгонку,
+// если его орган был жив хотя бы в половине кругов записи; вес -- подгонкой. Мера вклада -- рост ошибки V без каждого ψ.
+const PS = 8;
+function Vrow(v, row) { const F = v.F; let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; if (v.pu) for (let j = 0; j < v.pu.length; j++) s += v.b[1 + F + j] * v.p[row * PS + v.pu[j]]; return s; }
+function psiNow(B, v) { const X = B.exp, G = B.goods, p = new Float64Array(PS); if (!X) return p;
+  for (const T of X.types.values()) if (T.good >= 0 && !v.pg.includes(T.good) && v.pg.length < PS) v.pg.push(T.good);
+  for (let j = 0; j < v.pg.length; j++) p[j] = G.val[v.pg[j]]; return p; }
 function yAt(B, m, t) { const v = B.cfg.MVAL ? vrOf(B, m) : null; return B.cfg.MVAL && v && v.ok ? v.td[t % B.cfg.H] : B.goods.at(t, B.comfortGood); }
 // прирост с ценностью в этом круге -- для сверки обещания с полученным (запись этого круга ещё не сделана)
 function tdNow(B, m) {
   const cfg = B.cfg, G = B.goods, v = vrOf(B, m), C = G.val[B.comfortGood]; if (!v || !v.ok || !v.last) return C;
-  let a = v.b[0], b = v.b[0]; for (let i = 0; i < v.F; i++) { a += v.b[1 + i] * G.val[v.ids[i]]; b += v.b[1 + i] * v.last[i]; } return C + cfg.MGAMV * a - b;
+  let a = v.b[0], b = v.b[0]; for (let i = 0; i < v.F; i++) { a += v.b[1 + i] * G.val[v.ids[i]]; b += v.b[1 + i] * v.last[i]; }
+  if (v.pu && v.lastP) for (let j = 0; j < v.pu.length; j++) { a += v.b[1 + v.F + j] * G.val[v.pg[v.pu[j]]]; b += v.b[1 + v.F + j] * v.lastP[v.pu[j]]; }   // Э6
+  return C + cfg.MGAMV * a - b;
 }
 function valRecord(B, m) {
   const cfg = B.cfg, G = B.goods, own = m.port.k;
   const ids = B.ch.filter((c) => c.k !== own).map((c) => c.good); if (cfg.KFEAR === 2 && B.fear) ids.push(B.fear.good);   // К1к: страх -- ещё один нерв мотора
-  let v = vrOf(B, m); if (!v || v.ids.length !== ids.length || v.ids.some((id, i) => id !== ids[i])) B.vrs.set(own, v = { ids, F: ids.length, n: 0, x: new Float32Array(cfg.MVH * ids.length), c: new Float32Array(cfg.MVH), b: null, ok: false, td: new Float64Array(cfg.H), last: null, u: new Float32Array(cfg.MVH), lin: null });
+  let v = vrOf(B, m); if (!v || v.ids.length !== ids.length || v.ids.some((id, i) => id !== ids[i])) B.vrs.set(own, v = { ids, F: ids.length, n: 0, x: new Float32Array(cfg.MVH * ids.length), c: new Float32Array(cfg.MVH), b: null, ok: false, td: new Float64Array(cfg.H), last: null, u: new Float32Array(cfg.MVH), lin: null, Vrow,
+    ...(cfg.MVPSI ? { p: new Float32Array(cfg.MVH * PS), pg: [], pu: null, lastP: null } : {}) });
   const row = v.n % cfg.MVH, F = v.F, x = new Float64Array(F);
   for (let i = 0; i < F; i++) { x[i] = ECON.xhat(B, ids[i]); v.x[row * F + i] = x[i]; } v.c[row] = G.val[B.comfortGood]; v.u[row] = B.u[own]; v.n++;   // Э1: MANT -- прогноз канала
-  if (v.ok) { const V = (z) => { let s = v.b[0]; for (let i = 0; i < F; i++) s += v.b[1 + i] * z[i]; return s; };
-    v.td[B.t % cfg.H] = G.val[B.comfortGood] + cfg.MGAMV * V(x) - (v.last ? V(v.last) : V(x)); }
-  v.last = x; B.led.work(m, 2 * F + 2);
+  const ps = cfg.MVPSI ? psiNow(B, v) : null; if (ps) for (let j = 0; j < PS; j++) v.p[row * PS + j] = ps[j];   // Э6: ожидания этого круга
+  if (v.ok) { const V = (z, q) => { let s = v.b[0]; for (let i = 0; i < F; i++) s += v.b[1 + i] * z[i]; if (v.pu && q) for (let j = 0; j < v.pu.length; j++) s += v.b[1 + F + j] * q[v.pu[j]]; return s; };
+    v.td[B.t % cfg.H] = G.val[B.comfortGood] + cfg.MGAMV * V(x, ps) - (v.last ? V(v.last, v.lastP) : V(x, ps)); }
+  v.last = x; if (ps) v.lastP = ps; B.led.work(m, 2 * F + 2);
   if (cfg.CER) CER.record(B, m, v, x, row);   // Э2: мозжечок -- прогноз следующего круга с копией команды
   if (cfg.MBLEND) EXM.recProps(B, row);   // Э5: предложения целей этого круга
 }
@@ -190,15 +202,17 @@ function valFit(B, m) {
   const T = Math.min(v.n, cfg.MVH), F = v.F, cut = Math.ceil(3 / (1 - cfg.MGAMV)); if (T - cut < 200) return;
   const ord = new Int32Array(T); for (let i = 0; i < T; i++) ord[i] = (v.n - T + i) % cfg.MVH;   // от старых к новым
   const Gr = new Float64Array(T); let acc = 0; for (let i = T - 1; i >= 1; i--) { acc = v.c[ord[i]] + cfg.MGAMV * acc; Gr[i - 1] = acc; }   // будущая польза после ряда
-  const d = F + 1, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;
-  for (let i = 0; i < T - cut; i++) { const r = ord[i]; f[0] = 1; for (let k = 0; k < F; k++) f[1 + k] = v.x[r * F + k]; const y = Gr[i]; yy += y * y;
+  // Э6: виды, чей орган был жив хотя бы в половине кругов записи
+  const pu = cfg.MVPSI ? [...v.pg.keys()].filter((j) => { let nz = 0; for (let i = 0; i < T - cut; i++) if (v.p[ord[i] * PS + j] !== 0) nz++; return nz >= (T - cut) / 2; }) : null, P = pu ? pu.length : 0;
+  const d = F + 1 + P, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;
+  for (let i = 0; i < T - cut; i++) { const r = ord[i]; f[0] = 1; for (let k = 0; k < F; k++) f[1 + k] = v.x[r * F + k]; for (let j = 0; j < P; j++) f[1 + F + j] = v.p[r * PS + pu[j]]; const y = Gr[i]; yy += y * y;
     for (let a = 0; a < d; a++) { cv[a] += f[a] * y; for (let b = 0; b <= a; b++) A[a * d + b] += f[a] * f[b]; } }
   for (let a = 0; a < d; a++) for (let b = 0; b < a; b++) A[b * d + a] = A[a * d + b];
   const mask = new Float64Array(d); for (let i = 1; i < d; i++) mask[i] = 1e-3;
   const r = solve(A, cv, d, yy, mask); B.led.work(m, T * d * d + (r ? r.ops : 0)); if (!r) return;
-  v.b = Float64Array.from(r.w); v.ok = true;
+  v.b = Float64Array.from(r.w); v.ok = true; if (cfg.MVPSI) { v.pu = pu; psiInfo(B, m, v, A, cv, yy, d, mask, r.w, T - cut, ord); }
   // прирост с ценностью -- заново за последние H кругов записи
-  const H = cfg.H, n0 = Math.max(1, T - H + 1), V = (row) => { let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; return s; };
+  const H = cfg.H, n0 = Math.max(1, T - H + 1), V = (row) => Vrow(v, row);
   for (let i = n0; i < T; i++) { const t = B.t - (T - 1 - i); v.td[t % H] = v.c[ord[i]] + cfg.MGAMV * V(ord[i]) - V(ord[i - 1]); }
   B.led.work(m, H * 2 * F);
   if (cfg.MVAL === 2) linFit(B, m, v, T, ord);
@@ -206,11 +220,23 @@ function valFit(B, m) {
   if (cfg.MVAL === 2 && cfg.MEXP) EXM.fit(B, m, v, T, ord);   // М3: руль каждой цели
   if (cfg.MBLEND) EXM.blendFit(B, m, v, T, ord);   // Э5: веса смеси предложений
 }
+// Э6: мера вклада ожиданий в ценность -- сила c·sd(ψ) и рост ошибки подгонки без каждого ψ (и без всех)
+function psiInfo(B, m, v, A, cv, yy, d, mask, w, n, ord) {
+  const X = B.exp, F = v.F, pu = v.pu; if (!X) return;
+  const sse = (keep) => { const k = keep.length, A2 = new Float64Array(k * k), c2 = new Float64Array(k), m2 = new Float64Array(k);
+    for (let a = 0; a < k; a++) { c2[a] = cv[keep[a]]; m2[a] = mask[keep[a]]; for (let b = 0; b < k; b++) A2[a * k + b] = A[keep[a] * d + keep[b]]; }
+    const r = solve(A2, c2, k, yy, m2); if (!r) return NaN; let s = yy; for (let a = 0; a < k; a++) { s -= 2 * r.w[a] * c2[a]; for (let b = 0; b < k; b++) s += r.w[a] * r.w[b] * A2[a * k + b]; } return Math.max(1e-12, s); };
+  const all = [...Array(d).keys()], s1 = sse(all), s0 = sse(all.slice(0, F + 1));
+  const keyOfGood = (g) => { for (const T of X.types.values()) if (T.good === g) return T.key; return null; };
+  X.vinfo = { gainAll: s0 / s1 - 1, psi: pu.map((j, i) => { let s = 0, s2 = 0; for (let q = 0; q < n; q++) { const z = v.p[ord[q] * PS + j]; s += z; s2 += z * z; } const sd = Math.sqrt(Math.max(0, s2 / n - (s / n) ** 2));
+    return { key: keyOfGood(v.pg[j]), c: w[1 + F + i], sd, force: w[1 + F + i] * sd, drop: sse(all.filter((a) => a !== 1 + F + i)) / s1 - 1 }; }), V: Array.from(w.subarray(1, F + 1)) };
+  B.led.work(m, (pu.length + 2) * d * d * d);
+}
 // MVAL=2: какая команда при каких нервах ведёт к приросту ценности -- d(j+1) ~ b0 + b (x(j) - mu) + u(j) (a0 + a (x(j) - mu)).
 // Команда -- сумма a (x - mu) с силой MVGAIN разброса по записи; a0 отброшено: «всегда в одну сторону» -- это кружение.
 // MNOPE: нервы, которые команда сдвигает сама, в команду не входят (иначе -- «продолжай, как делал»).
 function linFit(B, m, v, T, ord) {
-  const cfg = B.cfg, F = v.F, V = (row) => { let s = v.b[0]; for (let k = 0; k < F; k++) s += v.b[1 + k] * v.x[row * F + k]; return s; };
+  const cfg = B.cfg, F = v.F, V = (row) => Vrow(v, row);
   const own = new Set(cfg.MNOPE ? (m.port.eff || []).map((e) => B.ch[e.j] && B.ch[e.j].good) : []), use = v.ids.map((id) => !own.has(id));
   const mu = new Float64Array(F); for (let i = 0; i < T; i++) for (let k = 0; k < F; k++) mu[k] += v.x[ord[i] * F + k] / T;
   const d = 2 * F + 2, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0;

@@ -141,7 +141,7 @@ function summary(B, kinds) {
     antB: T.ant.Bn ? T.ant.B / T.ant.Bn : null, antA: T.ant.An ? T.ant.A / T.ant.An : null, price: priceSum(T),
     proto: T.proto ? [...T.proto.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([j, c]) => `${kinds[parseInt(j, 10)]}${j.slice(-1)} ${(c / T.pn).toFixed(2)}`) : undefined,
     goal: T.goal ? { rounds: T.goal.rounds, fits: T.goal.fits, F: +T.goal.F.toFixed(2) } : undefined, sig: T.sig ? T.sig.map((k) => kinds[k]) : undefined,
-    need: T.need ? { nerve: kinds[T.need.k], c: T.need.c.map((x) => +x.toFixed(3)) } : undefined })), goals: X.goalRounds || null, blend: X.blendInfo || null };
+    need: T.need ? { nerve: kinds[T.need.k], c: T.need.c.map((x) => +x.toFixed(3)) } : undefined })), goals: X.goalRounds || null, blend: X.blendInfo || null, vpsi: X.vinfo || null };
 }
 function priceSum(T) {
   const s = T.ps, rel = s.rel.slice().sort((a, b) => a - b), den = Math.sqrt((s.n * s.spp - s.sp * s.sp) * (s.n * s.see - s.se * s.se));
