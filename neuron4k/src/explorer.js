@@ -189,7 +189,8 @@ function valRecord(B, m) {
   let v = vrOf(B, m); if (!v || v.ids.length !== ids.length || v.ids.some((id, i) => id !== ids[i])) B.vrs.set(own, v = { ids, F: ids.length, n: 0, x: new Float32Array(cfg.MVH * ids.length), c: new Float32Array(cfg.MVH), b: null, ok: false, td: new Float64Array(cfg.H), last: null, u: new Float32Array(cfg.MVH), lin: null, Vrow,
     ...(cfg.MVPSI ? { p: new Float32Array(cfg.MVH * PS), pg: [], pu: null, lastP: null } : {}) });
   const row = v.n % cfg.MVH, F = v.F, x = new Float64Array(F);
-  for (let i = 0; i < F; i++) { x[i] = ECON.xhat(B, ids[i]); v.x[row * F + i] = x[i]; } v.c[row] = G.val[B.comfortGood]; v.u[row] = B.u[own]; v.n++;   // Э1: MANT -- прогноз канала
+  for (let i = 0; i < F; i++) { x[i] = ECON.xhat(B, ids[i]); v.x[row * F + i] = x[i]; } v.c[row] = G.val[B.comfortGood]; v.u[row] = B.u[own]; v.n++;
+  if (cfg.MAWAY) { (v.e || (v.e = new Float32Array(cfg.MVH)))[row] = m.u0 !== null && m.u0 !== undefined ? B.u[own] - m.u0 : 0; m.u0 = null; }   // Э7: проба круга   // Э1: MANT -- прогноз канала
   const ps = cfg.MVPSI ? psiNow(B, v) : null; if (ps) for (let j = 0; j < PS; j++) v.p[row * PS + j] = ps[j];   // Э6: ожидания этого круга
   if (v.ok) { const V = (z, q) => { let s = v.b[0]; for (let i = 0; i < F; i++) s += v.b[1 + i] * z[i]; if (v.pu && q) for (let j = 0; j < v.pu.length; j++) s += v.b[1 + F + j] * q[v.pu[j]]; return s; };
     v.td[B.t % cfg.H] = G.val[B.comfortGood] + cfg.MGAMV * V(x, ps) - (v.last ? V(v.last, v.lastP) : V(x, ps)); }
@@ -574,6 +575,7 @@ function motorU(B, m) {
   const cfg = B.cfg, G = B.goods, M = m.good; let u, lim = cfg.BAMP, q;
   if (cfg.MVAL === 2) { const v = vrOf(B, m);   // форма правки 39: команда линейна по нервам
     const ue = cfg.MEXP && v && v.ok ? EXM.command(B, m, v) : null;   // М3: мотор ожиданий -- команда выбранной цели
+    if (cfg.MAWAY) m.u0 = ue;   // Э7: команда до пробы -- проба круга = команда − u0
     if (ue !== null) return Math.max(-cfg.UMAX, Math.min(cfg.UMAX, ue + cfg.MVSIG * B.rng.gauss()));
     if (v && v.lin) { let s = 0; for (let k = 0; k < v.F; k++) s += v.lin.a[k] * (G.val[v.ids[k]] - v.lin.mu[k]); B.led.work(m, 2 * v.F + 2);
       if (cfg.MFEARX) s *= fearGain(B);   // К1м: страх -- множитель руля

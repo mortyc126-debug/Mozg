@@ -51,7 +51,8 @@ function fit(B, m, v, T, ord) {
   const mu = new Float64Array(FZ); for (let i = 0; i < T; i++) for (let k = 0; k < FZ; k++) mu[k] += zx(ord[i], k) / T;
   for (const Q of X.types.values()) { if (!ready(Q, cfg)) continue; let psi;
     if (cfg.MEXP === 4) needFit(X, Q, use);
-    if (cfg.MEXP >= 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += zx(r, i); return s; }; }
+    if (cfg.MEXP >= 2) { const S = sigOf(X, Q, use); Q.sig = S.map((i) => X.ks[i]); if (!S.length) { Q.goal = null; continue; } psi = (r) => { let s = 0; for (const i of S) s += zx(r, i); return s; };
+      if (cfg.MAWAY && T0(Q) === '-' && S.length === 2) { awayFit(B, m, v, T, ord, Q, S, zx, FZ, mu); continue; } }   // Э7: руль «от» по разнице сторон
     else { const w = Q.org.w; psi = (r) => { let s = w[0]; for (let k = 0; k < F; k++) { const x = use[k] ? v.x[r * F + k] : mu[k]; s += w[1 + 2 * k] * x + w[2 + 2 * k] * x * x; } return s; }; }
     const d = 2 * FZ + 2, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0, prev = psi(ord[0]);
     for (let i = 0; i < T - 1; i++) { const r = ord[i], nx = psi(ord[i + 1]), y = nx - prev, u = v.u[r]; prev = nx; yy += y * y;
@@ -71,6 +72,38 @@ function fit(B, m, v, T, ord) {
     Q.goal = { a: a.map((x) => Math.max(-8, Math.min(8, g * x))), g, mu, F: Fr, fits: (Q.goal ? Q.goal.fits : 0) + 1, rounds: Q.goal ? Q.goal.rounds : 0 }; }
 }
 
+// Э7 (нейрон Колонии, MAWAY -- results/e7/ПЛАН.md, шаг С5): руль цели «от» с сигнатурой из двух нервов a, b -- в готовой
+// форме «по разнице сторон»: Δ(x_a + x_b) ~ c0 + c (x - mu) + u (a0 + a_D (D - mu_D)), D = x_a - x_b. Поворот меняет разницу
+// сторон, а погоня -- сумму; один член направления вместо одного на каждый нерв. Знак и сила -- подгонкой, F -- против
+// подгонки без члена u (D - mu_D).
+// Поправка ПЛАН.md §6 (до основного счёта): команда сама зависит от D (в ней предложение «от»), и член u (D - mu_D) ловит
+// совпадения. Знак и сила -- по члену проба · (D - mu_D), проба круга -- команда минус команда до шума MVSIG; член
+// u (D - mu_D) остаётся поправкой на совпадения. F -- против подгонки без члена пробы.
+function awayFit(B, m, v, T, ord, Q, S, zx, FZ, mu) {
+  const cfg = B.cfg, [ia, ib] = S, sig = (r) => zx(r, ia) + zx(r, ib), Dm = mu[ia] - mu[ib];
+  if (!v.e) return;
+  const d = FZ + 4, A = new Float64Array(d * d), cv = new Float64Array(d), f = new Float64Array(d); let yy = 0, prev = sig(ord[0]);
+  for (let i = 0; i < T - 1; i++) { const r = ord[i], nx = sig(ord[i + 1]), y = nx - prev, u = v.u[r], Dr = zx(r, ia) - zx(r, ib) - Dm; prev = nx; yy += y * y;
+    f[0] = 1; for (let k = 0; k < FZ; k++) f[1 + k] = zx(r, k) - mu[k]; f[FZ + 1] = u; f[FZ + 2] = u * Dr; f[FZ + 3] = v.e[r] * Dr;   // поправка ПЛАН.md §6: знак -- по пробе
+    for (let a = 0; a < d; a++) { cv[a] += f[a] * y; for (let b = 0; b <= a; b++) A[a * d + b] += f[a] * f[b]; } }
+  for (let a = 0; a < d; a++) for (let b = 0; b < a; b++) A[b * d + a] = A[a * d + b];
+  const mask = new Float64Array(d).fill(1e-3); mask[0] = 0;
+  const r = solve(A, cv, d, yy, mask); B.led.work(m, T * (d * d + 2 * FZ) + (r ? r.ops : 0)); if (!r) return;
+  const d0 = d - 1, A0 = new Float64Array(d0 * d0); for (let a = 0; a < d0; a++) for (let b = 0; b < d0; b++) A0[a * d0 + b] = A[a * d + b];
+  const r0 = solve(A0, cv.subarray(0, d0), d0, yy, mask.subarray(0, d0)); if (!r0) return;
+  const sse = (w, k) => { let s = yy; for (let a = 0; a < k; a++) { s -= 2 * w[a] * cv[a]; for (let b = 0; b < k; b++) s += w[a] * w[b] * A[a * d + b]; } return Math.max(1e-12, s); };
+  const s1 = sse(r.w, d), s0 = sse(r0.w, d0), Fr = (s0 - s1) / (s1 / Math.max(1, T - 1 - d)), aD = r.w[FZ + 3];
+  let s2 = 0; for (let i = 0; i < T; i++) { const z = aD * (zx(ord[i], ia) - zx(ord[i], ib) - Dm); s2 += z * z; }
+  const g = cfg.MVGAIN / Math.sqrt(Math.max(1e-12, s2 / T)), a = new Array(FZ).fill(0), w = Math.max(-8, Math.min(8, g * aD)); a[ia] = w; a[ib] = -w;
+  Q.goal = { a, g, mu, F: Fr, fits: (Q.goal ? Q.goal.fits : 0) + 1, rounds: Q.goal ? Q.goal.rounds : 0, away: true };
+}
+// Э7: мера руля «от» (правда мира мозгу не видна) -- поворачивает ли предложение прочь от хищника; отдельно ближе 8
+function awayDir(B, props) {
+  const W = B.world, X = B.exp; if (!W.pred || B.t <= B.cfg.ROUNDS / 2) return;
+  const d = Math.hypot(W.x - W.pred.x, W.y - W.pred.y), side = Math.sign(Math.sin(Math.atan2(W.pred.y - W.y, W.pred.x - W.x) - W.th));
+  const st = X.awayDir || (X.awayDir = { all: [0, 0], near: [0, 0] });
+  for (const p of props) { if (p.key[0] !== '-' || !p.u) continue; const ok = Math.sign(p.u) === -side ? 1 : 0; st.all[0] += ok; st.all[1]++; if (d < 8) { st.near[0] += ok; st.near[1]++; } }
+}
 // М3д: нерв нужды и цена по нему
 function needFit(X, Q, use) {
   let best = -1, bf = 0; X.ks.forEach((k, i) => { const fr = (Q.proto.get(`${k}+`) || 0) / Q.pn; if (use[i] && fr >= NEEDF && fr > bf) { bf = fr; best = i; } });
@@ -155,6 +188,7 @@ function command(B, m, v) {
     const s = (cfg.MEXP === 4 ? p : Math.abs(p) * ue * ue / Q.goal.g) * (away && cfg.MAVOID === 4 ? fear : 1); Q.sal = s; Q.sign = p >= 0 ? 1 : -1;
     if (cfg.MBLEND) props.push({ key: Q.key, u: Q.sign * ue, ctx: away ? fear : p });   // Э5: предложение цели и её обстановка
     if (s > bs) { bs = s; best = Q; } if (X.cur === Q.key) { cur = Q; cs = s; } }
+  if (cfg.MBLEND) awayDir(B, props);   // Э7: мера
   if (cfg.MBLEND === 2) { props.b = Math.floor(B.t / cfg.MBOUT); X.curProps = props; if (props.length) { let s = 0;   // Э5б: смесь с пробами
       for (const p of props) { const w = probeW(B, p.key, props.b); p.xi = w.xi; p.ze = w.ze; s += (w.al + w.xi + (w.ga + w.ze) * p.ctx) * p.u; }
       if (B.t > cfg.ROUNDS / 2) (X.goalRounds || (X.goalRounds = {}))['смесь'] = ((X.goalRounds || {})['смесь'] || 0) + 1; B.led.work(m, (2 * v.F + 6) * X.types.size); if (Number.isFinite(s)) return s; } }
