@@ -8,15 +8,16 @@ const cfg = K.makeConfig({ SQ: 1, RENT: 0.05, MFEAT: 6, WORLD: 'body', ROUNDS, B
   KPRED: 1, KBITE: 10, MVAL: 2, MNOPE: 1, MLOAN: 1000, KEXP: 4, MEXP: 2, MAVOID: 4, MBLEND: 2, MVPSI: 1, MAWAY: 1, KVOICE: KV, KVSAL: 5, KVLAG: 3, KVREP: 5, KEVG: +process.argv[4] || 0 });
 const W = new WorldBody(cfg, seed), B = new Brain(cfg, W, seed);
 const words = W.voice.map((ch) => ({ name: ch.kind.replace('слово ', ''), ch, k: W.nerves.findIndex((nv) => nv.ch === ch), pos: [], neg: [], readers: 0 }));
-let prev = null, last = W.voice.map(() => 0), C = 0, nC = 0;
+let last = W.voice.map(() => 0), C = 0, nC = 0;
 for (let t = 1; t <= ROUNDS; t++) {
   B.step();
   const late = t > ROUNDS / 2;
-  if (late && prev) for (let i = 0; i < words.length; i++) { const v = W.voice[i].val, ev = i < 4;   // слова событий -- 4 первых
-    if (!v) words[i].neg.push(prev[i]); else if (!ev || !last[i]) words[i].pos.push(prev[i]); }
-  last = W.voice.map((ch) => ch.val);   // слово этого круга (мир уже сделал шаг -- оно в следующем наблюдении)
-  // прогноз на следующее наблюдение: среднее частей канала слова
-  prev = words.map((w) => { const c = B.ch[w.k]; if (!c) return 0; let s = 0, n = 0; for (const p of c.parts) if (p.age >= 1) { s += p.pred; n++; } return n ? s / n : c.mean; });
+  // прогноз частей канала слова, сделанный в этом круге до шага мира, -- на наблюдение следующего круга; слово следующего
+  // наблюдения мир выбрал в конце этого же круга (W.voice) -- их и сравниваем
+  const pred = words.map((w) => { const c = B.ch[w.k]; if (!c) return 0; let s = 0, n = 0; for (const p of c.parts) if (p.age >= 1) { s += p.pred; n++; } return n ? s / n : c.mean; });
+  if (late) for (let i = 0; i < words.length; i++) { const v = W.voice[i].val, ev = i < 4;   // слова событий -- 4 первых: только первый круг повтора
+    if (!v) words[i].neg.push(pred[i]); else if (!ev || !last[i]) words[i].pos.push(pred[i]); }
+  last = W.voice.map((ch) => ch.val);
   if (late) { C += W.comfort(); nC++; }
 }
 // сколько частей других каналов читают нерв слова (в конце жизни)
