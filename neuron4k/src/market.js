@@ -329,7 +329,8 @@ class Brain {
     const clash = (d) => fillCh && ((chOf(d, 'прогноз') >= 0 && fillCh.has(chOf(d, 'прогноз'))) || (chOf(d, 'ожидание') >= 0 && predCh.has(chOf(d, 'ожидание'))));
     const cand = [], ck = new Set(), R = this.rng, nc = this.ch.length;
     const put = (d) => { const k = keyOf(d); if (!have.has(k) && !ck.has(k) && !(haveC && haveC.has(canon(d))) && !(clash && clash(d)) && !(cfg.CONC && CC.degenerate(this, d))) { ck.add(k); cand.push(d); } };
-    const orgGoods = cfg.CONC && this.ccGoods.length ? [...(this.orgGoods || []), ...this.ccGoods] : this.orgGoods || [];
+    let orgGoods = cfg.CONC && this.ccGoods.length ? [...(this.orgGoods || []), ...this.ccGoods] : this.orgGoods || [];
+    if (cfg.KEVG && this.evGoods && this.evGoods.length) orgGoods = [...orgGoods, ...this.evGoods];   // Р2: товары органов событий
     const vis = (cfg.REG || cfg.REGA) && this.reg ? this.vis(c) : null;
     for (let k = 0; k < 4 * cfg.NCAND && cand.length < cfg.NCAND; k++) {
       let q = this.ch[R.int(nc)]; const x = R(); if (vis && x < 2 / 3) q = vis[R.int(vis.length)];   // REG: нервы -- своего отдела и сцены, прогнозы частей -- всех

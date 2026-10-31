@@ -37,6 +37,9 @@ function step(B) {
     B.exp = { ks, types: new Map(), sC: 0, nC: 0, sx: new Float64Array(B.ch.length), nx: 0, lastC: null, lastX: new Float64Array(B.ch.length), organs: 0,
       tot: { 'еда': 0, 'еда-мелкая': 0, 'вода': 0, 'вода-мелкая': 0, 'смерть': 0, 'укус': 0, 'удар': 0 }, hist: [], jd: new Float64Array(B.ch.length), jn: 0, pend: [], nid: 0 }; }
   const X = B.exp, C = W.comfort(), late = t > cfg.ROUNDS / 2;
+  // Р2 (KEVG): выход органов событий в кору -- товар «было событие вида», 1 в круге, когда мозг назначил своё событие виду,
+  // затухает вдвое за круг; кора (части) может его купить, как товары органов памяти
+  if (cfg.KEVG) for (const T of X.types.values()) if (T.eg !== undefined) G.val[T.eg] *= 0.5;
   // правда мира для мер: что случилось в прошлом шаге мира
   const truth = W.died ? 'смерть' : W.biteNow ? 'укус' : W.ateNow >= 0.1 ? 'еда' : W.ateNow > 0 ? 'еда-мелкая' : W.drankNow >= 0.1 ? 'вода' : W.drankNow > 0 ? 'вода-мелкая' : W.painNow ? 'удар' : 'другое';   // еда почти сытым (прирост < 0.1) -- не событие по замыслу
   if (late && truth !== 'другое') X.tot[truth]++;
@@ -126,6 +129,7 @@ function typeStep(B, X, t, late) {
   else { T = X.types.get(grp); if (!T) { T = newType(X, grp, B.cfg); T.base = grp; X.types.set(T.key, T); } }
   T.pn++; for (const j of S) T.proto.set(j, (T.proto.get(j) || 0) + 1);
   T.cnt++; if (late && p.truth) T.tr[p.truth]++;
+  if (B.cfg.KEVG) { if (T.eg === undefined) { T.eg = B.goods.add('событие', 'world', -1, t); (B.evGoods || (B.evGoods = [])).push(T.eg); } B.goods.val[T.eg] = 1; }
   if (B.cfg.MEXP === 4) { (T.evs || (T.evs = [])).push([p.fp, p.dC]); if (T.evs.length > 300) T.evs.shift(); }   // М3д: события для цены по нерву нужды
   // цена (М2) -- по нервам перед событием
   const P = T.pr, fp = priceFeat(B.cfg, p.fp), dp = fp.length;

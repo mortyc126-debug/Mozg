@@ -18,6 +18,7 @@
 // справа. Свой жребий; двойник хищника не встречает.
 // KSAT=1 -- обесценивание: во второй половине жизни через блок по KSATL кругов мир держит E = 1 (тело накормлено извне).
 const { stream } = require('./rng');
+const VOICE = ['еда', 'вода', 'укус', 'удар', 'голодно', 'жажда', 'опасно'];
 const EXP = require('./expect');
 
 class WorldBody {
@@ -32,6 +33,10 @@ class WorldBody {
     if (cfg.KDNERVE) this.chs.d = ch('смерть');   // К1ж: нерв «смерть» -- 1 в круге смерти
     if (cfg.KDEBTN) this.chs.b = ch('долг');      // К1л: нерв «долг»
     if (cfg.KPRED) { this.chs.pl = ch('запах хищника слева'); this.chs.pr = ch('запах хищника справа'); }   // Э4
+    // Р2 (results/r2/ПЛАН.md): голос родителя -- нерв на слово; слова событий -- через KVLAG кругов после события, слова состояний --
+    // пока состояние держится, с вероятностью 0.1 за круг. KVOICE=2 -- контроль: слова не вовремя. KVSAL -- внимание к голосу:
+    // за биты нервов-слов мир платит частям в столько раз больше (как WSAL мира слов нейрона-4)
+    if (cfg.KVOICE) { this.voice = VOICE.map((w) => (this.chs['v' + w] = ch('слово ' + w))); this.rv = stream(seed, 'голос'); this.vq = new Uint8Array(16); this.vring = new Uint8Array(10000); this.vset = new Set(this.voice); }
     this.nerves = Object.values(this.chs).map((x) => ({ ch: x, kind: x.kind }));
     for (let i = this.nerves.length - 1; i > 0; i--) { const j = r.int(i + 1); [this.nerves[i], this.nerves[j]] = [this.nerves[j], this.nerves[i]]; }
     this.deathNerve = this.chs.d ? this.nerves.findIndex((nv) => nv.ch === this.chs.d) : -1; this.died = 0;
@@ -45,6 +50,7 @@ class WorldBody {
     this.sense();
   }
   get n() { return this.nerves.length; }
+  salience(k) { return this.vset && this.cfg.KVSAL !== 1 && this.vset.has(this.nerves[k].ch) ? this.cfg.KVSAL : 1; }   // Р2
   observe(out) { const c = this.cfg; for (let k = 0; k < this.nerves.length; k++) out[k] = this.nerves[k].ch.val + c.SN * this.rn.gauss(); return out; }
   util(E, H, touch) { const c = this.cfg; return c.CPAY * (1 - 2 * (1 - E) ** 2 - 2 * (1 - H) ** 2) - c.KPAIN * touch; }
   comfort() { return this.C; }
@@ -107,6 +113,17 @@ class WorldBody {
     this.C = this.util(this.E, this.H, pain) - c.KDPEN * died - pay - (c.KBITE || 0) * bite; this.marg = this.C - (c.KTWIN ? this.util(this.Et, this.Ht, 0) - c.KDPEN * tdied - payT : this.util(Eb, Hb, 0) - pay);
     if (late) { this.st.n++; this.st.wall += this.touch; if (this.debt > 0) this.st.debtN = (this.st.debtN || 0) + 1; if (sat) this.st.nSat++; else this.st.nNorm++; }
     S.tl.val = tl; S.tr.val = tr; this.sense();
+    if (c.KVOICE) this.speakParent(t, bite);
+  }
+  // Р2: голос родителя этого круга -- маска слов; события -- в очередь на 2 круга
+  speakParent(t, bite) {
+    const c = this.cfg, q = this.vq, ev = (this.ateNow ? 1 : 0) | (this.drankNow ? 2 : 0) | (bite ? 4 : 0) | (this.painNow ? 8 : 0);
+    let m = q[t % 16]; q[t % 16] = 0; for (let r = 0; r < c.KVREP; r++) q[(t + c.KVLAG + r) % 16] |= ev;   // родитель повторяет слово события KVREP кругов
+    const st = [this.E < 0.3, this.H < 0.3, c.KPRED ? Math.hypot(this.x - this.pred.x, this.y - this.pred.y) < 8 : false];
+    for (let i = 0; i < 3; i++) if (this.rv() < 0.1 && st[i]) m |= 16 << i;
+    // контроль: каждое слово -- из своего случайного прошлого круга (2000-9000 кругов назад): та же частота, связи с сейчас нет
+    let out = m; if (c.KVOICE === 2) { out = 0; this.vring[t % 10000] = m; if (t > 9000) for (let i = 0; i < VOICE.length; i++) out |= this.vring[(t - 2000 - Math.floor(7000 * this.rv())) % 10000] & (1 << i); }
+    for (let i = 0; i < VOICE.length; i++) this.voice[i].val = (out >> i) & 1;
   }
   // К1ж: страх -- средний прогноз частей канала «смерть» в 50 кругах перед смертью против остальных кругов (вторая половина жизни)
   score(B) {
