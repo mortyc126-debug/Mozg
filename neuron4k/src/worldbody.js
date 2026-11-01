@@ -37,11 +37,16 @@ class WorldBody {
     // пока состояние держится, с вероятностью 0.1 за круг. KVOICE=2 -- контроль: слова не вовремя. KVSAL -- внимание к голосу:
     // за биты нервов-слов мир платит частям в столько раз больше (как WSAL мира слов нейрона-4)
     if (cfg.KVOICE) { this.voice = VOICE.map((w) => (this.chs['v' + w] = ch('слово ' + w))); this.rv = stream(seed, 'голос'); this.vq = new Uint8Array(16); this.vring = new Uint8Array(10000); this.vset = new Set(this.voice); }
+    // Р3 (results/r3/ПЛАН.md): рот -- нерв на слово (команда -- сказать), ухо -- был ли свой голос, улыбка родителя
+    if (cfg.KSPEAK) { this.mouth = VOICE.map((w) => (this.chs['m' + w] = ch('рот ' + w))); this.ear = this.chs.ear = ch('ухо'); this.smile = this.chs.smile = ch('улыбка');
+      this.rs = stream(seed, 'улыбка'); this.lastEv = new Float64Array(4).fill(-1e9); this.sfr = new Float64Array(VOICE.length).fill(0.1); this.spPay = null;
+      this.spst = VOICE.map(() => ({ said: 0, ok: 0, tru: 0 })); this.biteN = [0, 0]; this.pBite = null; this.talk = 0; }
     this.nerves = Object.values(this.chs).map((x) => ({ ch: x, kind: x.kind }));
     for (let i = this.nerves.length - 1; i > 0; i--) { const j = r.int(i + 1); [this.nerves[i], this.nerves[j]] = [this.nerves[j], this.nerves[i]]; }
     this.deathNerve = this.chs.d ? this.nerves.findIndex((nv) => nv.ch === this.chs.d) : -1; this.died = 0;
     if (cfg.KDNERVE === 3) this.rd = stream(seed, 'смерть-шум');   // К1з: вспышки нерва наугад -- свой жребий, мир не трогает
     this.ds = { half: [0, 0], fearB: 0, fearBn: 0, fearA: 0, fearAn: 0, buf: [] };   // смерти по половинам жизни; прогноз смерти перед ней и всегда
+    if (cfg.KSPEAK) this.mouthK = this.mouth.map((m) => this.nerves.findIndex((nv) => nv.ch === m));
     this.motorNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.m); this.propNerve = this.nerves.findIndex((nv) => nv.ch === this.chs.p);
     this.plugged = true; this.t = 0; this.z = { val: 0 }; this.g = { val: 0 };   // z, g -- для общих замеров (польза меряется через comfort)
     this.C = 0; this.marg = 0; this.touch = 0; this.prevTouch = 0; this.Et = 1; this.Ht = 1; this.debt = 0; this.debtT = 0; this.ateNow = 0; this.painNow = 0; this.drankNow = 0;   // Et, Ht -- двойник, который никогда не двигался (KTWIN)
@@ -67,6 +72,7 @@ class WorldBody {
   }
   advance(u) {
     const c = this.cfg, t = ++this.t, S = this.chs; this.ateNow = 0; this.drankNow = 0;   // ateNow, drankNow, painNow -- правда для мер М1, мозгу не видна
+    if (c.KSPEAK) this.speakChild(t, u);
     let cmd = u[this.motorNerve] || 0;
     if (c.KPLANK) cmd = 20 * ((1 - this.E) * (S.fl.val - S.fr.val) + (1 - this.H) * (S.wl.val - S.wr.val)) / 3;
     this.turn = Math.tanh(cmd);
@@ -114,6 +120,22 @@ class WorldBody {
     if (late) { this.st.n++; this.st.wall += this.touch; if (this.debt > 0) this.st.debtN = (this.st.debtN || 0) + 1; if (sat) this.st.nSat++; else this.st.nNorm++; }
     S.tl.val = tl; S.tr.val = tr; this.sense();
     if (c.KVOICE) this.speakParent(t, bite);
+    if (c.KSPEAK) { const ev = [this.ateNow, this.drankNow, bite, this.painNow]; for (let i = 0; i < 4; i++) if (ev[i]) this.lastEv[i] = t;
+      if (bite && late) { this.biteN[1]++; this.pBite = { t, named: false }; } }
+  }
+  speechPay() { return this.spPay; }
+  // Р3: что сказал мозг этим кругом (по командам на нервы рта) и ответ родителя. Верно: слово события -- событие было в
+  // прошлых 5 кругах (мозг уже мог его заметить), слово состояния -- состояние сейчас (до шага). KSPEAK=2 -- улыбка не по
+  // делу: «верно» с вероятностью, с которой слово вообще верно (sfr), без связи с правдой сейчас
+  speakChild(t, u) {
+    const c = this.cfg, late = t > c.ROUNDS / 2; let best = -1, bv = c.SPTH;
+    this.mouthK.forEach((k, i) => { const v = u[k] || 0; if (v > bv) { bv = v; best = i; } });
+    const truth = [0, 1, 2, 3].map((i) => t - this.lastEv[i] <= 5).concat([this.E < 0.3, this.H < 0.3, c.KPRED ? Math.hypot(this.x - this.pred.x, this.y - this.pred.y) < 8 : false]);
+    for (let i = 0; i < truth.length; i++) this.sfr[i] += 0.001 * ((truth[i] ? 1 : 0) - this.sfr[i]);
+    let R = 0; if (best >= 0) { const ok = c.KSPEAK === 2 ? this.rs() < this.sfr[best] : truth[best]; R = ok ? (c.SPINFO ? 1 - this.sfr[best] : 1) : -c.SPNEG; }
+    if (late) { for (let i = 0; i < truth.length; i++) { const S = this.spst[i]; if (truth[i]) S.tru++; if (best === i) { S.said++; if (truth[i]) S.ok++; } } if (best >= 0) this.talk++;
+      if (this.pBite && t - this.pBite.t > 5) this.pBite = null; if (this.pBite && best === 2 && !this.pBite.named) { this.pBite.named = true; this.biteN[0]++; } }
+    this.smile.val = R; this.ear.val = best >= 0 ? 1 : 0; this.spPay = best >= 0 ? [this.mouthK[best], c.SPAY * R] : null;
   }
   // Р2: голос родителя этого круга -- маска слов; события -- в очередь на 2 круга
   speakParent(t, bite) {
@@ -151,6 +173,7 @@ class WorldBody {
         ids.forEach((id, k) => { const kk = G.nerve[id]; if (k < s.se.length && this.nerves[kk] && /^запах/.test(this.nerves[kk].kind)) { se += s.se[k]; sn += s.sn[k]; } });
         return { cerRatio: sn ? se / sn : NaN, ...(s.mse && s.mse.n ? { estRatio: s.mse.est / s.mse.raw, K: Array.from(s.K).map((x) => +x.toFixed(2)) } : {}) }; })() : {}),
       ...(this.cfg.KPRED ? { bites: 1000 * s.bites / n } : {}),
+      ...(this.cfg.KSPEAK ? { speech: { talk: this.talk / n, biteNamed: this.biteN[1] ? this.biteN[0] / this.biteN[1] : null, bites: this.biteN[1], words: VOICE.map((w, i) => ({ w, said: this.spst[i].said, ok: this.spst[i].ok, tru: this.spst[i].tru, n })) } } : {}),
       ...(this.econ ? { parts2: this.econ.tot / this.econ.n, partsUse: this.econ.use / this.econ.n, useShare: this.econ.tot ? this.econ.use / this.econ.tot : NaN } : {}),
       ...(this.ledB ? (() => { const f = this.ledB.flow; let rent = 0, food = 0; for (const [k, v] of Object.entries(f)) { if (/аренда/.test(k)) rent += v; if (/: еда$/.test(k)) food += v; } return { rent: rent / this.cfg.ROUNDS, foodPay: food }; })() : {}), ...(this.ds.gAn ? { gainB: this.ds.gBn ? this.ds.gB / this.ds.gBn : NaN, gainA: this.ds.gA / this.ds.gAn } : {}),
       ...(this.fearInfo ? { fAlive: this.ds.fAlive / this.ds.fN, fDeaths: this.fearInfo.deaths, fBuilt: this.fearInfo.built, fPaid: this.fearInfo.paid } : {}) };
