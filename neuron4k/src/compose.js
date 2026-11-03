@@ -13,12 +13,15 @@
 //   накопить(w, λ)      состояние: S <- λ S + w (λ = 1 -- счёт, λ < 1 -- след)
 //   по-ключу(K, w, v)   адресная память: в круге «ключ k и w» запомнить v для k; в круге «ключ k без w» -- вспомнить
 //   при(r, a)           a, если r; иначе 0
+// v3 (CV3, Сб2 нейрона Колонии -- neuron4k/results/sb2/ПЛАН.md):
+//   перепад(x, ±)       1, если нерв x за круг изменился сильнее порога th в эту сторону (порог -- по записи окна)
 // Сборка -- дерево из этих кирпичиков; у каждого состояния своя память. compile(n) даёт шаг f(get): get(k) -- значение нерва k
 // в этом круге; f -- выход сборки в этом круге (состояние обновляется). Каждый compile -- новая копия со своим состоянием.
 
 function compile(n) {
   switch (n.op) {
     case 'событие': return (get) => (get(n.k) > n.mid ? 1 : 0);
+    case 'перепад': { let prev = NaN; return (get) => { const x = get(n.k), out = prev === prev && n.dir * (x - prev) > n.th ? 1 : 0; prev = x; return out; }; }
     case 'значение': return (get) => get(n.k);
     case 'единица': return () => 1;
     case 'или': { const a = compile(n.a), b = compile(n.b); return (get) => { const x = a(get), y = b(get); return x || y ? 1 : 0; }; }
@@ -47,7 +50,7 @@ function compile(n) {
 // а пересказ нынешних нервов (CFAST)
 function compileFresh(n) {
   switch (n.op) {
-    case 'событие': case 'значение': case 'единица': case 'задержка': return compile(n);
+    case 'событие': case 'перепад': case 'значение': case 'единица': case 'задержка': return compile(n);
     case 'или': case 'и': { const a = compileFresh(n.a), b = compileFresh(n.b); return n.op === 'или' ? (get) => { const x = a(get), y = b(get); return x || y ? 1 : 0; } : (get) => { const x = a(get), y = b(get); return x && y ? 1 : 0; }; }
     case 'держать': { const w = compileFresh(n.w), v = compileFresh(n.v); return (get) => { const wv = w(get), vv = v(get); return wv ? vv : 0; }; }
     case 'накопить': { const w = compileFresh(n.w); return (get) => w(get); }
@@ -61,7 +64,7 @@ function compileFresh(n) {
 // ключ сборки (без середин событий: они чуть разные в каждом окне записи) и размер (число кирпичиков)
 function key(n) {
   switch (n.op) {
-    case 'событие': return `с${n.k}`; case 'значение': return `з${n.k}`; case 'единица': return '1';
+    case 'событие': return `с${n.k}`; case 'перепад': return `п${n.dir > 0 ? '+' : '-'}${n.k}`; case 'значение': return `з${n.k}`; case 'единица': return '1';
     case 'или': case 'и': { const [x, y] = [key(n.a), key(n.b)].sort(); return `${n.op}(${x},${y})`; }
     case 'задержка': return `зд(${key(n.a)},${n.d})`;
     case 'держать': return `д(${key(n.w)},${key(n.v)})`;
@@ -75,7 +78,7 @@ function size(n) { let s = 1; for (const c of ['a', 'b', 'w', 'v', 'r', 'z']) if
 // по-русски, с номерами нервов
 function show(n) {
   switch (n.op) {
-    case 'событие': return `событие(${n.k})`; case 'значение': return `значение(${n.k})`; case 'единица': return 'единица';
+    case 'событие': return `событие(${n.k})`; case 'перепад': return `перепад(${n.k}, ${n.dir > 0 ? '+' : '−'})`; case 'значение': return `значение(${n.k})`; case 'единица': return 'единица';
     case 'или': case 'и': return `${n.op}(${show(n.a)}, ${show(n.b)})`;
     case 'задержка': return `задержка(${show(n.a)}, ${n.d})`;
     case 'держать': return `держать(${show(n.w)}, ${show(n.v)})`;
@@ -98,7 +101,7 @@ function variants(prog, E) {
 // устройство сборки -- её ключ без номеров нервов
 function shape(n) {
   switch (n.op) {
-    case 'событие': return 'с'; case 'значение': return 'з'; case 'единица': return '1';
+    case 'событие': return 'с'; case 'перепад': return 'п'; case 'значение': return 'з'; case 'единица': return '1';
     case 'или': case 'и': { const [x, y] = [shape(n.a), shape(n.b)].sort(); return `${n.op}(${x},${y})`; }
     case 'задержка': return `зд(${shape(n.a)},${n.d})`; case 'держать': return `д(${shape(n.w)},${shape(n.v)})`;
     case 'накопить': return n.z ? `н(${shape(n.w)},${n.lam},сб${shape(n.z)})` : `н(${shape(n.w)},${n.lam})`; case 'по-ключу': return `к${n.K.length}(${shape(n.w)},${shape(n.v)})`;
@@ -106,9 +109,11 @@ function shape(n) {
     case 'отклонение': return `откл(${shape(n.r)},${shape(n.a)})`;
   }
 }
+// v3: имя события в отборе -- номер нерва у события, «п±номер» у перепада (у одного нерва могут быть оба)
+const eid = (e) => (e.dir ? `п${e.dir > 0 ? '+' : '-'}${e.k}` : e.k), lid = (n) => (n.op === 'перепад' ? `п${n.dir > 0 ? '+' : '-'}${n.k}` : n.k), isEv = (n) => n.op === 'событие' || n.op === 'перепад';
 function build(E, cn, vals, rng, budget, lib, v2, fair, words, struct) {
   const co = (a, b) => { let n = 0; for (let i = 0; i < a.on.length; i++) if (a.on[i] && b.on[i]) n++; return n; };
-  const ev1 = (e) => ({ op: 'событие', k: e.k, mid: e.mid });
+  const ev1 = (e) => (e.dir ? { op: 'перепад', k: e.k, dir: e.dir, th: e.th } : { op: 'событие', k: e.k, mid: e.mid });
   // запись (w): одно событие, пара взаимоисключающих (никогда вместе, звучат примерно одинаково часто) и группы побольше (до 6:
   // жадно -- к событию добавляются события, взаимоисключающие со всеми в группе: слова a / b / c)
   const W = E.map((e) => ({ n: ev1(e), on: e.on, members: [e] }));
@@ -129,25 +134,25 @@ function build(E, cn, vals, rng, budget, lib, v2, fair, words, struct) {
   // с частым); до 6 групп
   if (struct) { const gs = W.filter((w) => w.members.length >= 2).map((w) => [w, Math.min(...w.members.map((m) => m.n))]).sort((a, b) => b[1] - a[1]).slice(0, 6);
     for (const [w] of gs) V.push({ op: 'держать', w: w.n, v: ev1(w.members[0]) }); }
-  const R = [null, ...[...E].sort((x, y) => (cn.get(y.k) || 0) - (cn.get(x.k) || 0)).slice(0, 2).map(ev1)];
+  const R = [null, ...[...E].sort((x, y) => (cn.get(eid(y)) || 0) - (cn.get(eid(x)) || 0)).slice(0, 2).map(ev1)];
   // v2 (CV2): и два события, сильнее всех связанных с размахом канала кругом позже (|канал - среднее|): вопрос, после
   // которого канал отвечает то плюсом, то минусом, со знаком канала не связан
-  if (v2) for (const e of [...E].sort((x, y) => (v2.get(y.k) || 0) - (v2.get(x.k) || 0)).slice(0, 2)) if (!R.some((r) => r && r.k === e.k)) R.push(ev1(e));
+  if (v2) for (const e of [...E].sort((x, y) => (v2.get(eid(y)) || 0) - (v2.get(eid(x)) || 0)).slice(0, 2)) if (!R.some((r) => r && lid(r) === eid(e))) R.push(ev1(e));
   const out = [], seen = new Set(), add = (n) => { const k = key(n); if (!seen.has(k)) { seen.add(k); out.push(n); } };
   const read = (r, a) => (r ? { op: 'при', r, a } : a);
   for (const w of W) {
-    for (const r of R) { for (const v of V) if (!(v.op === 'событие' && w.members.some((m) => m.k === v.k) && w.members.length === 1)) add(read(r, { op: 'держать', w: w.n, v }));
+    for (const r of R) { for (const v of V) if (!(isEv(v) && w.members.some((m) => eid(m) === lid(v)) && w.members.length === 1)) add(read(r, { op: 'держать', w: w.n, v }));
       for (const lam of [0.85, 1]) add(read(r, { op: 'накопить', w: w.n, lam }));
       // v2: счёт до вопроса (сброс кругом позже чтения) и чтение отклонением от обычного при r
       if (v2 && r) for (const lam of [1, 0.85]) { const acc = { op: 'накопить', w: w.n, lam, z: r }; add({ op: 'отклонение', r, a: acc }); add({ op: 'при', r, a: acc }); add({ op: 'отклонение', r, a: { op: 'накопить', w: w.n, lam } }); }
-      if (v2 && r) for (const v of V) if (!(v.op === 'событие' && w.members.some((m) => m.k === v.k) && w.members.length === 1)) add({ op: 'отклонение', r, a: { op: 'держать', w: w.n, v } }); }
+      if (v2 && r) for (const v of V) if (!(isEv(v) && w.members.some((m) => eid(m) === lid(v)) && w.members.length === 1)) add({ op: 'отклонение', r, a: { op: 'держать', w: w.n, v } }); }
     // ключи -- события (не из записи), которые не меньше четверти своих раз звучат вместе с записью
-    const K = E.filter((e) => !w.members.includes(e) && co(e, { on: w.on }) >= Math.max(2, 0.25 * e.n)).map((e) => [e.k, e.mid]);
+    const K = E.filter((e) => !e.dir && !w.members.includes(e) && co(e, { on: w.on }) >= Math.max(2, 0.25 * e.n)).map((e) => [e.k, e.mid]);
     if (K.length) for (const v of V) add({ op: 'по-ключу', K, w: w.n, v });
   }
   // порядок: сначала сборки, у которых есть лист, связанный с каналом кругом позже (внимание к тому, что предвещает канал), --
   // по сильнейшему такому листу, с долей случайности; что не вошло в бюджет, примеряется в следующий раз
-  const leaves = (n, acc) => { if (n.op === 'событие') acc.push(n.k); if (n.K) for (const [k] of n.K) acc.push(k); for (const c2 of ['a', 'b', 'w', 'v', 'r', 'z']) if (n[c2]) leaves(n[c2], acc); return acc; };
+  const leaves = (n, acc) => { if (isEv(n)) acc.push(lid(n)); if (n.K) for (const [k] of n.K) acc.push(k); for (const c2 of ['a', 'b', 'w', 'v', 'r', 'z']) if (n[c2]) leaves(n[c2], acc); return acc; };
   const cw = (k) => Math.max(cn.get(k) || 0, v2 ? v2.get(k) || 0 : 0);
   const pr = out.map((n) => [n, Math.max(0, ...leaves(n, []).map(cw)) * (0.7 + 0.6 * rng())]); pr.sort((x, y) => y[1] - x[1]);
   let list = pr.map((x) => x[0]);
@@ -168,15 +173,21 @@ const corr = (xs, ys) => { let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
 function candidates(B, c, w0, t1, res, rng) {
   const G = B.goods, EV = require('./concepts').events, ev = [];
   for (const q of B.ch) { if (q === c || G.since[q.good] >= w0) continue; const e = EV(B, q.good, w0, t1); if (e && e.f <= 0.3 && e.n >= 3) ev.push({ k: q.k, mid: e.mid, n: e.n, on: e.on }); }
-  ev.sort((a, b) => b.n - a.n); let E = ev.slice(0, 16); const L = t1 - w0 + 1;
+  const L = t1 - w0 + 1;
+  // v3 (CV3): перепады -- нерв за круг изменился сильнее 5 обычных разбросов изменения (медиана |изменения| × 1.48) в эту
+  // сторону; в примерку -- наравне с событиями (не реже 3 раз, не чаще 30% кругов)
+  if (B.cfg.CV3) for (const q of B.ch) { if (q === c || G.since[q.good] >= w0) continue; const d = new Float64Array(L); for (let t = w0 + 1; t <= t1; t++) d[t - w0] = G.at(t, q.good) - G.at(t - 1, q.good);
+    const ad = Array.from(d.subarray(1), Math.abs).sort((a, b) => a - b), sd = 1.48 * ad[ad.length >> 1], th = 5 * sd; if (!(th > 0)) continue;
+    for (const dir of [-1, 1]) { const on = new Uint8Array(L); let n = 0; for (let i = 1; i < L; i++) if (dir * d[i] > th) { on[i] = 1; n++; } if (n >= 3 && n / L <= 0.3) ev.push({ k: q.k, dir, th, n, on }); } }
+  ev.sort((a, b) => b.n - a.n); let E = ev.slice(0, 16);
   const next = new Float64Array(L); for (let t = w0; t <= t1; t++) next[t - w0] = t < t1 ? G.at(t + 1, c.good) : NaN;
   // CSWEEP: событий больше 16 -- половина самых частых, половина самых связанных с каналом кругом позже (со знаком или с
   // размахом): редкие имена, о которых спрашивают, не вытесняются частыми событиями фона
   if (B.cfg.CSWEEP && ev.length > 16) { let m = 0, k = 0; for (const x of next) if (Number.isFinite(x)) { m += x; k++; } m /= Math.max(1, k); const mag = next.map((x) => Math.abs(x - m));
     const rel = (e) => Math.max(corr(e.on, next), corr(e.on, mag)), top = ev.slice(0, 8), rest = ev.slice(8).map((e) => [e, rel(e)]).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]);
     E = [...top, ...rest]; }
-  const cn = new Map(E.map((e) => [e.k, corr(e.on, next)]));
-  let v2 = null; if (B.cfg.CV2) { let m = 0, n = 0; for (const x of next) if (Number.isFinite(x)) { m += x; n++; } m /= Math.max(1, n); const mag = next.map((x) => Math.abs(x - m)); v2 = new Map(E.map((e) => [e.k, corr(e.on, mag)])); }
+  const cn = new Map(E.map((e) => [eid(e), corr(e.on, next)]));
+  let v2 = null; if (B.cfg.CV2) { let m = 0, n = 0; for (const x of next) if (Number.isFinite(x)) { m += x; n++; } m /= Math.max(1, n); const mag = next.map((x) => Math.abs(x - m)); v2 = new Map(E.map((e) => [eid(e), corr(e.on, mag)])); }
   const vals = B.ch.filter((q) => q !== c).map((q) => { const xs = [], ys = []; for (let t = res.t0; t <= res.t1; t++) { xs.push(G.since[q.good] >= t ? NaN : G.at(t, q.good)); ys.push(res.res[t - res.t0]); } return [q.k, corr(xs, ys)]; })
     .sort((x, y) => y[1] - x[1]).slice(0, 6).map(([k]) => ({ op: 'значение', k }));
   const C = build(E, cn, vals, rng, B.cfg.CBUD, B.cfg.CLIB ? B.mem.lib : null, v2, B.cfg.CFAIR, B.cfg.CGROW ? B.mem.words : null, B.cfg.CSTRUCT); C.ops += E.length * L * 2 + B.ch.length * (res.t1 - res.t0);
@@ -241,7 +252,7 @@ function longReject(B, n) {
 // событий памяти (w у держать / накопить) есть хоть одно не из условия чтения r. След или пересказ самого r -- не такая
 function otherMem(n) {
   if (n.op !== 'при' && n.op !== 'отклонение') return false;
-  const ev = (q, acc) => { if (q.op === 'событие') acc.add(q.k); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) ev(q[k], acc); return acc; };
+  const ev = (q, acc) => { if (isEv(q)) acc.add(lid(q)); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) ev(q[k], acc); return acc; };
   const rk = ev(n.r, new Set()), wk = new Set(); let mem = false;
   (function walk(q) { if (q.op === 'держать' || q.op === 'накопить') { mem = true; ev(q.w, wk); } for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n.a);
   return mem && [...wk].some((k) => !rk.has(k));   // хоть одно записываемое событие -- не из условия чтения (поправка после первой пробы, ПЛАН.md §6)
