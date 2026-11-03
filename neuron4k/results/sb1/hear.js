@@ -29,9 +29,9 @@ function auc(pos, neg) { if (!pos.length || !neg.length) return null; const all 
 const res = W.result();
 // какие органы памяти читают части канала слова (их сборки -- по-русски)
 const CP = require(R + '/src/compose');
-function nameOf(id) { const k = G.kind[id]; if (k === 'нерв') return W.nerves[G.nerve[id]].kind; if (k === 'команда') return 'команда ' + W.nerves[G.nerve[id]].kind; return k || String(id); }
+function nameOf(k) { return W.nerves[k] ? W.nerves[k].kind : String(k); }   // в сборках -- номера нервов
 function memOf(w) { const c = B.ch[w.k]; if (!c) return []; const out = [];
-  for (const p of c.parts) for (const d of p.inputs) for (const id of (typeof d === 'number' ? [d] : d)) { const o = G.owner[id]; if (o && o.kind === 'память') out.push(o.prog ? CP.show(o.prog).replace(/\((\d+)(?=[,)])/g, (m, id) => '(' + nameOf(+id)) : o.type || 'память'); }
+  for (const p of c.parts) for (const d of p.inputs) for (const id of (typeof d === 'number' ? [d] : d)) { const o = G.owner[id]; if (o && o.kind === 'память') out.push(o.prog ? CP.show(o.prog).replace(/\((\d+)(?=[,)])/g, (m, k) => '(' + nameOf(+k)) : o.type || 'память'); }
   return out; }
 console.log(JSON.stringify({ seed, KVOICE: KV, extra: EXTRA, comfort: C / nC, bites: res.bites, eat: res.eat, deaths2: res.deaths2,
   words: words.map((w) => ({ name: w.name, auc: auc(w.pos, w.neg), n: w.pos.length, readers: w.readers, mem: memOf(w) })) }));
