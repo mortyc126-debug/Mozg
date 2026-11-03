@@ -178,16 +178,20 @@ function candidates(B, c, w0, t1, res, rng) {
   // сторону; в примерку -- наравне с событиями (не реже 3 раз, не чаще 30% кругов)
   if (B.cfg.CV3) for (const q of B.ch) { if (q === c || G.since[q.good] >= w0) continue; const d = new Float64Array(L); for (let t = w0 + 1; t <= t1; t++) d[t - w0] = G.at(t, q.good) - G.at(t - 1, q.good);
     const ad = Array.from(d.subarray(1), Math.abs).sort((a, b) => a - b), sd = 1.48 * ad[ad.length >> 1], th = 5 * sd; if (!(th > 0)) continue;
-    for (const dir of [-1, 1]) { const on = new Uint8Array(L); let n = 0; for (let i = 1; i < L; i++) if (dir * d[i] > th) { on[i] = 1; n++; } if (n >= 3 && n / L <= 0.3) ev.push({ k: q.k, dir, th, n, on }); } }
+    for (const dir of [-1, 1]) { const on = new Uint8Array(L); let n = 0; for (let i = 1; i < L; i++) if (dir * d[i] > th) { on[i] = 1; n++; } if (n >= (B.cfg.CPMIN || 3) && n / L <= 0.3) ev.push({ k: q.k, dir, th, n, on }); } }
   ev.sort((a, b) => b.n - a.n); let E = ev.slice(0, 16);
   const next = new Float64Array(L); for (let t = w0; t <= t1; t++) next[t - w0] = t < t1 ? G.at(t + 1, c.good) : NaN;
+  // CLAG (Сб3 нейрона Колонии): внимание вперёд -- связь события с каналом через 1..CLAG кругов, берётся самая сильная
+  const nexts = [next]; for (let k = 2; k <= (B.cfg.CLAG || 1); k++) { const a = new Float64Array(L); for (let t = w0; t <= t1; t++) a[t - w0] = t + k <= t1 ? G.at(t + k, c.good) : NaN; nexts.push(a); }
+  const magOf = (nx) => { let m = 0, k = 0; for (const x of nx) if (Number.isFinite(x)) { m += x; k++; } m /= Math.max(1, k); return nx.map((x) => Math.abs(x - m)); }, mags = B.cfg.CLAG > 1 ? nexts.map(magOf) : null;
+  const relL = (on) => Math.max(...nexts.map((nx) => corr(on, nx))), relM = (on) => Math.max(...mags.map((mg) => corr(on, mg)));
   // CSWEEP: событий больше 16 -- половина самых частых, половина самых связанных с каналом кругом позже (со знаком или с
   // размахом): редкие имена, о которых спрашивают, не вытесняются частыми событиями фона
   if (B.cfg.CSWEEP && ev.length > 16) { let m = 0, k = 0; for (const x of next) if (Number.isFinite(x)) { m += x; k++; } m /= Math.max(1, k); const mag = next.map((x) => Math.abs(x - m));
-    const rel = (e) => Math.max(corr(e.on, next), corr(e.on, mag)), top = ev.slice(0, 8), rest = ev.slice(8).map((e) => [e, rel(e)]).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]);
+    const rel = (e) => (mags ? Math.max(relL(e.on), relM(e.on)) : Math.max(corr(e.on, next), corr(e.on, mag))), top = ev.slice(0, 8), rest = ev.slice(8).map((e) => [e, rel(e)]).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]);
     E = [...top, ...rest]; }
-  const cn = new Map(E.map((e) => [eid(e), corr(e.on, next)]));
-  let v2 = null; if (B.cfg.CV2) { let m = 0, n = 0; for (const x of next) if (Number.isFinite(x)) { m += x; n++; } m /= Math.max(1, n); const mag = next.map((x) => Math.abs(x - m)); v2 = new Map(E.map((e) => [eid(e), corr(e.on, mag)])); }
+  const cn = new Map(E.map((e) => [eid(e), mags ? relL(e.on) : corr(e.on, next)]));
+  let v2 = null; if (B.cfg.CV2) { let m = 0, n = 0; for (const x of next) if (Number.isFinite(x)) { m += x; n++; } m /= Math.max(1, n); const mag = next.map((x) => Math.abs(x - m)); v2 = new Map(E.map((e) => [eid(e), mags ? relM(e.on) : corr(e.on, mag)])); }
   const vals = B.ch.filter((q) => q !== c).map((q) => { const xs = [], ys = []; for (let t = res.t0; t <= res.t1; t++) { xs.push(G.since[q.good] >= t ? NaN : G.at(t, q.good)); ys.push(res.res[t - res.t0]); } return [q.k, corr(xs, ys)]; })
     .sort((x, y) => y[1] - x[1]).slice(0, 6).map(([k]) => ({ op: 'значение', k }));
   const C = build(E, cn, vals, rng, B.cfg.CBUD, B.cfg.CLIB ? B.mem.lib : null, v2, B.cfg.CFAIR, B.cfg.CGROW ? B.mem.words : null, B.cfg.CSTRUCT); C.ops += E.length * L * 2 + B.ch.length * (res.t1 - res.t0);
