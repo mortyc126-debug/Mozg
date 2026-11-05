@@ -519,7 +519,7 @@ function buildComp(B, c, tpl) {
   o.evl = []; (function lv(n) { if (n.op === 'событие') o.evl.push([n.k, n.mid]); if (n.K) for (const x of n.K) o.evl.push(x); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (n[k]) lv(n[k]); })(tpl.prog);
   const T = B.t, t0 = Math.max(1, T - cfg.H + 1);
   // найденная по долгой записи -- сначала проигрывает её (помнит давнее), и канал помнит связь с опорой на неё (KPRIOR)
-  if (tpl.long && B.lrec) { for (const r of B.lrec.rows) { if (r.t >= t0) break; o.f((k) => r.v[k]); } B.led.work(a, B.lrec.rows.length * sz); }
+  if (tpl.long && B.lrec) { for (const r of B.lrec.rows) { if (r.t >= t0) break; o.f((k) => r.v[k], r.d ? (k) => r.d[k] : undefined); } B.led.work(a, B.lrec.rows.length * sz); }
   for (let t = t0; t < T; t++) G.rec[G.row(t) + o.good] = o.f((k) => G.at(t, B.ch[k].good));
   G.since[o.good] = t0 - 1; B.led.work(a, 4 * cfg.H * sz);
   if (tpl.long && cfg.KPRIOR) { c.keep = c.keep || new Map(); c.keep.set('g' + o.good, { d: o.good, w: tpl.long.w, n: tpl.long.n, t: B.t - cfg.H - 1 }); }

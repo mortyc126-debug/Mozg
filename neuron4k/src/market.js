@@ -559,9 +559,14 @@ class Brain {
       c.lf = (c.lf ?? on) + 0.001 * (on - (c.lf ?? on)); if (on && c.lf <= 0.05) ev = true; }
     // и ошибка прогноза каждого канала в этом круге (e): долгая память должна объяснять то, чего части не ждали, а не то, что
     // они и так знают (иначе пара «второе -> вверх» по сырому значению спорила с понятием и ломала сложение)
-    if (ev || L.prev) { const n = this.ch.length, v = new Float32Array(n), e = new Float32Array(n);
+    // Сб4 (PLSAL): и яркий миг -- нерв за круг изменился сильнее 5 своих обычных разбросов (разброс -- 1.25 средн. |изменения|
+    // за ~1000 кругов): этот круг и PLSPAN следующих -- в долгую запись, с изменением каждого нерва за круг (d)
+    let d = null; if (cfg.PLSAL) { d = new Float32Array(this.ch.length); let sal = false;
+      for (let k = 0; k < this.ch.length; k++) { const c = this.ch[k], x = G.val[c.good]; if (c.pv !== undefined) { const dx = x - c.pv; d[k] = dx; if (t > 1000 && c.dabs > 0 && Math.abs(dx) > 6.25 * c.dabs) sal = true; c.dabs = (c.dabs ?? Math.abs(dx)) + 0.001 * (Math.abs(dx) - (c.dabs ?? Math.abs(dx))); } c.pv = x; }
+      if (sal) L.span = cfg.PLSPAN + 1; }
+    if (ev || L.prev || L.span > 0) { const n = this.ch.length, v = new Float32Array(n), e = new Float32Array(n);
       for (let k = 0; k < n; k++) { const c = this.ch[k]; v[k] = G.val[c.good]; let pr = 0, np = 0; for (const p of c.parts) if (p.age >= 1) { pr += p.pred; np++; } e[k] = v[k] - (np ? pr / np : c.mean); }
-      L.rows.push({ t, v, e }); }
+      L.rows.push(d ? { t, v, e, d } : { t, v, e }); if (L.span > 0) L.span--; }
     L.prev = ev; let cut = 0; while (cut < L.rows.length && L.rows[cut].t < t - cfg.PLONG) cut++; if (cut) L.rows.splice(0, cut);
     if (this.mem && this.mem.agent) this.led.work(this.mem.agent, this.ch.length);
   }

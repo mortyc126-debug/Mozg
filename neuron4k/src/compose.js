@@ -20,28 +20,28 @@
 
 function compile(n) {
   switch (n.op) {
-    case 'событие': return (get) => (get(n.k) > n.mid ? 1 : 0);
-    case 'перепад': { let prev = NaN; return (get) => { const x = get(n.k), out = prev === prev && n.dir * (x - prev) > n.th ? 1 : 0; prev = x; return out; }; }
-    case 'значение': return (get) => get(n.k);
+    case 'событие': return (get, gd) => (get(n.k) > n.mid ? 1 : 0);
+    case 'перепад': { let prev = NaN; return (get, gd) => { const x = get(n.k), out = gd ? (n.dir * gd(n.k) > n.th ? 1 : 0) : prev === prev && n.dir * (x - prev) > n.th ? 1 : 0; prev = x; return out; }; }   // gd -- изменение за круг из строки долгой записи (Сб4)
+    case 'значение': return (get, gd) => get(n.k);
     case 'единица': return () => 1;
-    case 'или': { const a = compile(n.a), b = compile(n.b); return (get) => { const x = a(get), y = b(get); return x || y ? 1 : 0; }; }
-    case 'и': { const a = compile(n.a), b = compile(n.b); return (get) => { const x = a(get), y = b(get); return x && y ? 1 : 0; }; }
+    case 'или': { const a = compile(n.a), b = compile(n.b); return (get, gd) => { const x = a(get, gd), y = b(get, gd); return x || y ? 1 : 0; }; }
+    case 'и': { const a = compile(n.a), b = compile(n.b); return (get, gd) => { const x = a(get, gd), y = b(get, gd); return x && y ? 1 : 0; }; }
     case 'задержка': { const a = compile(n.a), buf = new Float64Array(n.d); let i = 0;
-      return (get) => { const out = buf[i]; buf[i] = a(get); i = (i + 1) % n.d; return out; }; }
+      return (get, gd) => { const out = buf[i]; buf[i] = a(get, gd); i = (i + 1) % n.d; return out; }; }
     case 'держать': { const w = compile(n.w), v = compile(n.v); let S = 0;
-      return (get) => { const wv = w(get), vv = v(get); if (wv) S = vv; return S; }; }
+      return (get, gd) => { const wv = w(get, gd), vv = v(get, gd); if (wv) S = vv; return S; }; }
     case 'накопить': { const w = compile(n.w); let S = 0;
       if (n.z) { const z = compile(n.z); let zp = 0;   // v2: сброс -- кругом позже события z (прочитал -- забыл)
-        return (get) => { if (zp) S = 0; S = Math.min(16, n.lam * S + w(get)); zp = z(get); return S; }; }
-      return (get) => { S = Math.min(16, n.lam * S + w(get)); return S; }; }
+        return (get, gd) => { if (zp) S = 0; S = Math.min(16, n.lam * S + w(get, gd)); zp = z(get, gd); return S; }; }
+      return (get, gd) => { S = Math.min(16, n.lam * S + w(get, gd)); return S; }; }
     case 'по-ключу': { const w = compile(n.w), v = compile(n.v), M = new Map();
-      return (get) => { const wv = w(get), vv = v(get); let out = 0;
+      return (get, gd) => { const wv = w(get, gd), vv = v(get, gd); let out = 0;
         for (const [k, m] of n.K) if (get(k) > m) { if (wv) M.set(k, vv); else if (M.has(k)) out = M.get(k); }
         return out; }; }
-    case 'при': { const r = compile(n.r), a = compile(n.a); return (get) => { const av = a(get); return r(get) ? av : 0; }; }
+    case 'при': { const r = compile(n.r), a = compile(n.a); return (get, gd) => { const av = a(get, gd); return r(get, gd) ? av : 0; }; }
     // v2: отклонение(r, a) -- в круге r: насколько a выше своего обычного в кругах r (среднее по прошлым r, до 200); иначе 0
     case 'отклонение': { const r = compile(n.r), a = compile(n.a); let m = 0, c = 0;
-      return (get) => { const av = a(get); if (!r(get)) return 0; const out = c ? av - m : 0; c = Math.min(200, c + 1); m += (av - m) / c; return out; }; }
+      return (get, gd) => { const av = a(get, gd); if (!r(get, gd)) return 0; const out = c ? av - m : 0; c = Math.min(200, c + 1); m += (av - m) / c; return out; }; }
     default: throw new Error(`кирпичика ${n.op} нет`);
   }
 }
@@ -51,14 +51,14 @@ function compile(n) {
 function compileFresh(n) {
   switch (n.op) {
     case 'событие': case 'перепад': case 'значение': case 'единица': case 'задержка': return compile(n);
-    case 'или': case 'и': { const a = compileFresh(n.a), b = compileFresh(n.b); return n.op === 'или' ? (get) => { const x = a(get), y = b(get); return x || y ? 1 : 0; } : (get) => { const x = a(get), y = b(get); return x && y ? 1 : 0; }; }
-    case 'держать': { const w = compileFresh(n.w), v = compileFresh(n.v); return (get) => { const wv = w(get), vv = v(get); return wv ? vv : 0; }; }
-    case 'накопить': { const w = compileFresh(n.w); return (get) => w(get); }
+    case 'или': case 'и': { const a = compileFresh(n.a), b = compileFresh(n.b); return n.op === 'или' ? (get, gd) => { const x = a(get, gd), y = b(get, gd); return x || y ? 1 : 0; } : (get, gd) => { const x = a(get, gd), y = b(get, gd); return x && y ? 1 : 0; }; }
+    case 'держать': { const w = compileFresh(n.w), v = compileFresh(n.v); return (get, gd) => { const wv = w(get, gd), vv = v(get, gd); return wv ? vv : 0; }; }
+    case 'накопить': { const w = compileFresh(n.w); return (get, gd) => w(get, gd); }
     case 'по-ключу': return () => 0;
-    case 'при': { const r = compileFresh(n.r), a = compileFresh(n.a); return (get) => { const av = a(get); return r(get) ? av : 0; }; }
+    case 'при': { const r = compileFresh(n.r), a = compileFresh(n.a); return (get, gd) => { const av = a(get, gd); return r(get, gd) ? av : 0; }; }
     // «обычное» отклонения -- не память о событиях, а мерка: у копии оно то же
     case 'отклонение': { const r = compileFresh(n.r), a = compileFresh(n.a); let m = 0, c = 0;
-      return (get) => { const av = a(get); if (!r(get)) return 0; const out = c ? av - m : 0; c = Math.min(200, c + 1); m += (av - m) / c; return out; }; }
+      return (get, gd) => { const av = a(get, gd); if (!r(get, gd)) return 0; const out = c ? av - m : 0; c = Math.min(200, c + 1); m += (av - m) / c; return out; }; }
   }
 }
 // ключ сборки (без середин событий: они чуть разные в каждом окне записи) и размер (число кирпичиков)
@@ -217,10 +217,17 @@ function candidatesLong(B, c, rng) {
   const span = Math.max(1, rows[R - 1].t - rows[0].t + 1), E = [];
   for (const q of B.ch) { if (q === c || !B.evc.known.has(q.good)) continue; const mid = B.evc.mids.get(q.good) ?? 0.5, on = new Uint8Array(R); let n = 0;
     for (let i = 0; i < R; i++) if (rows[i].v[q.k] > mid) { on[i] = 1; n++; } if (n >= 3 && n / span <= 0.3) E.push({ k: q.k, mid, n, on }); }
-  E.sort((a, b) => b.n - a.n); E.length = Math.min(E.length, 16);
   const next = new Float64Array(R); for (let i = 0; i < R; i++) next[i] = i + 1 < R && rows[i + 1].t === rows[i].t + 1 ? rows[i + 1].e[c.k] : NaN;
-  const cn = new Map(E.map((e) => [e.k, corr(e.on, next)]));
-  let v2 = null; if (B.cfg.CV2) { let m = 0, n = 0; for (const x of next) if (Number.isFinite(x)) { m += x; n++; } m /= Math.max(1, n); const mag = next.map((x) => Math.abs(x - m)); v2 = new Map(E.map((e) => [e.k, corr(e.on, mag)])); }
+  // Сб4 (PLSAL): и перепады нервов -- по изменению за круг, записанному в строке (яркие миги); порог -- 5 обычных разбросов
+  // изменения нерва; событий больше 16 -- половина самых частых, половина самых связанных с ошибкой канала через 1..CLAG строк
+  if (B.cfg.PLSAL && B.cfg.CV3) { for (const q of B.ch) { if (q === c || !(q.dabs > 0)) continue; const th = 6.25 * q.dabs;
+      for (const dir of [-1, 1]) { const on = new Uint8Array(R); let n = 0; for (let i = 0; i < R; i++) if (rows[i].d && dir * rows[i].d[q.k] > th) { on[i] = 1; n++; } if (n >= 3 && n / R <= 0.3) E.push({ k: q.k, dir, th, n, on }); } }
+    if (E.length > 16) { const lagN = (k) => { const a = new Float64Array(R); for (let i = 0; i < R; i++) a[i] = i + k < R && rows[i + k].t === rows[i].t + k ? rows[i + k].e[c.k] : NaN; return a; };
+      const nx = [next]; for (let k = 2; k <= (B.cfg.CLAG || 1); k++) nx.push(lagN(k)); const rel = (e) => Math.max(...nx.map((a) => corr(e.on, a)));
+      E.sort((a, b) => b.n - a.n); const top = E.slice(0, 8), rest = E.slice(8).map((e) => [e, rel(e)]).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]); E.length = 0; E.push(...top, ...rest); } }
+  E.sort((a, b) => b.n - a.n); E.length = Math.min(E.length, 16);
+  const cn = new Map(E.map((e) => [eid(e), corr(e.on, next)]));
+  let v2 = null; if (B.cfg.CV2) { let m = 0, n = 0; for (const x of next) if (Number.isFinite(x)) { m += x; n++; } m /= Math.max(1, n); const mag = next.map((x) => Math.abs(x - m)); v2 = new Map(E.map((e) => [eid(e), corr(e.on, mag)])); }
   const C = build(E, cn, [], rng, B.cfg.CBUD, B.cfg.CLIB ? B.mem.lib : null, null, B.cfg.CFAIR); C.ops += E.length * R * 2 + R * B.ch.length; return C;
 }
 // по долгой записи событий (PLONG, src/market.js lrecPush): сборка проигрывается по её строкам по порядку (между строками ничего
@@ -228,10 +235,10 @@ function candidatesLong(B, c, rng) {
 // (то, чего части не ждали). Возвращает долю, z и наклон (вес связи для канала)
 function scoreLong(B, c, n) {
   const rows = B.lrec.rows, R = rows.length; if (R < 50) return null; const f = compile(n), lv = [];
-  (function walk(q) { if (q.op === 'событие') lv.push([q.k, q.mid]); if (q.K) for (const x of q.K) lv.push(x); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n);
+  (function walk(q) { if (q.op === 'событие') lv.push([q.k, q.mid]); if (q.op === 'перепад') lv.push([q.k, 0, q.dir, q.th]); if (q.K) for (const x of q.K) lv.push(x); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n);
   let m = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
   let prev = NaN, ch = 0;
-  for (let i = 0; i < R; i++) { const v = rows[i].v, x = f((k) => v[k]); if (x !== prev) ch++; prev = x; if (i + 1 < R && rows[i + 1].t === rows[i].t + 1 && lv.some(([k, md]) => v[k] > md)) { const y = rows[i + 1].e[c.k]; m++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; } }
+  for (let i = 0; i < R; i++) { const v = rows[i].v, d = rows[i].d, x = f((k) => v[k], d ? (k) => d[k] : undefined); if (x !== prev) ch++; prev = x; if (i + 1 < R && rows[i + 1].t === rows[i].t + 1 && lv.some(([k, md, dir, th]) => (dir ? d && dir * d[k] > th : v[k] > md))) { const y = rows[i + 1].e[c.k]; m++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; } }
   // только круги, где звучит хоть одно событие сборки: в остальных она лишь хранит, и связь -- в кругах, где она вспоминает
   if (m < 10 || ch < 8) return { g: 0, z: 0, ops: R * size(n) };
   const vx = sxx - sx * sx / m, vy = syy - sy * sy / m, cv = sxy - sx * sy / m;
@@ -245,8 +252,8 @@ function scoreLong(B, c, n) {
 function longReject(B, n) {
   const rows = B.lrec.rows, R = rows.length; const f = compile(n), ff = compileFresh(n), rf = n.op === 'при' || n.op === 'отклонение' ? compile(n.r) : null;
   let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, nr = 0, sm = 0, sq = 0;
-  for (let i = 0; i < R; i++) { const v = rows[i].v, get = (k) => v[k], x = f(get), y = ff(get); sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
-    if (rf && rf(get)) { nr++; sm += x; sq += x * x; } }
+  for (let i = 0; i < R; i++) { const v = rows[i].v, get = (k) => v[k], gd = rows[i].d ? (k) => rows[i].d[k] : undefined, x = f(get, gd), y = ff(get, gd); sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+    if (rf && rf(get, gd)) { nr++; sm += x; sq += x * x; } }
   const vx = sxx - sx * sx / R, vy = syy - sy * sy / R;
   if (vx > 1e-12 && vy > 1e-12 && (sxy - sx * sy / R) / Math.sqrt(vx * vy) > 0.95) return true;
   if (rf && (nr < 6 || sq / nr - (sm / nr) ** 2 < 0.05 * sq / nr + 1e-9)) return true;
