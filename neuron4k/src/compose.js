@@ -246,6 +246,19 @@ function scoreLong(B, c, n) {
   // и то, что сборка говорит, должно быть разным (иначе связь -- просто среднее ошибки в кругах её событий)
   return { g: r2, z: Math.sqrt(r2 * m), w: vx > 1e-9 ? cv / vx : 0, n: m, ops: R * size(n) };
 }
+// Сб5 (CINV): изобретённая сборка по долгой записи -- связь выхода с ошибкой прогноза канала в следующей строке (круг подряд)
+// в строках, где сборка говорит не ноль или звучит её событие: так видно и отложенное следствие (след перепада через
+// несколько кругов), которое scoreLong не проверяет
+function scoreLongAny(B, c, n) {
+  const rows = B.lrec.rows, R = rows.length; if (R < 50) return null; const f = compile(n), lv = [];
+  (function walk(q) { if (q.op === 'событие') lv.push([q.k, q.mid]); if (q.op === 'перепад') lv.push([q.k, 0, q.dir, q.th]); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n);
+  let m = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, prev = NaN, ch = 0;
+  for (let i = 0; i < R; i++) { const v = rows[i].v, d = rows[i].d, x = f((k) => v[k], d ? (k) => d[k] : undefined); if (x !== prev) ch++; prev = x;
+    if (i + 1 < R && rows[i + 1].t === rows[i].t + 1 && (x !== 0 || lv.some(([k, md, dir, th]) => (dir ? d && dir * d[k] > th : v[k] > md)))) { const y = rows[i + 1].e[c.k]; m++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; } }
+  if (m < 10 || ch < 8) return { g: 0, z: 0, ops: R * size(n) };
+  const vx = sxx - sx * sx / m, vy = syy - sy * sy / m, cv = sxy - sx * sy / m, r2 = vx > 1e-9 && vy > 1e-9 ? cv * cv / (vx * vy) : 0;
+  return { g: r2, z: Math.sqrt(r2 * m), w: vx > 1e-9 ? cv / vx : 0, n: m, ops: R * size(n) };
+}
 // CLONGF (правка «опора-2», results/opora2/): по долгой записи -- те же проверки, что CFAST на окне: (1) пересказ -- выход по
 // строкам почти равен копии без памяти; (2) в строках, где звучит условие чтения (при / отклонение), выход почти постоянен.
 // Возвращает true, если сборку примерять не надо
@@ -268,4 +281,4 @@ function otherMem(n) {
   (function walk(q) { if (q.op === 'держать' || q.op === 'накопить') { mem = true; ev(q.w, wk); } for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n.a);
   return mem && [...wk].some((k) => !rk.has(k));   // хоть одно записываемое событие -- не из условия чтения (поправка после первой пробы, ПЛАН.md §6)
 }
-module.exports = { otherMem, compileFresh, compile, key, size, show, shape, candidates, candidatesLong, scoreLong, variants, longReject };
+module.exports = { scoreLongAny, otherMem, compileFresh, compile, key, size, show, shape, candidates, candidatesLong, scoreLong, variants, longReject };

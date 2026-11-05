@@ -216,6 +216,22 @@ function paraLong(B, c) {
       if (!out.best || z > out.best.z) out.best = { g: r2, z, tpl: { type: 'пара', X: [[a, on.get(a).mid], [b, on.get(b).mid]], K: K.map((k) => [k, on.get(k).mid]), m, long: { w, b: sy / n - w * sx / n, n } } }; } }
   return out;
 }
+// Сб5: предложения изобретателя для канала k -- из файла CINVFILE ({ proposals: [{ target, prog }] }, нервы -- номера каналов);
+// порог перепада и середина события -- по мозгу (как у его собственных: 5 обычных разбросов изменения, середина записи)
+function invFor(B, k) {
+  const M = B.mem; if (!M.inv) { let J = { proposals: [] }; try { J = JSON.parse(require('fs').readFileSync(process.env.CINVFILE, 'utf8')); } catch (e) { M.invErr = String(e); } M.inv = J.proposals || []; M.invDone = new Map(); }
+  if (M.invDone.has(k)) return M.invDone.get(k);
+  const G = B.goods, T = B.t, w0 = Math.max(1, T - B.cfg.H + 2), CCe = require('./concepts').events, ok = (n) => n && typeof n === 'object';
+  const fill = (n) => { if (!ok(n)) return false; if ((n.op === 'событие' || n.op === 'перепад' || n.op === 'значение') && !(B.ch[n.k])) return false;
+    if (n.op === 'перепад') { n.dir = n.dir > 0 ? 1 : -1; n.th = 6.25 * (B.ch[n.k].dabs || 0.05); }
+    if (n.op === 'событие' && n.mid === undefined) { const e = CCe(B, B.ch[n.k].good, w0, T); n.mid = e ? e.mid : 0.5; }
+    if (n.op === 'задержка') n.d = Math.max(1, Math.min(16, Math.round(n.d || 1)));
+    if (n.op === 'накопить') n.lam = Math.max(0, Math.min(1, +n.lam || 0.85));
+    for (const q of ['a', 'b', 'w', 'v', 'r', 'z']) if (n[q] !== undefined && !fill(n[q])) return false;
+    return ['событие', 'перепад', 'значение', 'единица', 'или', 'и', 'задержка', 'держать', 'накопить', 'при'].includes(n.op); };
+  const P = M.inv.filter((p) => +p.target === k).map((p) => JSON.parse(JSON.stringify(p.prog))).filter((n) => { try { return fill(n) && (CP.compile(n), true); } catch (e) { return false; } }).slice(0, 3);
+  M.invDone.set(k, P); return P;
+}
 function scan(B, c) {
   const cfg = B.cfg, G = B.goods, a = B.mem.agent, T = B.t, n = Math.min(cfg.MWIN, cfg.H - cfg.MDMAX - 2);
   const t1 = T - 1, t0 = Math.max(1, t1 - n + 1);
@@ -414,7 +430,16 @@ function scan(B, c) {
       for (const n of CL2.list) { if (cfg.CFAST >= 3 && clock(n)) continue; if (cfg.CFAST) { const lv = []; (function walk(q) { if (q.op === 'событие') lv.push([q.k, q.mid]); if (q.K) for (const x of q.K) lv.push(x); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (q[k]) walk(q[k]); })(n); if (!lv.every(([k, md]) => isRare(k, md))) continue; }
         if (cfg.CLONGF) { ops += B.lrec.rows.length * CP.size(n) * 3; if (CP.longReject(B, n)) continue; }   // правка «опора-2»: пересказ и постоянное при чтении -- и по долгой записи
         const L = CP.scoreLong(B, c, n); if (!L) break; ops += L.ops;
-      if (L.z > zl && L.g > cfg.MGAIN && L.g > (best3['сборка'].long ? best3['сборка'].g : 0)) best3['сборка'] = { g: L.g, z: Math.max(L.z, zc + 1e-9), long: true, tpl: { type: 'сборка', prog: n, long: { w: L.w, n: L.n } } }; } } }
+      if (L.z > zl && L.g > cfg.MGAIN && L.g > (best3['сборка'].long ? best3['сборка'].g : 0)) best3['сборка'] = { g: L.g, z: Math.max(L.z, zc + 1e-9), long: true, tpl: { type: 'сборка', prog: n, long: { w: L.w, n: L.n } } }; } }
+    // Сб5 (CINV): с круга CINVT -- сборки, предложенные изобретателем для этого канала (файл CINVFILE), той же мерой по окну
+    // и по долгой записи (в кругах, где сборка говорит); поправка на число примерок -- по числу предложенных
+    if (cfg.CINV && B.t >= cfg.CINVT) { const P = invFor(B, c.k);
+      if (P.length) { best3['изобретение'] = { g: cfg.MGAIN, z: 0, tpl: null }; ntests['изобретение'] = 0;
+        for (const n of P) { const f = CP.compile(n); let tt = -1, v = 0;
+          const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; } return v; }, 'изобретение', Wc, false, false); ops += (t1 - w0) * CP.size(n);
+          if (g > best3['изобретение'].g) best3['изобретение'] = { g, z, tpl: { type: 'сборка', prog: n } };
+          if (cfg.PLONG && B.lrec) { const L = CP.scoreLongAny(B, c, n); if (L) { ops += L.ops; if (L.g > cfg.MGAIN && L.z > best3['изобретение'].z) best3['изобретение'] = { g: L.g, z: L.z, long: true, tpl: { type: 'сборка', prog: n, long: { w: L.w, n: L.n } } }; } } }
+        ntests['изобретение'] = Math.max(2, 2 * P.length); } } }
   // похожесть: ключи по записи, ответ на каждом круге окна -- по более ранним кругам записи (точный перебор)
   // окно похожести -- вся запись, кроме первых 128 кругов (им не с чем сравнивать): на 128 кругах окна колец (по 64 на
   // половину) порог требовал объяснить 11% остатка, и метка «8» оставалась без органа и без частей
