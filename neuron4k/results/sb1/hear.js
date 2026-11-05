@@ -33,5 +33,5 @@ function nameOf(k) { return W.nerves[k] ? W.nerves[k].kind : String(k); }   // �
 function memOf(w) { const c = B.ch[w.k]; if (!c) return []; const out = [];
   for (const p of c.parts) for (const d of p.inputs) for (const id of (typeof d === 'number' ? [d] : d)) { const o = G.owner[id]; if (o && o.kind === 'память') out.push(o.prog ? CP.show(o.prog).replace(/\((\d+)(?=[,)])/g, (m, k) => '(' + nameOf(+k)) : o.type || 'память'); }
   return out; }
-console.log(JSON.stringify({ seed, KVOICE: KV, extra: EXTRA, comfort: C / nC, bites: res.bites, eat: res.eat, deaths2: res.deaths2,
+console.log(JSON.stringify({ seed, KVOICE: KV, extra: EXTRA, inv: B.mem.invBuilt ? B.mem.invBuilt.map((x) => ({ ...x, target: W.nerves[x.k].kind, prog: x.prog.replace(/\((\d+)(?=[,)])/g, (m, k) => '(' + nameOf(+k)) })) : null, invErr: B.mem.invErr || null, comfort: C / nC, bites: res.bites, eat: res.eat, deaths2: res.deaths2,
   words: words.map((w) => ({ name: w.name, auc: auc(w.pos, w.neg), n: w.pos.length, readers: w.readers, mem: memOf(w) })) }));

@@ -437,8 +437,8 @@ function scan(B, c) {
       if (P.length) { best3['изобретение'] = { g: cfg.MGAIN, z: 0, tpl: null }; ntests['изобретение'] = 0;
         for (const n of P) { const f = CP.compile(n); let tt = -1, v = 0;
           const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; } return v; }, 'изобретение', Wc, false, false); ops += (t1 - w0) * CP.size(n);
-          if (g > best3['изобретение'].g) best3['изобретение'] = { g, z, tpl: { type: 'сборка', prog: n } };
-          if (cfg.PLONG && B.lrec) { const L = CP.scoreLongAny(B, c, n); if (L) { ops += L.ops; if (L.g > cfg.MGAIN && L.z > best3['изобретение'].z) best3['изобретение'] = { g: L.g, z: L.z, long: true, tpl: { type: 'сборка', prog: n, long: { w: L.w, n: L.n } } }; } } }
+          if (g > best3['изобретение'].g) best3['изобретение'] = { g, z, tpl: { type: 'сборка', prog: n, inv: true } };
+          if (cfg.PLONG && B.lrec) { const L = CP.scoreLongAny(B, c, n); if (L) { ops += L.ops; if (L.g > cfg.MGAIN && L.z > best3['изобретение'].z) best3['изобретение'] = { g: L.g, z: L.z, long: true, tpl: { type: 'сборка', prog: n, inv: true, long: { w: L.w, n: L.n } } }; } } }
         ntests['изобретение'] = Math.max(2, 2 * P.length); } } }
   // похожесть: ключи по записи, ответ на каждом круге окна -- по более ранним кругам записи (точный перебор)
   // окно похожести -- вся запись, кроме первых 128 кругов (им не с чем сравнивать): на 128 кругах окна колец (по 64 на
@@ -541,6 +541,7 @@ function buildComp(B, c, tpl) {
   if (M.keys.has(key)) return null;
   const sz = CP.size(tpl.prog), o = B.led.open('память', a, cfg.OCRED, { type: 'сборка', prog: tpl.prog, key, size: sz, mem: 4 + sz, payTo: false, incLast: 0, born: B.t, client: c.k });
   o.f = CP.compile(tpl.prog); o.good = G.add('память', o, -1, B.t);
+  if (tpl.inv) { (M.invBuilt || (M.invBuilt = [])).push({ k: c.k, t: B.t, prog: CP.show(tpl.prog), long: !!tpl.long }); o.inv = true; }   // Сб5: построено из предложения изобретателя
   o.evl = []; (function lv(n) { if (n.op === 'событие') o.evl.push([n.k, n.mid]); if (n.K) for (const x of n.K) o.evl.push(x); for (const k of ['a', 'b', 'w', 'v', 'r', 'z']) if (n[k]) lv(n[k]); })(tpl.prog);
   const T = B.t, t0 = Math.max(1, T - cfg.H + 1);
   // найденная по долгой записи -- сначала проигрывает её (помнит давнее), и канал помнит связь с опорой на неё (KPRIOR)
