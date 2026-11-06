@@ -563,7 +563,15 @@ class Brain {
     // за ~1000 кругов): этот круг и PLSPAN следующих -- в долгую запись, с изменением каждого нерва за круг (d)
     let d = null; if (cfg.PLSAL) { d = new Float32Array(this.ch.length); let sal = false;
       for (let k = 0; k < this.ch.length; k++) { const c = this.ch[k], x = G.val[c.good]; if (c.pv !== undefined) { const dx = x - c.pv; d[k] = dx; if (t > 1000 && c.dabs > 0 && Math.abs(dx) > 6.25 * c.dabs) sal = true; c.dabs = (c.dabs ?? Math.abs(dx)) + 0.001 * (Math.abs(dx) - (c.dabs ?? Math.abs(dx))); } c.pv = x; }
-      if (sal) L.span = cfg.PLSPAN + 1; }
+      if (sal) L.span = cfg.PLSPAN + 1;
+      // Сб6 (CHYP): счёт отложенных следствий -- для начала сигнала каждого нерва (перепад вверх) отмечаются перепады других
+      // нервов за 1..6 кругов до него; по этим счётчикам строитель выдвигает гипотезы (memory.js, hypFor)
+      if (cfg.CHYP && t > 1000) { const H = this.hyp || (this.hyp = { N: new Map(), hit: new Map(), on: new Map(), hist: [], n: 0 }), ev = [];
+        for (let k = 0; k < this.ch.length; k++) { const c = this.ch[k]; if (c.dabs > 0 && Math.abs(d[k]) > 6.25 * c.dabs) ev.push(2 * k + (d[k] > 0 ? 1 : 0)); }
+        H.n++; for (const e of ev) H.N.set(e, (H.N.get(e) || 0) + 1);
+        for (const e of ev) if (e & 1) { const tk = e >> 1; H.on.set(tk, (H.on.get(tk) || 0) + 1);
+          for (let L = 1; L <= 6; L++) { const h = H.hist[H.hist.length - L]; if (h) for (const x of h) if (x >> 1 !== tk) { const key = tk * 1e6 + x * 10 + L; H.hit.set(key, (H.hit.get(key) || 0) + 1); } } }
+        H.hist.push(ev); if (H.hist.length > 6) H.hist.shift(); if (this.mem && this.mem.agent) this.led.work(this.mem.agent, this.ch.length + 6 * ev.length * 4); } }
     if (ev || L.prev || L.span > 0) { const n = this.ch.length, v = new Float32Array(n), e = new Float32Array(n);
       for (let k = 0; k < n; k++) { const c = this.ch[k]; v[k] = G.val[c.good]; let pr = 0, np = 0; for (const p of c.parts) if (p.age >= 1) { pr += p.pred; np++; } e[k] = v[k] - (np ? pr / np : c.mean); }
       L.rows.push(d ? { t, v, e, d } : { t, v, e }); if (L.span > 0) L.span--; }

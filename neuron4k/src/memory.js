@@ -232,6 +232,19 @@ function invFor(B, k) {
   const P = M.inv.filter((p) => +p.target === k).map((p) => JSON.parse(JSON.stringify(p.prog))).filter((n) => { try { return fill(n) && (CP.compile(n), true); } catch (e) { return false; } }).slice(0, 3);
   M.invDone.set(k, P); return P;
 }
+// Сб6 (CHYP): гипотезы мозга для канала k по счёту отложенных следствий (market.js, lrecPush): до двух перепадов с самым
+// большим подъёмом частоты начала сигнала канала после них (не реже 5 перепадов, не меньше 3 совпадений, подъём не меньше
+// 10 раз), каждый -- с лучшей задержкой L; гипотеза -- задержка(перепад, L - 1) (при L = 1 -- сам перепад) и их «или»
+function hypFor(B, k) {
+  const H = B.hyp; if (!H) return []; const on = H.on.get(k) || 0; if (on < 3) return []; const base = on / H.n, best = new Map();
+  for (const [key, h] of H.hit) { if (Math.floor(key / 1e6) !== k || h < 3) continue; const r = key % 1e6, x = Math.floor(r / 10), L = r % 10, N = H.N.get(x) || 0;
+    if (N < 5) continue; const lift = h / N / base; if (lift < 10) continue; const b = best.get(x); if (!b || lift > b.lift) best.set(x, { x, L, lift }); }
+  if (B.mem.agent) B.led.work(B.mem.agent, H.hit.size);
+  const top = [...best.values()].sort((a, b) => b.lift - a.lift).slice(0, 2);
+  const node = ({ x, L }) => { const kk = x >> 1, p = { op: 'перепад', k: kk, dir: x & 1 ? 1 : -1, th: 6.25 * (B.ch[kk].dabs || 0.05) }; return L > 1 ? { op: 'задержка', a: p, d: L - 1 } : p; };
+  const P = top.map(node); if (top.length === 2 && top[0].L === top[1].L) P.push({ op: 'или', a: node(top[0]), b: node(top[1]) });
+  return P;
+}
 function scan(B, c) {
   const cfg = B.cfg, G = B.goods, a = B.mem.agent, T = B.t, n = Math.min(cfg.MWIN, cfg.H - cfg.MDMAX - 2);
   const t1 = T - 1, t0 = Math.max(1, t1 - n + 1);
@@ -433,7 +446,7 @@ function scan(B, c) {
       if (L.z > zl && L.g > cfg.MGAIN && L.g > (best3['сборка'].long ? best3['сборка'].g : 0)) best3['сборка'] = { g: L.g, z: Math.max(L.z, zc + 1e-9), long: true, tpl: { type: 'сборка', prog: n, long: { w: L.w, n: L.n } } }; } }
     // Сб5 (CINV): с круга CINVT -- сборки, предложенные изобретателем для этого канала (файл CINVFILE), той же мерой по окну
     // и по долгой записи (в кругах, где сборка говорит); поправка на число примерок -- по числу предложенных
-    if (cfg.CINV && B.t >= cfg.CINVT) { const P = invFor(B, c.k);
+    if ((cfg.CINV && B.t >= cfg.CINVT) || cfg.CHYP) { const P = cfg.CHYP ? hypFor(B, c.k) : invFor(B, c.k);   // Сб6: гипотезы самого мозга вместо предложений изобретателя
       if (P.length) { best3['изобретение'] = { g: cfg.MGAIN, z: 0, tpl: null }; ntests['изобретение'] = 0;
         for (const n of P) { const f = CP.compile(n); let tt = -1, v = 0;
           const [g, z] = score((t) => { if (t !== tt) { v = f((k) => G.at(t, B.ch[k].good)); tt = t; } return v; }, 'изобретение', Wc, false, false); ops += (t1 - w0) * CP.size(n);
