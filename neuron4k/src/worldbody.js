@@ -136,6 +136,7 @@ class WorldBody {
     if (late) { for (let i = 0; i < truth.length; i++) { const S = this.spst[i]; if (truth[i]) S.tru++; if (best === i) { S.said++; if (truth[i]) S.ok++; } } if (best >= 0) this.talk++;
       if (this.pBite && t - this.pBite.t > 5) this.pBite = null; if (this.pBite && best === 2 && !this.pBite.named) { this.pBite.named = true; this.biteN[0]++; } }
     this.smile.val = R; this.ear.val = best >= 0 ? 1 : 0; this.spPay = best >= 0 ? [this.mouthK[best], c.SPAY * R] : null;
+    this.ownSaid = best;   // Р3б (OWNV): своё слово -- в этом же круге на нерве-слове (мозг услышит его в следующем)
   }
   // Р2: голос родителя этого круга -- маска слов; события -- в очередь на 2 круга
   speakParent(t, bite) {
@@ -145,6 +146,7 @@ class WorldBody {
     for (let i = 0; i < 3; i++) if (this.rv() < 0.1 && st[i]) m |= 16 << i;
     // контроль: каждое слово -- из своего случайного прошлого круга (2000-9000 кругов назад): та же частота, связи с сейчас нет
     let out = m; if (c.KVOICE === 2) { out = 0; this.vring[t % 10000] = m; if (t > 9000) for (let i = 0; i < VOICE.length; i++) out |= this.vring[(t - 2000 - Math.floor(7000 * this.rv())) % 10000] & (1 << i); }
+    if (c.OWNV && c.KSPEAK && this.ownSaid >= 0) out |= 1 << this.ownSaid;   // Р3б: свой голос звучит на том же нерве, что и голос родителя
     for (let i = 0; i < VOICE.length; i++) this.voice[i].val = (out >> i) & 1;
   }
   // К1ж: страх -- средний прогноз частей канала «смерть» в 50 кругах перед смертью против остальных кругов (вторая половина жизни)
