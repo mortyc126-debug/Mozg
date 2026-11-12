@@ -23,3 +23,12 @@ console.log(`\nдоп.: тело на рефлексах -- польза ${f(med
 console.log(`   следов рождено ${f(med(S.map((r) => r.traces.born)), 0)}, пало ${f(med(S.map((r) => r.traces.dead)), 0)}, живы ${f(med(S.map((r) => r.traces.live.length)), 0)} (медианы); частей коры ${f(med(S.map((r) => r.cortex.parts)), 0)}; работа ${f(med(S.map((r) => r.opsPerRound)), 0)} операций за круг; время мира ${f(med(S.map((r) => r.sec)), 1)} с`);
 const cnt = new Map(); for (const r of S) for (const w of r.words) for (const x of w.reads) { const k = `${w.name} <- ${x}`; cnt.set(k, (cnt.get(k) || 0) + 1); }
 console.log('   что читают части нервов-слов (в скольких мирах из 24):'); for (const [k, n] of [...cnt].sort((a, b) => b[1] - a[1]).slice(0, 24)) console.log(`     ${n}× ${k}`);
+// Диагностика (не предрегистрирована): потолок AUC слова состояния. Родитель говорит слово с вероятностью 0.1, пока
+// состояние держится; даже тот, кто знает состояние точно, не знает, скажет ли родитель. Доля кругов в состоянии
+// ps = (частота слова) / 0.1; у знающего состояние AUC = (1 - q) + q / 2, где q = 0.9 ps / (1 - 0.1 ps) -- доля кругов без
+// слова, в которых состояние есть. Доля потолка -- (AUC - 0.5) / (потолок - 0.5).
+const half = 20000, ceil = (r, w) => { const x = r.words.find((q) => q.name === w); if (!x || !x.n) return NaN; const ps = Math.min(1, x.n / half / 0.1), q = 0.9 * ps / (1 - 0.1 * ps); return 1 - q / 2; };
+const share = (r, w) => (aucOf(r, w) - 0.5) / (ceil(r, w) - 0.5);
+console.log('\nдиагностика (не предрегистрирована): потолок AUC слов состояний и доля потолка');
+for (const w of ST) { const row = ['С5', 'М4'].map((k) => { const v = [...C[k].values()]; return `${k}: состояние держится ${f(100 * med(v.map((r) => { const x = r.words.find((q) => q.name === w); return x.n / half / 0.1; })), 0)}% кругов, потолок ${f(med(v.map((r) => ceil(r, w))))}, AUC ${f(med(v.map((r) => aucOf(r, w))))}, доля потолка ${f(med(v.map((r) => share(r, w))))}`; });
+  console.log(`   ${w} -- ${row.join('; ')}`); console.log(`      доля потолка, С5 против М4: ${pair('С5', 'М4', (x) => share(x, w), 1).s}`); }
