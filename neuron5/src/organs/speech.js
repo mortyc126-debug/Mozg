@@ -28,7 +28,7 @@ class Speech {
     this.m = new Float64Array(n).fill(0.05); this.z = new Float64Array(n);
     this.S = Array.from({ length: n }, () => ({ s11: RIDGE, s1z: 0, szz: RIDGE, c1: 0, cz: 0, a: 0, b: 0, n: 0 }));
     this.said = -1; this.sz = 0; this.babbles = 0; this.chosen = 0;
-    this.line = !B.cfg.MAP; if (this.line) { const N = B.n, d = N + 1 + n; this.d = d; this.f = new Float64Array(d); this.sf = new Float64Array(d);
+    this.line = !B.cfg.MAP; if (this.line) { const N = B.n, d = N + 1 + n + (B.cfg.SPT ? n : 0); this.nt0 = 1 + n + (B.cfg.SPT ? n : 0); this.d = d; this.f = new Float64Array(d); this.sf = new Float64Array(d);
       this.mu = new Float64Array(N); this.va = new Float64Array(N).fill(1); this.nv = 0; this.L = []; this.sl = -1; }
     else if (B.cfg.SPX) { const N = B.n, d = N + 2; this.d = d; this.f = new Float64Array(d); this.sf = new Float64Array(d); this.pr = new Float64Array(n);
       this.mu = new Float64Array(N); this.va = new Float64Array(N).fill(1); this.nv = 0;
@@ -91,7 +91,8 @@ class Speech {
 Speech.prototype.actLine = function (B) {
   const N = B.n, f = this.f, o = B.obs, n = this.words.length; this.nv++; const k = Math.max(0.001, 1 / this.nv);
   f[0] = 1; for (let i = 0; i < n; i++) f[1 + i] = this.z[i];
-  for (let j = 0; j < N; j++) { const dv = o[j] - this.mu[j]; this.mu[j] += k * dv; this.va[j] += k * (dv * dv - this.va[j]); f[1 + n + j] = dv / Math.sqrt(Math.max(this.va[j], 1e-6)); }
+  if (B.cfg.SPT) { const v = B.bus.val, T = B.hippo.traces; for (let i = 0; i < n; i++) { let e = 0; for (const tr of T) if (tr.targets.has(this.words[i])) e = Math.max(e, v[tr.good]); f[1 + n + i] = e; } }   // ступень 6+: «событие было недавно» -- след, выданный слову
+  for (let j = 0; j < N; j++) { const dv = o[j] - this.mu[j]; this.mu[j] += k * dv; this.va[j] += k * (dv * dv - this.va[j]); f[this.nt0 + j] = dv / Math.sqrt(Math.max(this.va[j], 1e-6)); }
   if (!B.map.done) return;
   const d = this.d; while (this.L.length < B.map.mouth.length) this.L.push({ k: B.map.mouth[this.L.length], A: new Float64Array(d * d), c: new Float64Array(d), yy: 0, w: new Float64Array(d), n: 0 });
   if (!this.L.length) return; let w = -1;

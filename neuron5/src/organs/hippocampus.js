@@ -9,13 +9,20 @@
 //    наблюдений, сколько их видел гиппокамп (в окне записи коры редкое событие -- два-три раза). Живёт след на плату
 //    частей по вкладу; никому не нужен -- разоряется, и та же гипотеза ждёт всё дольше.
 const EMPTY = [];
+// выход формы в круге s: f -- «и» условий «x был D1..D2 кругов назад»; nt -- нерв-цель «следствия ещё не было» (с тех пор,
+// как был x, начала сигнала nt не было); hz -- выученный риск по задержке (выход -- вероятность начала, а не 1)
+function form(log, H, f, s, nt, hz) {
+  let Dm = -1; for (const c of f) { let D0 = -1; for (let D = c.D1; D <= c.D2; D++) { const q = s - D; if (q > 0 && log[q % H].includes(c.x)) { D0 = D; break; } } if (D0 < 0) return 0; if (Dm < 0) Dm = D0; }
+  if (nt !== undefined && nt >= 0) for (let D = 0; D < Dm; D++) { const q = s - D; if (q > 0 && log[q % H].includes(2 * nt + 1)) return 0; }
+  return hz ? hz[Dm] : 1;
+}
 class Hippocampus {
   constructor(B) {
     const n = B.n; this.prev = new Float64Array(n).fill(NaN); this.dabs = new Float64Array(n); this.N = new Map(); this.on = new Float64Array(n); this.hit = new Map(); this.rounds = 0;
     this.log = new Array(B.cfg.H).fill(EMPTY);   // перепады последних H кругов (для выхода следов и их записи задним числом)
     this.traces = []; this.free = []; this.wait = new Map(); this.born = 0; this.dead = 0;
   }
-  fired(B, tr, s) { if (tr.f) { for (const c of tr.f) { let ok = false; for (let D = c.D1; D <= c.D2 && !ok; D++) { const q = s - D; if (q > 0 && this.log[q % B.cfg.H].includes(c.x)) ok = true; } if (!ok) return 0; } return 1; }
+  fired(B, tr, s) { if (tr.f) return Hippocampus.form(this.log, B.cfg.H, tr.f, s, tr.nt, tr.hz);
     const q = s - tr.D; return q > 0 && this.log[q % B.cfg.H].includes(tr.x) ? 1 : 0; }
   sense(B) {
     const cfg = B.cfg, t = B.t, ev = [];
@@ -44,12 +51,12 @@ class Hippocampus {
       tr.targets.add(b.tk); B.cortex.deliver(B, b.tk, tr.good, b.w0, Math.min(b.N, cfg.HPRIOR)); }
   }
   // след изобретённой формы (organs/inventor.js): f -- «и» условий «x был D1..D2 кругов назад»
-  birthForm(B, f, tk, w0, kappa) {
-    const name = 'изобр:' + f.map((c) => `${c.x}@${c.D1}-${c.D2}`).join('&'), D = Math.max(...f.map((c) => c.D2));
-    const tr = this.birth(B, f[0].x, D, name, f); tr.inv = true; tr.targets.add(tk); B.cortex.deliver(B, tk, tr.good, w0, kappa); return tr;
+  birthForm(B, f, tk, w0, kappa, nt, hz) {
+    const name = 'изобр:' + f.map((c) => `${c.x}@${c.D1}-${c.D2}`).join('&') + (nt >= 0 ? `!${nt}` : ''), D = Math.max(...f.map((c) => c.D2));
+    const tr = this.birth(B, f[0].x, D, name, f, nt, hz); tr.inv = true; tr.targets.add(tk); B.cortex.deliver(B, tk, tr.good, w0, kappa); return tr;
   }
-  birth(B, x, D, name, f) {
-    const cfg = B.cfg, bus = B.bus, t = B.t, tr = B.led.open('след', cfg.HCRED, { home: this, x, D, name, targets: new Set(), good: -1 }); if (f) tr.f = f;
+  birth(B, x, D, name, f, nt, hz) {
+    const cfg = B.cfg, bus = B.bus, t = B.t, tr = B.led.open('след', cfg.HCRED, { home: this, x, D, name, targets: new Set(), good: -1 }); if (f) { tr.f = f; tr.nt = nt; tr.hz = hz; }
     if (this.free.length) { tr.good = this.free.pop(); bus.renew(tr.good, tr, name, t); } else tr.good = bus.add('след', tr, name, t);
     // запись задним числом: гиппокамп помнит перепады последних H кругов -- кора сразу видит след на своей записи
     const s0 = Math.max(1, t - cfg.H + 1 + D); for (let s = s0; s <= t; s++) bus.rec[(s % cfg.H) * bus.cap + tr.good] = this.fired(B, tr, s);
@@ -61,4 +68,5 @@ class Hippocampus {
     const w = this.wait.get(tr.name) || { fails: 0 }; w.fails++; w.next = B.t + 2000 * 2 ** Math.min(w.fails, 4); this.wait.set(tr.name, w);
   }
 }
+Hippocampus.form = form;
 module.exports = { Hippocampus };

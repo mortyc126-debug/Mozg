@@ -11,9 +11,17 @@ const TRIAL = 5000, MAXTRIALS = 8;
 class Inventor {
   constructor(B) { this.trials = []; this.cool = new Map(); this.requests = 0; this.accepted = []; this.tried = 0; }
   static fires(H, f, s, cfg) { for (const c of f) { let ok = false; for (let D = c.D1; D <= c.D2 && !ok; D++) { const q = s - D; if (q > 0 && H.log[q % cfg.H].includes(c.x)) ok = true; } if (!ok) return false; } return true; }
+  // INVF >= 2: форма с «следствия ещё не было»; возвращает задержку первого условия (для риска) или -1
+  static firesNT(H, f, s, cfg, nt) { const { form } = require('./hippocampus').Hippocampus; if (!form(H.log, cfg.H, f, s, nt)) return -1;
+    const c = f[0]; for (let D = c.D1; D <= c.D2; D++) { const q = s - D; if (q > 0 && H.log[q % cfg.H].includes(c.x)) return D; } return -1; }
   sense(B) {
     const H = B.hippo, cfg = B.cfg, t = B.t; if (!this.trials.length) return; const now = H.log[t % cfg.H]; let ops = 0;
-    for (const T of this.trials) { const on = now.includes(2 * T.tk + 1); for (const c of T.cands) { ops += c.f.length * 3; if (Inventor.fires(H, c.f, t - 1, cfg)) { c.N++; if (on) c.h++; } } }
+    const NT = cfg.INVF >= 2;
+    for (const T of this.trials) { const on = now.includes(2 * T.tk + 1); for (const c of T.cands) { ops += c.f.length * 3;
+      if (!NT) { if (Inventor.fires(H, c.f, t - 1, cfg)) { c.N++; if (on) c.h++; } continue; }
+      const D = Inventor.firesNT(H, c.f, t - 1, cfg, T.tk); if (D < 0) continue; c.N++; if (on) c.h++; if (!c.nD) { c.nD = new Float64Array(cfg.HLAG + 1); c.hD = new Float64Array(cfg.HLAG + 1); } c.nD[D]++; if (on) c.hD[D]++; } }
+    // выученный риск принятых форм уточняется и дальше
+    if (cfg.INVF === 3) for (const tr of H.traces) if (tr.inv && tr.hz) { const D = Inventor.firesNT(H, tr.f, t - 1, cfg, tr.nt); if (D < 0) continue; tr.nD[D]++; if (now.includes(2 * tr.nt + 1)) tr.hD[D]++; tr.hz[D] = (tr.hD[D] + tr.base) / (tr.nD[D] + 1); }
     B.led.work(null, ops);
   }
   learn(B) {
@@ -22,10 +30,13 @@ class Inventor {
     for (const T of this.trials.filter((q) => t - q.start >= TRIAL)) { this.trials.splice(this.trials.indexOf(T), 1);
       const base = H.on[T.tk] / H.rounds, m = T.cands.length, thr = cfg.HZC + Math.sqrt(2 * Math.log(m)); let best = null;
       for (const c of T.cands) { if (c.h < cfg.HMIN || !(c.N > 0)) continue; const lift = c.h / c.N / base, z = (c.h - c.N * base) / Math.sqrt(c.N * base * (1 - base));
-        if (lift >= cfg.HLIFT && z > thr && (!best || z > best.z)) best = { c, lift, z }; }
+        const pass = cfg.INVC ? c.h / c.N - base >= 0.05 : lift >= cfg.HLIFT;
+        if (pass && z > thr && (!best || z > best.z)) best = { c, lift, z }; }
       this.cool.set(T.key, t + 10000);
       if (best && !H.traces.some((q) => q.inv && q.targets.has(T.tk))) { const c = best.c;
-        H.birthForm(B, c.f, T.tk, c.h / c.N - base, Math.min(c.N, cfg.HPRIOR));
+        let hz; if (cfg.INVF === 3) { hz = new Float64Array(cfg.HLAG + 1); for (let D = 0; D <= cfg.HLAG; D++) hz[D] = (c.hD[D] + base) / (c.nD[D] + 1); }
+        const tr = H.birthForm(B, c.f, T.tk, c.h / c.N - base, Math.min(c.N, cfg.HPRIOR), cfg.INVF >= 2 ? T.tk : -1, hz);
+        if (hz) { tr.nD = Float64Array.from(c.nD); tr.hD = Float64Array.from(c.hD); tr.base = base; }
         this.accepted.push({ tk: T.tk, f: c.f, t, lift: +best.lift.toFixed(1), z: +best.z.toFixed(1), m }); } }
     if (t % 1000 !== 0 || t < 3000) return;
     // запросы: совпадения по всем задержкам вместе
