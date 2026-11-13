@@ -15,6 +15,9 @@
 // среднее, делить на бегущий разброс); наименьшие квадраты по своим высказываниям слова (забывание 0.999, гребень 1 у
 // каждого веса, кроме свободного; подгонка раз в 20 уроков). Довод цены по телу -- цена по улыбке этого слова
 // («насколько я уверен, что слово правда»), а не прогноз коры.
+// Ступень 3 (MAP = 0): какой нерв рта какое слово говорит, не сказано. Нервы рта -- из карты тела (их находит
+// исследователь); пока он не кончил, речь молчит (сначала тело, потом слова: ухо исследователя слышит и речь). Цена нерва рта --
+// w · [1, доводы всех семи слов, нервы] по улыбке (как SPX); лепет -- по найденным нервам рта.
 const { stream } = require('../rng');
 const { solve } = require('../linalg');
 const BABBLE = 0.05, FORGET = 0.999, RIDGE = 1, BODY = 20;
@@ -25,7 +28,9 @@ class Speech {
     this.m = new Float64Array(n).fill(0.05); this.z = new Float64Array(n);
     this.S = Array.from({ length: n }, () => ({ s11: RIDGE, s1z: 0, szz: RIDGE, c1: 0, cz: 0, a: 0, b: 0, n: 0 }));
     this.said = -1; this.sz = 0; this.babbles = 0; this.chosen = 0;
-    if (B.cfg.SPX) { const N = B.n, d = N + 2; this.d = d; this.f = new Float64Array(d); this.sf = new Float64Array(d); this.pr = new Float64Array(n);
+    this.line = !B.cfg.MAP; if (this.line) { const N = B.n, d = N + 1 + n; this.d = d; this.f = new Float64Array(d); this.sf = new Float64Array(d);
+      this.mu = new Float64Array(N); this.va = new Float64Array(N).fill(1); this.nv = 0; this.L = []; this.sl = -1; }
+    else if (B.cfg.SPX) { const N = B.n, d = N + 2; this.d = d; this.f = new Float64Array(d); this.sf = new Float64Array(d); this.pr = new Float64Array(n);
       this.mu = new Float64Array(N); this.va = new Float64Array(N).fill(1); this.nv = 0;
       this.X = Array.from({ length: n }, () => ({ A: new Float64Array(d * d), c: new Float64Array(d), yy: 0, w: new Float64Array(d), n: 0 })); }
     if (B.cfg.SPB) { const st = () => ({ s11: 0, s1z: 0, szz: 0, c1: 0, cz: 0, a: 0, b: 0, n: 0 }); this.base = Array.from({ length: n }, st); this.bp = Array.from({ length: n }, st); this.ring = []; this.vb = 1; }
@@ -45,8 +50,9 @@ class Speech {
         const s = this.bp[q.w]; Speech.acc(s, q.z[q.w], adv, FORGET); Speech.solve(s, RIDGE); } }
     B.led.work(null, 12 * n);
   }
-  lessonX(B, i, r) {
-    const X = this.X[i], d = this.d, f = this.sf, F = FORGET;
+  lessonX(B, i, r) { this.fitX(B, this.X[i], r); }
+  fitX(B, X, r) {
+    const d = this.d, f = this.sf, F = FORGET;
     for (let a = 0; a < d; a++) { X.c[a] = F * X.c[a] + f[a] * r; for (let b = 0; b <= a; b++) X.A[a * d + b] = F * X.A[a * d + b] + f[a] * f[b]; }
     X.yy = F * X.yy + r * r; X.n++;
     if (X.n % 20 === 0) { const A = new Float64Array(d * d); let tr = 0; for (let a = 0; a < d; a++) for (let b = 0; b <= a; b++) { A[a * d + b] = A[b * d + a] = X.A[a * d + b]; } for (let a = 0; a < d; a++) tr += A[a * d + a];
@@ -60,12 +66,14 @@ class Speech {
   }
   // улыбка на сказанное в прошлом круге -- урок цене этого слова
   sense(B) {
+    if (this.line) { if (this.sl >= 0) { this.fitX(B, this.L[this.sl], B.obs[this.smile]); this.sl = -1; B.led.work(null, 12); } return; }
     if (this.said < 0) return; if (this.X) this.lessonX(B, this.said, B.obs[this.smile]); else this.lesson(this.said, this.sz, B.obs[this.smile]); this.said = -1; B.led.work(null, 12);
   }
   act(B) {
     const v = B.bus.val, bus = B.bus, n = this.words.length;
     for (let i = 0; i < n; i++) { let s = 0, c = 0; for (const g of this.goods[i]) if (bus.owner[g] && bus.owner[g].alive) { s += v[g]; c++; }
       const x = c ? s / c : 0; this.m[i] += 0.001 * (x - this.m[i]); this.z[i] = B.cfg.SPEV ? x / Math.max(this.m[i], 1e-3) : 1; }
+    if (this.line) return this.actLine(B);
     if (this.X) { const N = B.n, f = this.f, o = B.obs; this.nv++; const k = Math.max(0.001, 1 / this.nv);   // свои нервы в своих единицах
       for (let j = 0; j < N; j++) { const dv = o[j] - this.mu[j]; this.mu[j] += k * dv; this.va[j] += k * (dv * dv - this.va[j]); f[2 + j] = dv / Math.sqrt(Math.max(this.va[j], 1e-6)); }
       f[0] = 1; for (let i = 0; i < n; i++) { f[1] = this.z[i]; const w = this.X[i].w; let r = 0; for (let a = 0; a < this.d; a++) r += w[a] * f[a]; this.pr[i] = r; }
@@ -79,4 +87,17 @@ class Speech {
     B.led.work(null, 4 * n);
   }
 }
+// речь без карты рта (MAP = 0): цена каждого найденного нерва рта по всем доводам и своим нервам
+Speech.prototype.actLine = function (B) {
+  const N = B.n, f = this.f, o = B.obs, n = this.words.length; this.nv++; const k = Math.max(0.001, 1 / this.nv);
+  f[0] = 1; for (let i = 0; i < n; i++) f[1 + i] = this.z[i];
+  for (let j = 0; j < N; j++) { const dv = o[j] - this.mu[j]; this.mu[j] += k * dv; this.va[j] += k * (dv * dv - this.va[j]); f[1 + n + j] = dv / Math.sqrt(Math.max(this.va[j], 1e-6)); }
+  if (!B.map.done) return;
+  const d = this.d; while (this.L.length < B.map.mouth.length) this.L.push({ k: B.map.mouth[this.L.length], A: new Float64Array(d * d), c: new Float64Array(d), yy: 0, w: new Float64Array(d), n: 0 });
+  if (!this.L.length) return; let w = -1;
+  if (this.rng() < BABBLE) { w = Math.floor(this.L.length * this.rng()); this.babbles++; }
+  else { let best = 0; for (let l = 0; l < this.L.length; l++) { const W = this.L[l].w; let r = 0; for (let a = 0; a < d; a++) r += W[a] * f[a]; if (r > best) { best = r; w = l; } } if (w >= 0) this.chosen++; }
+  if (w >= 0) { B.drive(this.L[w].k, 1); this.sl = w; this.sf.set(f); }
+  B.led.work(null, this.L.length * d);
+};
 module.exports = { Speech };

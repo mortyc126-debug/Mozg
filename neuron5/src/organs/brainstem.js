@@ -11,7 +11,7 @@ class Brainstem {
     const c = B.cfg, o = B.obs, i = this.i, v = B.bus.val, P = this.props;
     v[P[0]] = c.GF * (1 - o[i.e]) * (o[i.fl] - o[i.fr]); v[P[1]] = c.GF * (1 - o[i.h]) * (o[i.wl] - o[i.wr]);
     v[P[2]] = -c.GP * (o[i.pl] - o[i.pr]); v[P[3]] = -c.GW * (o[i.tl] - o[i.tr]);
-    if (!c.BG) B.drive(i.m, Math.max(-4, Math.min(4, v[P[0]] + v[P[1]] + v[P[2]] + v[P[3]] + c.USIG * this.rng.gauss())));
+    if (!c.BG) { const cmd = Math.max(-4, Math.min(4, v[P[0]] + v[P[1]] + v[P[2]] + v[P[3]] + c.USIG * this.rng.gauss())); if (B.map.m !== null) B.drive(B.map.m, B.map.sign * cmd); }
   }
 }
 module.exports = { Brainstem };

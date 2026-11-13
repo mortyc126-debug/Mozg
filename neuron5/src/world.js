@@ -28,7 +28,7 @@ class World {
     // врождённая карта тела -- для ствола мозга (какой нерв что несёт) и внимания к голосу
     this.innate = {}; for (const [k, v] of Object.entries(this.S)) this.innate[k] = this.nerves.indexOf(v);
     this.innate.voice = this.voice.map((v) => this.nerves.indexOf(v));
-    if (c.SPEAK) { this.innate.mouth = this.mouth.map((v) => this.nerves.indexOf(v)); this.innate.smile = this.nerves.indexOf(this.smile);
+    if (c.SPEAK) { this.innate.mouth = this.mouth.map((v) => this.nerves.indexOf(v)); this.innate.smile = this.nerves.indexOf(this.smile); this.innate.ear = this.nerves.indexOf(this.ear);
       this.rs = stream(seed, 'улыбка'); this.lastEv = new Float64Array(4).fill(-1e9); this.nameAt = new Float64Array(4).fill(-1e9); this.f = new Float64Array(WORDS.length).fill(0.05);
       if (c.REQ) { this.rq = stream(seed, 'помощь'); this.lastHelp = [-1e9, -1e9]; this.helps = [0, 0]; }
       this.sp = { said: new Array(WORDS.length).fill(0), ok: new Array(WORDS.length).fill(0), tru: new Array(WORDS.length).fill(0), ev: [0, 0, 0, 0], named: [0, 0, 0, 0], talk: 0, when: [0, 0, 0, 0].map(() => [0, 0, 0, 0, 0]), lastPar: new Float64Array(WORDS.length).fill(-1e9), fresh: new Array(WORDS.length).fill(0), freshOk: new Array(WORDS.length).fill(0) }; }

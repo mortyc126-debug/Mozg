@@ -23,7 +23,7 @@ class BasalGanglia {
     let u = 0; for (let j = 0; j < J; j++) { const p = v[P[j]], a = Math.abs(p); this.cur.ex[j] += a; this.mabs[j] += 0.001 * (a - this.mabs[j]);
       if (!c.BCTX) u += (this.al[j] + this.cur.xi[j]) * p;
       else { u += Math.max(0, this.al[j] + this.cur.xi[j] + (this.ga[j] + this.cur.ze[j]) * cx) * p; this.cur.ez[j] += cx * a; this.mz[j] += 0.001 * (Math.abs(cx) * a - this.mz[j]); } }
-    this.cur.n++; B.drive(B.world.innate.m, Math.max(-4, Math.min(4, u + c.USIG * this.rng.gauss()))); B.led.work(null, 3 * J);
+    this.cur.n++; const cmd = Math.max(-4, Math.min(4, u + c.USIG * this.rng.gauss())); if (B.map.m !== null) B.drive(B.map.m, B.map.sign * cmd); B.led.work(null, 3 * J);
   }
   learn(B) {
     const c = B.cfg; if (B.t % c.BFIT !== 0) return; const L = this.bouts; this.bouts = []; if (!(c.BLR > 0) || L.length < 30 || !B.critic.w) return;

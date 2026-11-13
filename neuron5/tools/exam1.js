@@ -24,4 +24,9 @@ console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerR
     return { auc: auc(pos, neg), pains: B.amyg.pains, fits: B.amyg.fits, mean: +B.amyg.mean.toFixed(4) }; })() : null,
   bg: B.bg ? { al: Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.al[j].toFixed(3)])), ga: B.cfg.BCTX ? Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.ga[j].toFixed(3)])) : null, steps: B.bg.steps, vfits: B.critic.fits } : null,
   broca: B.speech ? { babbles: B.speech.babbles, chosen: B.speech.chosen, vb: B.speech.vb, price: Object.fromEntries(WORDS.map((w, i) => [w, { a: +B.speech.S[i].a.toFixed(3), b: +B.speech.S[i].b.toFixed(3), n: B.speech.S[i].n, ...(B.speech.bp ? { ta: +B.speech.bp[i].a.toFixed(3), tb: +B.speech.bp[i].b.toFixed(3), tn: B.speech.bp[i].n } : {}) }])) } : null,
+  explorer: B.explorer ? (() => { const I = W.innate, E = B.explorer, mouth = new Set(I.mouth), found = new Set(B.map.mouth);
+    return { doneAt: E.doneAt, motorOk: B.map.m === I.m, sign: B.map.sign, mouthOk: I.mouth.every((k) => found.has(k)), falseMouth: B.map.mouth.filter((k) => !mouth.has(k)).length,
+      falseMotor: E.verdict.filter((v, k) => v === 'двигатель' && k !== I.m).length, empty: E.verdict.filter((v) => v === 'пусто').length,
+      lines: B.speech && B.speech.L ? B.speech.L.map((L) => { const nm = WORDS[I.mouth.indexOf(L.k)], w = Array.from(L.w.slice(1, 1 + WORDS.length)); const top = w.map((x, i) => [WORDS[i], x]).sort((a, b) => b[1] - a[1])[0];
+        return { word: nm, n: L.n, topEvidence: top[0], topW: +top[1].toFixed(3) }; }) : null }; })() : null,
   cortex: { births: B.cortex.births, deaths: B.cortex.deaths, parts: B.cortex.ch.reduce((a, c) => a + c.parts.length, 0) }, flow: Object.fromEntries(Object.entries(B.led.flow).map(([k, v]) => [k, Math.round(v)])) }));
