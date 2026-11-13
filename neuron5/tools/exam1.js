@@ -23,4 +23,5 @@ console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerR
   amyg: B.amyg ? (() => { const lab = new Uint8Array(fears.length); for (const i of bitesAt) for (let k = Math.max(0, i - 9); k <= i; k++) lab[k] = 1; const pos = [], neg = []; fears.forEach((x, i) => (lab[i] ? pos : neg).push(x));
     return { auc: auc(pos, neg), pains: B.amyg.pains, fits: B.amyg.fits, mean: +B.amyg.mean.toFixed(4) }; })() : null,
   bg: B.bg ? { al: Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.al[j].toFixed(3)])), ga: B.cfg.BCTX ? Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.ga[j].toFixed(3)])) : null, steps: B.bg.steps, vfits: B.critic.fits } : null,
+  broca: B.speech ? { babbles: B.speech.babbles, chosen: B.speech.chosen, price: Object.fromEntries(WORDS.map((w, i) => [w, { a: +B.speech.S[i].a.toFixed(3), b: +B.speech.S[i].b.toFixed(3), n: B.speech.S[i].n }])) } : null,
   cortex: { births: B.cortex.births, deaths: B.cortex.deaths, parts: B.cortex.ch.reduce((a, c) => a + c.parts.length, 0) }, flow: Object.fromEntries(Object.entries(B.led.flow).map(([k, v]) => [k, Math.round(v)])) }));

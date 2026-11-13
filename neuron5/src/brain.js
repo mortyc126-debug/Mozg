@@ -11,6 +11,7 @@ const { Hippocampus } = require('./organs/hippocampus');
 const { Critic } = require('./organs/critic');
 const { BasalGanglia } = require('./organs/bg');
 const { Amygdala } = require('./organs/amygdala');
+const { Speech } = require('./organs/speech');
 
 class Brain {
   constructor(cfg, world, seed) {
@@ -23,6 +24,7 @@ class Brain {
     this.stem = new Brainstem(this); this.cortex = new Cortex(this); this.hippo = new Hippocampus(this);
     this.organs = [this.stem, this.cortex, this.hippo];
     if (cfg.BG) { this.critic = new Critic(this); this.organs.push(this.critic); if (cfg.BCTX) { this.amyg = new Amygdala(this); this.organs.push(this.amyg); } this.bg = new BasalGanglia(this); this.organs.push(this.bg); }
+    if (cfg.SPEAK) { this.speech = new Speech(this); this.organs.push(this.speech); }
   }
   // команда на нерв k: уходит в мир и видна на шине (копия команды)
   drive(k, v) { if (this.cmd[k] === undefined) this.cmd[k] = this.bus.add('команда', null, k, this.t); this.u[k] = v; this.bus.val[this.cmd[k]] = v; }
