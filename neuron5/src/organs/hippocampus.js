@@ -18,7 +18,7 @@ function form(log, H, f, s, nt, hz) {
 }
 class Hippocampus {
   constructor(B) {
-    const n = B.n; this.prev = new Float64Array(n).fill(NaN); this.dabs = new Float64Array(n); this.N = new Map(); this.on = new Float64Array(n); this.hit = new Map(); this.rounds = 0;
+    const n = B.n; this.prev = new Float64Array(n).fill(NaN); this.dabs = new Float64Array(n); this.N = new Map(); this.on = new Float64Array(n); this.off = new Float64Array(n); this.hit = new Map(); this.rounds = 0;
     this.log = new Array(B.cfg.H).fill(EMPTY);   // перепады последних H кругов (для выхода следов и их записи задним числом)
     this.traces = []; this.free = []; this.wait = new Map(); this.born = 0; this.dead = 0;
   }
@@ -31,7 +31,10 @@ class Hippocampus {
       this.dabs[k] += (a - this.dabs[k]) / Math.min(t, 1000); }
     this.log[t % cfg.H] = ev.length ? ev : EMPTY;
     if (t > 1000) { this.rounds++;
-      for (const e of ev) { this.N.set(e, (this.N.get(e) || 0) + 1); if (!(e & 1)) continue; const tk = e >> 1; this.on[tk]++;
+      for (const e of ev) { this.N.set(e, (this.N.get(e) || 0) + 1);
+        if (!(e & 1)) { if (!cfg.HOFF) continue;   // конец сигнала: цель tk + 64, свой нерв -- тоже предвестник (сколько длится)
+          const tk = e >> 1; this.off[tk]++; for (let L = 1; L <= cfg.HLAG; L++) for (const x of this.log[(t - L) % cfg.H]) if (x !== e) { const key = ((tk + 64) * 64 + L) * 4096 + x; this.hit.set(key, (this.hit.get(key) || 0) + 1); } continue; }
+        const tk = e >> 1; this.on[tk]++;
         for (let L = 1; L <= cfg.HLAG; L++) for (const x of this.log[(t - L) % cfg.H]) if (x >> 1 !== tk) { const key = (tk * 64 + L) * 4096 + x; this.hit.set(key, (this.hit.get(key) || 0) + 1); } } }
     for (const tr of this.traces) { B.bus.val[tr.good] = this.fired(B, tr, t); B.led.work(tr, 1); }
     B.led.work(null, B.n + 4 * ev.length);
@@ -40,7 +43,7 @@ class Hippocampus {
     const cfg = B.cfg, t = B.t; if (t % 100 !== 0 || t < 2000) return;
     const best = new Map();   // (нерв-цель, перепад) -> лучшая задержка
     for (const [key, h] of this.hit) { if (h < cfg.HMIN) continue; const x = key % 4096, q = Math.floor(key / 4096), L = q % 64, tk = Math.floor(q / 64), N = this.N.get(x) || 0; if (N < cfg.HMIN) continue;
-      const base = this.on[tk] / this.rounds, lift = h / N / base; if (lift < cfg.HLIFT) continue;
+      const base = (tk >= 64 ? this.off[tk - 64] : this.on[tk]) / this.rounds, lift = h / N / base; if (!(lift >= cfg.HLIFT)) continue;
       const z = (h - N * base) / Math.sqrt(N * base * (1 - base)); if (!(z > cfg.HZC)) continue;
       const kk = tk * 4096 + x, b = best.get(kk); if (!b || lift > b.lift) best.set(kk, { tk, x, L, lift, w0: h / N - base, N }); }
     B.led.work(null, this.hit.size);
@@ -48,7 +51,7 @@ class Hippocampus {
       let tr = this.traces.find((q) => !q.inv && q.x === b.x && q.D === D); if (tr && tr.targets.has(b.tk)) continue;
       if (this.traces.filter((q) => !q.inv && q.targets.has(b.tk)).length >= cfg.HPER) continue;
       if (!tr) { const w = this.wait.get(name); if (w && t < w.next) continue; tr = this.birth(B, b.x, D, name); }
-      tr.targets.add(b.tk); B.cortex.deliver(B, b.tk, tr.good, b.w0, Math.min(b.N, cfg.HPRIOR)); }
+      tr.targets.add(b.tk); B.cortex.deliver(B, b.tk >= 64 ? b.tk - 64 : b.tk, tr.good, b.tk >= 64 ? -b.w0 : b.w0, Math.min(b.N, cfg.HPRIOR)); }   // след конца сигнала -- вес вниз
   }
   // след изобретённой формы (organs/inventor.js): f -- «и» условий «x был D1..D2 кругов назад»
   birthForm(B, f, tk, w0, kappa, nt, hz) {

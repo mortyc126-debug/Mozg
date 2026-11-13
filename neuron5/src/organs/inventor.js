@@ -41,7 +41,7 @@ class Inventor {
     if (t % 1000 !== 0 || t < 3000) return;
     // запросы: совпадения по всем задержкам вместе
     const agg = new Map(), top = new Map();
-    for (const [key, h] of H.hit) { const x = key % 4096, q = Math.floor(key / 4096), L = q % 64, tk = Math.floor(q / 64), k2 = tk * 4096 + x;
+    for (const [key, h] of H.hit) { const x = key % 4096, q = Math.floor(key / 4096), L = q % 64, tk = Math.floor(q / 64), k2 = tk * 4096 + x; if (tk >= 64) continue;   // концы сигнала -- не для изобретателя
       const a = agg.get(k2) || { tk, x, H: 0, byL: new Array(cfg.HLAG + 1).fill(0) }; a.H += h; a.byL[L] += h; agg.set(k2, a);
       const tl = top.get(tk) || []; tl.push({ x, L, h }); top.set(tk, tl); }
     B.led.work(null, H.hit.size);
