@@ -30,6 +30,7 @@ class World {
     this.innate.voice = this.voice.map((v) => this.nerves.indexOf(v));
     if (c.SPEAK) { this.innate.mouth = this.mouth.map((v) => this.nerves.indexOf(v)); this.innate.smile = this.nerves.indexOf(this.smile);
       this.rs = stream(seed, 'улыбка'); this.lastEv = new Float64Array(4).fill(-1e9); this.nameAt = new Float64Array(4).fill(-1e9); this.f = new Float64Array(WORDS.length).fill(0.05);
+      if (c.REQ) { this.rq = stream(seed, 'помощь'); this.lastHelp = [-1e9, -1e9]; this.helps = [0, 0]; }
       this.sp = { said: new Array(WORDS.length).fill(0), ok: new Array(WORDS.length).fill(0), tru: new Array(WORDS.length).fill(0), ev: [0, 0, 0, 0], named: [0, 0, 0, 0], talk: 0, when: [0, 0, 0, 0].map(() => [0, 0, 0, 0, 0]), lastPar: new Float64Array(WORDS.length).fill(-1e9), fresh: new Array(WORDS.length).fill(0), freshOk: new Array(WORDS.length).fill(0) }; }
     this.vq = new Uint8Array(16); this.vring = new Uint8Array(10000);
     this.ev = { ate: 0, drank: 0, bite: 0, hit: 0, died: 0 };   // что случилось в последнем шаге (правда для мер, мозгу не видна)
@@ -91,6 +92,9 @@ class World {
     for (let j = 0; j < 3; j++) tru[4 + j] = st[j];
     for (let i = 0; i < W; i++) { this.f[i] += 0.001 * ((tru[i] ? 1 : 0) - this.f[i]); if (late && tru[i]) sp.tru[i]++; }
     let w = -1, best = 0.7; for (let i = 0; i < W; i++) { const v = u[this.innate.mouth[i]] || 0; if (v > best) { best = v; w = i; } }
+    // просьба (ступень 5): «голодно» / «жажда» при правде -- родитель приносит еду / воду; REQ = 2 -- подарок наугад с частотой REQP
+    if (this.cfg.REQ === 1 && w >= 4 && w <= 5 && tru[w]) this.help(w - 4, t, late);
+    if (this.cfg.REQ === 2) for (let j = 0; j < 2; j++) if (this.rq() < this.cfg.REQP) this.help(j, t, late);
     this.ear.val = w >= 0 ? 1 : 0; if (w < 0) { this.smile.val = 0; return; }
     const ok = this.cfg.SPEAK === 2 ? this.rs() < this.f[w] : tru[w]; this.smile.val = ok ? 1 - this.f[w] : -0.3;
     if (late) { sp.talk++; sp.said[w]++; if (tru[w]) sp.ok[w]++;
@@ -99,8 +103,13 @@ class World {
       // в круге не позже t-1, по которому сделан прогноз); иначе -- «сам»
       if (t - sp.lastPar[w] >= 2 && t - sp.lastPar[w] <= 11) { sp.fresh[w]++; if (tru[w]) sp.freshOk[w]++; } }
   }
+  help(j, t, late) {
+    if (t - this.lastHelp[j] < 20) return; this.lastHelp[j] = t; if (late) this.helps[j]++; const A = this.cfg.KA;
+    const o = { x: Math.min(A, Math.max(0, this.x + 2.5 * Math.cos(this.th))), y: Math.min(A, Math.max(0, this.y + 2.5 * Math.sin(this.th))) };
+    if (j === 0) this.food = o; else this.water = o;
+  }
   result() { const s = this.st, n = Math.max(1, s.n); return { comfort: s.C / n, eat: 1000 * (s.food + s.water) / n, food: 1000 * s.food / n, water: 1000 * s.water / n, bites: 1000 * s.bites / n, deaths: 1000 * s.deaths / n, wall: s.wall / n, needs: { E: s.eh.map((x) => +(x / n).toFixed(3)), H: s.hh.map((x) => +(x / n).toFixed(3)) },
-    speech: this.sp ? { talk: this.sp.talk / n, words: WORDS.map((w, i) => ({ name: w, said: this.sp.said[i], ok: this.sp.ok[i], tru: this.sp.tru[i], prec: this.sp.said[i] ? this.sp.ok[i] / this.sp.said[i] : null, base: this.sp.tru[i] / n,
+    speech: this.sp ? { talk: this.sp.talk / n, helps: this.helps ? this.helps.map((x) => 1000 * x / n) : null, words: WORDS.map((w, i) => ({ name: w, said: this.sp.said[i], ok: this.sp.ok[i], tru: this.sp.tru[i], prec: this.sp.said[i] ? this.sp.ok[i] / this.sp.said[i] : null, base: this.sp.tru[i] / n,
       after: this.sp.fresh[i], afterOk: this.sp.freshOk[i],
       ...(i < 4 ? { events: this.sp.ev[i], named: this.sp.ev[i] ? this.sp.named[i] / this.sp.ev[i] : null, when: this.sp.when[i] } : {}) })) } : null }; }
 }
