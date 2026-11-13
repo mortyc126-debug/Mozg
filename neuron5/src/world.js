@@ -30,7 +30,7 @@ class World {
     this.innate.voice = this.voice.map((v) => this.nerves.indexOf(v));
     if (c.SPEAK) { this.innate.mouth = this.mouth.map((v) => this.nerves.indexOf(v)); this.innate.smile = this.nerves.indexOf(this.smile);
       this.rs = stream(seed, 'улыбка'); this.lastEv = new Float64Array(4).fill(-1e9); this.nameAt = new Float64Array(4).fill(-1e9); this.f = new Float64Array(WORDS.length).fill(0.05);
-      this.sp = { said: new Array(WORDS.length).fill(0), ok: new Array(WORDS.length).fill(0), tru: new Array(WORDS.length).fill(0), ev: [0, 0, 0, 0], named: [0, 0, 0, 0], talk: 0 }; }
+      this.sp = { said: new Array(WORDS.length).fill(0), ok: new Array(WORDS.length).fill(0), tru: new Array(WORDS.length).fill(0), ev: [0, 0, 0, 0], named: [0, 0, 0, 0], talk: 0, when: [0, 0, 0, 0].map(() => [0, 0, 0, 0, 0]), lastPar: new Float64Array(WORDS.length).fill(-1e9), fresh: new Array(WORDS.length).fill(0), freshOk: new Array(WORDS.length).fill(0) }; }
     this.vq = new Uint8Array(16); this.vring = new Uint8Array(10000);
     this.ev = { ate: 0, drank: 0, bite: 0, hit: 0, died: 0 };   // что случилось в последнем шаге (правда для мер, мозгу не видна)
     this.st = { n: 0, food: 0, water: 0, bites: 0, deaths: 0, wall: 0, C: 0, eh: new Array(10).fill(0), hh: new Array(10).fill(0) };   // вторая половина жизни
@@ -81,7 +81,7 @@ class World {
     const st = this.states(); for (let i = 0; i < 3; i++) if (this.rv() < 0.1 && st[i]) m |= 16 << i;
     // контроль: каждое слово -- из своего случайного прошлого круга (2000-9000 кругов назад): та же частота, связи с «сейчас» нет
     let out = m; if (c.VOICE === 2) { out = 0; this.vring[t % 10000] = m; if (t > 9000) for (let i = 0; i < WORDS.length; i++) out |= this.vring[(t - 2000 - Math.floor(7000 * this.rv())) % 10000] & (1 << i); }
-    for (let i = 0; i < WORDS.length; i++) this.voice[i].val = (out >> i) & 1;
+    for (let i = 0; i < WORDS.length; i++) { this.voice[i].val = (out >> i) & 1; if (this.sp && this.voice[i].val) this.sp.lastPar[i] = t; }
   }
   // рот: сказано слово с наибольшей командой больше 0.7; правда -- событие в одном из 5 шагов до этого круга или состояние сейчас;
   // улыбка: верно -- 1 - f (f -- бегущая частота правды слова), неверно -- -0.3; SPEAK = 2 -- «верно» наугад с вероятностью f
@@ -94,10 +94,14 @@ class World {
     this.ear.val = w >= 0 ? 1 : 0; if (w < 0) { this.smile.val = 0; return; }
     const ok = this.cfg.SPEAK === 2 ? this.rs() < this.f[w] : tru[w]; this.smile.val = ok ? 1 - this.f[w] : -0.3;
     if (late) { sp.talk++; sp.said[w]++; if (tru[w]) sp.ok[w]++;
-      if (w < 4 && tru[w] && this.nameAt[w] !== this.lastEv[w]) { this.nameAt[w] = this.lastEv[w]; if (this.lastEv[w] > this.cfg.ROUNDS / 2) sp.named[w]++; } }
+      if (w < 4 && tru[w] && this.nameAt[w] !== this.lastEv[w]) { this.nameAt[w] = this.lastEv[w]; if (this.lastEv[w] > this.cfg.ROUNDS / 2) { sp.named[w]++; sp.when[w][t - this.lastEv[w] - 1]++; } }
+      // только для отчёта: «вслед» -- выбор слова мог опираться на это слово родителя (сказано в шагах t-11..t-2, услышано
+      // в круге не позже t-1, по которому сделан прогноз); иначе -- «сам»
+      if (t - sp.lastPar[w] >= 2 && t - sp.lastPar[w] <= 11) { sp.fresh[w]++; if (tru[w]) sp.freshOk[w]++; } }
   }
   result() { const s = this.st, n = Math.max(1, s.n); return { comfort: s.C / n, eat: 1000 * (s.food + s.water) / n, food: 1000 * s.food / n, water: 1000 * s.water / n, bites: 1000 * s.bites / n, deaths: 1000 * s.deaths / n, wall: s.wall / n, needs: { E: s.eh.map((x) => +(x / n).toFixed(3)), H: s.hh.map((x) => +(x / n).toFixed(3)) },
     speech: this.sp ? { talk: this.sp.talk / n, words: WORDS.map((w, i) => ({ name: w, said: this.sp.said[i], ok: this.sp.ok[i], tru: this.sp.tru[i], prec: this.sp.said[i] ? this.sp.ok[i] / this.sp.said[i] : null, base: this.sp.tru[i] / n,
-      ...(i < 4 ? { events: this.sp.ev[i], named: this.sp.ev[i] ? this.sp.named[i] / this.sp.ev[i] : null } : {}) })) } : null }; }
+      after: this.sp.fresh[i], afterOk: this.sp.freshOk[i],
+      ...(i < 4 ? { events: this.sp.ev[i], named: this.sp.ev[i] ? this.sp.named[i] / this.sp.ev[i] : null, when: this.sp.when[i] } : {}) })) } : null }; }
 }
 module.exports = { World, WORDS };
