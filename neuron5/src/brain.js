@@ -13,6 +13,7 @@ const { BasalGanglia } = require('./organs/bg');
 const { Amygdala } = require('./organs/amygdala');
 const { Speech } = require('./organs/speech');
 const { Explorer } = require('./organs/explorer');
+const { Inventor } = require('./organs/inventor');
 
 class Brain {
   constructor(cfg, world, seed) {
@@ -26,6 +27,7 @@ class Brain {
     const I = world.innate; this.map = cfg.MAP ? { m: I.m, sign: 1, mouth: I.mouth || [], done: true } : { m: null, sign: 1, mouth: [], done: false };
     this.stem = new Brainstem(this); this.cortex = new Cortex(this); this.hippo = new Hippocampus(this);
     this.organs = [this.stem, this.cortex, this.hippo];
+    if (cfg.INV) { this.inventor = new Inventor(this); this.organs.push(this.inventor); }
     if (cfg.BG) { this.critic = new Critic(this); this.organs.push(this.critic); if (cfg.BCTX) { this.amyg = new Amygdala(this); this.organs.push(this.amyg); } this.bg = new BasalGanglia(this); this.organs.push(this.bg); }
     if (cfg.SPEAK) { this.speech = new Speech(this); this.organs.push(this.speech); }
     if (!cfg.MAP) { this.explorer = new Explorer(this); this.organs.push(this.explorer); }

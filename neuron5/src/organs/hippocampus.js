@@ -15,7 +15,8 @@ class Hippocampus {
     this.log = new Array(B.cfg.H).fill(EMPTY);   // перепады последних H кругов (для выхода следов и их записи задним числом)
     this.traces = []; this.free = []; this.wait = new Map(); this.born = 0; this.dead = 0;
   }
-  fired(B, tr, s) { const q = s - tr.D; return q > 0 && this.log[q % B.cfg.H].includes(tr.x) ? 1 : 0; }
+  fired(B, tr, s) { if (tr.f) { for (const c of tr.f) { let ok = false; for (let D = c.D1; D <= c.D2 && !ok; D++) { const q = s - D; if (q > 0 && this.log[q % B.cfg.H].includes(c.x)) ok = true; } if (!ok) return 0; } return 1; }
+    const q = s - tr.D; return q > 0 && this.log[q % B.cfg.H].includes(tr.x) ? 1 : 0; }
   sense(B) {
     const cfg = B.cfg, t = B.t, ev = [];
     for (let k = 0; k < B.n; k++) { const x = B.obs[k], p = this.prev[k]; this.prev[k] = x; if (p !== p) continue;
@@ -37,13 +38,18 @@ class Hippocampus {
       const kk = tk * 4096 + x, b = best.get(kk); if (!b || lift > b.lift) best.set(kk, { tk, x, L, lift, w0: h / N - base, N }); }
     B.led.work(null, this.hit.size);
     for (const b of [...best.values()].sort((a, c) => c.lift - a.lift)) { const D = b.L - 1, name = `${b.x}@${D}`;
-      let tr = this.traces.find((q) => q.x === b.x && q.D === D); if (tr && tr.targets.has(b.tk)) continue;
-      if (this.traces.filter((q) => q.targets.has(b.tk)).length >= cfg.HPER) continue;
+      let tr = this.traces.find((q) => !q.inv && q.x === b.x && q.D === D); if (tr && tr.targets.has(b.tk)) continue;
+      if (this.traces.filter((q) => !q.inv && q.targets.has(b.tk)).length >= cfg.HPER) continue;
       if (!tr) { const w = this.wait.get(name); if (w && t < w.next) continue; tr = this.birth(B, b.x, D, name); }
       tr.targets.add(b.tk); B.cortex.deliver(B, b.tk, tr.good, b.w0, Math.min(b.N, cfg.HPRIOR)); }
   }
-  birth(B, x, D, name) {
-    const cfg = B.cfg, bus = B.bus, t = B.t, tr = B.led.open('след', cfg.HCRED, { home: this, x, D, name, targets: new Set(), good: -1 });
+  // след изобретённой формы (organs/inventor.js): f -- «и» условий «x был D1..D2 кругов назад»
+  birthForm(B, f, tk, w0, kappa) {
+    const name = 'изобр:' + f.map((c) => `${c.x}@${c.D1}-${c.D2}`).join('&'), D = Math.max(...f.map((c) => c.D2));
+    const tr = this.birth(B, f[0].x, D, name, f); tr.inv = true; tr.targets.add(tk); B.cortex.deliver(B, tk, tr.good, w0, kappa); return tr;
+  }
+  birth(B, x, D, name, f) {
+    const cfg = B.cfg, bus = B.bus, t = B.t, tr = B.led.open('след', cfg.HCRED, { home: this, x, D, name, targets: new Set(), good: -1 }); if (f) tr.f = f;
     if (this.free.length) { tr.good = this.free.pop(); bus.renew(tr.good, tr, name, t); } else tr.good = bus.add('след', tr, name, t);
     // запись задним числом: гиппокамп помнит перепады последних H кругов -- кора сразу видит след на своей записи
     const s0 = Math.max(1, t - cfg.H + 1 + D); for (let s = s0; s <= t; s++) bus.rec[(s % cfg.H) * bus.cap + tr.good] = this.fired(B, tr, s);

@@ -12,7 +12,7 @@ const WORDS = ['еда', 'вода', 'укус', 'удар', 'голодно', '
 class World {
   constructor(cfg, seed) {
     this.cfg = cfg; this.seed = seed; const c = cfg, r = stream(seed, 'устройство мира');
-    this.rn = stream(seed, 'шум мира'); this.rp = stream(seed, 'место'); this.rpr = stream(seed, 'хищник'); this.rv = stream(seed, 'голос');
+    this.rn = stream(seed, 'шум мира'); this.rp = stream(seed, 'место'); this.rpr = stream(seed, 'хищник'); this.rv = stream(seed, 'голос'); if (cfg.VJIT) this.rj = stream(seed, 'задержка');
     this.t = 0; this.x = c.KA / 2; this.y = c.KA / 2; this.th = 2 * Math.PI * this.rp(); this.E = 1; this.H = 1; this.turn = 0; this.touch = 0; this.C = 0;
     this.put = () => ({ x: c.KA * this.rp(), y: c.KA * this.rp() }); this.food = this.put(); this.water = this.put();
     this.pred = { x: 0, y: 0 }; this.pdir = 2 * Math.PI * this.rpr(); this.relocate();
@@ -78,7 +78,9 @@ class World {
   states() { return [this.E < this.cfg.VNEED, this.H < this.cfg.VNEED, Math.hypot(this.x - this.pred.x, this.y - this.pred.y) < 8]; }
   speak(t) {
     const c = this.cfg, q = this.vq, ev = this.ev, e = (ev.ate ? 1 : 0) | (ev.drank ? 2 : 0) | (ev.bite ? 4 : 0) | (ev.hit ? 8 : 0);
-    let m = q[t % 16]; q[t % 16] = 0; for (let r = 0; r < c.VREP; r++) q[(t + c.VLAG + r) % 16] |= e;
+    let m = q[t % 16]; q[t % 16] = 0;
+    if (!c.VJIT) for (let r = 0; r < c.VREP; r++) q[(t + c.VLAG + r) % 16] |= e;
+    else for (let b = 0; b < 4; b++) if (e & (1 << b)) { const lag = c.VLAG + Math.floor((c.VJIT + 1) * this.rj()); for (let r = 0; r < c.VREP; r++) q[(t + lag + r) % 16] |= 1 << b; }   // ступень 6: у каждого события своя задержка
     const st = this.states(); for (let i = 0; i < 3; i++) if (this.rv() < 0.1 && st[i]) m |= 16 << i;
     // контроль: каждое слово -- из своего случайного прошлого круга (2000-9000 кругов назад): та же частота, связи с «сейчас» нет
     let out = m; if (c.VOICE === 2) { out = 0; this.vring[t % 10000] = m; if (t > 9000) for (let i = 0; i < WORDS.length; i++) out |= this.vring[(t - 2000 - Math.floor(7000 * this.rv())) % 10000] & (1 << i); }
