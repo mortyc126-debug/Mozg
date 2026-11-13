@@ -33,7 +33,9 @@ class Brain {
   }
   // команда на нерв k: уходит в мир и видна на шине (копия команды)
   drive(k, v) { if (this.cmd[k] === undefined) this.cmd[k] = this.bus.add('команда', null, k, this.t); this.u[k] = v; this.bus.val[this.cmd[k]] = v; }
-  step() {
+  step() { this.think(); this.world.advance(this.u); }
+  // круг мозга без шага мира (ступень 7: два мозга думают, потом мир шагает один раз)
+  think() {
     const t = ++this.t, W = this.world, bus = this.bus;
     W.observe(this.obs); for (let k = 0; k < this.n; k++) bus.val[this.nerve[k]] = this.obs[k];
     bus.val[this.comfort] = W.comfort(); this.u.fill(0);
@@ -43,7 +45,6 @@ class Brain {
     for (const o of this.organs) if (o.expect) o.expect(this);
     for (const o of this.organs) if (o.learn) o.learn(this);
     for (const p of this.led.settle()) p.home.bury(this, p);
-    W.advance(this.u);
   }
 }
 module.exports = { Brain };
