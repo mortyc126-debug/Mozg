@@ -5,10 +5,9 @@ const path = require('path'), R = path.join(__dirname, '..', 'src');
 const { make } = require(R + '/config'), { World, WORDS } = require(R + '/world'), { Brain } = require(R + '/brain');
 const seed = +process.argv[2], over = Object.fromEntries(process.argv.slice(3).map((a) => a.split('=')));
 const cfg = make(over), W = new World(cfg, seed), B = new Brain(cfg, W, seed), t00 = Date.now();
-const words = W.voice.map((ch, i) => ({ name: WORDS[i], k: W.nerves.indexOf(ch), pos: [], neg: [] })); let last = words.map(() => 0); const fears = [], bitesAt = [];
+const words = W.voice.map((ch, i) => ({ name: WORDS[i], k: W.nerves.indexOf(ch), pos: [], neg: [] })); let last = words.map(() => 0);
 for (let t = 1; t <= cfg.ROUNDS; t++) {
   B.step();   // прогноз сделан в этом круге до шага мира; слово следующего наблюдения мир выбрал в конце круга
-  if (B.amyg && t > cfg.ROUNDS / 2) { fears.push(B.amyg.fear); if (W.ev.bite) bitesAt.push(fears.length - 1); }   // страх круга (до шага мира) и укус в этом шаге
   if (t > cfg.ROUNDS / 2) words.forEach((w, i) => { const v = W.voice[i].val, pr = B.cortex.forecast(w.k); if (!v) w.neg.push(pr); else if (i >= 4 || !last[i]) w.pos.push(pr); });
   last = W.voice.map((ch) => ch.val);
 }
@@ -16,15 +15,12 @@ function auc(pos, neg) { if (!pos.length || !neg.length) return null; const all 
   let r = 0, i = 0; while (i < all.length) { let j = i; while (j + 1 < all.length && all[j + 1][0] === all[i][0]) j++; const rank = (i + j) / 2 + 1; for (let q = i; q <= j; q++) if (all[q][1]) r += rank; i = j + 1; }
   return (r - pos.length * (pos.length + 1) / 2) / (pos.length * neg.length); }
 const kinds = W.truth(), bus = B.bus, ev = (x) => `${kinds[x >> 1]} ${x & 1 ? '+' : '−'}`;
-const nameOf = (g) => (bus.kind[g] === 'рефлекс' ? `рефлекс(${bus.name[g]})` : bus.kind[g] === 'нерв' ? kinds[bus.name[g]] : bus.kind[g] === 'след' ? (bus.owner[g].f ? `изобр(${bus.owner[g].f.map((c) => ev(c.x) + ' ' + c.D1 + '..' + c.D2).join(' и ')}${bus.owner[g].nt >= 0 ? ', ещё не было' : ''})` : `след(${ev(bus.owner[g].x)}, ${bus.owner[g].D})`) : bus.kind[g] === 'прогноз' ? `прогноз(${kinds[bus.name[g]]})` : bus.kind[g] === 'команда' ? `команда(${kinds[bus.name[g]]})` : bus.kind[g] === 'чисто' ? `чисто(${kinds[bus.name[g]]})` : bus.kind[g]);
+const nameOf = (g) => (bus.kind[g] === 'рефлекс' ? `рефлекс(${bus.name[g]})` : bus.kind[g] === 'нерв' ? kinds[bus.name[g]] : bus.kind[g] === 'след' ? (bus.owner[g].f ? `изобр(${bus.owner[g].f.map((c) => ev(c.x) + ' ' + c.D1 + '..' + c.D2).join(' и ')})` : `след(${ev(bus.owner[g].x)}, ${bus.owner[g].D})`) : bus.kind[g] === 'прогноз' ? `прогноз(${kinds[bus.name[g]]})` : bus.kind[g] === 'команда' ? `команда(${kinds[bus.name[g]]})` : bus.kind[g]);
 console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerRound: B.led.ops / cfg.ROUNDS, ...W.result(),
   words: words.map((w) => ({ name: w.name, auc: auc(w.pos, w.neg), n: w.pos.length, reads: [...new Set(B.cortex.ch[w.k].parts.flatMap((p) => p.in.map(nameOf)))] })),
-  traces: { born: B.hippo.born, dead: B.hippo.dead, live: B.hippo.traces.map((tr) => ({ what: tr.f ? 'изобр: ' + tr.f.map((c) => `${ev(c.x)}, ${c.D1}${c.D2 > c.D1 ? '..' + c.D2 : ''} кр. назад`).join(' и ') : `${ev(tr.x)}, ${tr.D} кр. назад`, for: [...tr.targets].map((k) => (k >= 64 ? 'конец: ' + kinds[k - 64] : kinds[k])), inc: +tr.incAvg.toFixed(3) })) },
-  amyg: B.amyg ? (() => { const lab = new Uint8Array(fears.length); for (const i of bitesAt) for (let k = Math.max(0, i - 9); k <= i; k++) lab[k] = 1; const pos = [], neg = []; fears.forEach((x, i) => (lab[i] ? pos : neg).push(x));
-    return { auc: auc(pos, neg), pains: B.amyg.pains, fits: B.amyg.fits, mean: +B.amyg.mean.toFixed(4) }; })() : null,
-  bg: B.bg ? { al: Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.al[j].toFixed(3)])), ga: B.cfg.BCTX ? Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.ga[j].toFixed(3)])) : null, steps: B.bg.steps, vfits: B.critic.fits } : null,
-  broca: B.speech ? { babbles: B.speech.babbles, chosen: B.speech.chosen, vb: B.speech.vb, price: Object.fromEntries(WORDS.map((w, i) => [w, { a: +B.speech.S[i].a.toFixed(3), b: +B.speech.S[i].b.toFixed(3), n: B.speech.S[i].n, ...(B.speech.bp ? { ta: +B.speech.bp[i].a.toFixed(3), tb: +B.speech.bp[i].b.toFixed(3), tn: B.speech.bp[i].n } : {}) }])) } : null,
-  thal: B.thal ? B.world.truth().filter((_, k) => B.thal.bin[k]) : null,
+  traces: { born: B.hippo.born, dead: B.hippo.dead, live: B.hippo.traces.map((tr) => ({ what: tr.f ? 'изобр: ' + tr.f.map((c) => `${ev(c.x)}, ${c.D1}${c.D2 > c.D1 ? '..' + c.D2 : ''} кр. назад`).join(' и ') : `${ev(tr.x)}, ${tr.D} кр. назад`, for: [...tr.targets].map((k) => kinds[k]), inc: +tr.incAvg.toFixed(3) })) },
+  bg: B.bg ? { al: Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.al[j].toFixed(3)])), steps: B.bg.steps, vfits: B.critic.fits } : null,
+  broca: B.speech ? { babbles: B.speech.babbles, chosen: B.speech.chosen, price: Object.fromEntries(WORDS.map((w, i) => [w, { a: +B.speech.S[i].a.toFixed(3), b: +B.speech.S[i].b.toFixed(3), n: B.speech.S[i].n }])) } : null,
   inventor: B.inventor ? { requests: B.inventor.requests, tried: B.inventor.tried, accepted: B.inventor.accepted.map((a) => ({ for: kinds[a.tk], form: a.f.map((c) => `${ev(c.x)}, ${c.D1}${c.D2 > c.D1 ? '..' + c.D2 : ''}`).join(' и '), t: a.t, lift: a.lift, z: a.z, m: a.m })) } : null,
   explorer: B.explorer ? (() => { const I = W.innate, E = B.explorer, mouth = new Set(I.mouth), found = new Set(B.map.mouth);
     return { doneAt: E.doneAt, motorOk: B.map.m === I.m, sign: B.map.sign, mouthOk: I.mouth.every((k) => found.has(k)), falseMouth: B.map.mouth.filter((k) => !mouth.has(k)).length,
