@@ -15,6 +15,7 @@ class World {
     this.cfg = cfg; this.seed = seed; const c = cfg, sfx = bi ? ' ' + bi : '', r = stream(seed, 'устройство мира' + sfx);
     this.rn = stream(seed, 'шум мира' + sfx); this.rp = stream(seed, 'место' + sfx); this.rv = stream(seed, 'голос' + sfx); if (cfg.VJIT) this.rj = stream(seed, 'задержка' + sfx);
     this.t = 0; this.x = c.KA / 2; this.y = c.KA / 2; this.th = 2 * Math.PI * this.rp(); this.E = 1; this.H = 1; this.turn = 0; this.touch = 0; this.C = 0;
+    if (c.BARR) this.y = c.KA / 4;   // ступень 8: не на линии преграды
     if (sh) { this.sh = sh; this.x = c.KA * (0.25 + 0.5 * bi); }
     else { this.sh = this; this.rpr = stream(seed, 'хищник'); this.put = () => ({ x: c.KA * this.rp(), y: c.KA * this.rp() }); this.food = this.put(); this.water = this.put();
       this.foodLeft = c.KSERV; this.waterLeft = c.KSERV; this.pred = { x: 0, y: 0 }; this.pdir = 2 * Math.PI * this.rpr(); this.relocate(); }
@@ -61,6 +62,10 @@ class World {
     if (nx < 0 || nx > c.KA || ny < 0 || ny > c.KA) {   // стена: сторона -- по тому, куда смотрит нормаль относительно курса
       const cx = Math.min(c.KA, Math.max(0, nx)), cy = Math.min(c.KA, Math.max(0, ny)), side = Math.cos(this.th) * (ny - cy) - Math.sin(this.th) * (nx - cx);
       if (side > 0) tl = 1; else tr = 1; nx = cx; ny = cy; }
+    if (c.BARR) { const yb = c.KA / 2, x0 = 0.2 * c.KA, x1 = 0.8 * c.KA;   // ступень 8: преграда поперёк арены, проходы по краям
+      if ((this.y - yb) * (ny - yb) <= 0 && ny !== this.y) { const xc = this.x + (nx - this.x) * (yb - this.y) / (ny - this.y);
+        if (xc >= x0 && xc <= x1) { const ox = nx - xc, oy = ny - yb, sd = Math.cos(this.th) * oy - Math.sin(this.th) * ox; if (sd > 0) tl = 1; else tr = 1;
+          nx = this.x; ny = this.y; } } }
     this.x = nx; this.y = ny; const touch = tl || tr ? 1 : 0;
     const near = (o) => Math.hypot(this.x - o.x, this.y - o.y) < c.KRF, sh = this.sh, gate = c.KSERV > 1;   // ступень 7: место на KSERV раз; ест и пьёт по нужде
     if (near(sh.food) && (!gate || this.E < 0.9)) { this.E = Math.min(1, this.E + c.KGAIN); if (--sh.foodLeft <= 0) { sh.food = sh.put(); sh.foodLeft = c.KSERV; } ev.ate = 1; }

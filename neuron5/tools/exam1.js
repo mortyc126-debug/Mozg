@@ -27,4 +27,6 @@ console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerR
       falseMotor: E.verdict.filter((v, k) => v === 'двигатель' && k !== I.m).length, empty: E.verdict.filter((v) => v === 'пусто').length,
       lines: B.speech && B.speech.L ? B.speech.L.map((L) => { const nm = WORDS[I.mouth.indexOf(L.k)], w = Array.from(L.w.slice(1, 1 + WORDS.length)); const top = w.map((x, i) => [WORDS[i], x]).sort((a, b) => b[1] - a[1])[0];
         return { word: nm, n: L.n, topEvidence: top[0], topW: +top[1].toFixed(3) }; }) : null }; })() : null,
+  motor: B.motor ? (() => { const kn = W.truth(), I = W.innate, wv = Array.from(B.motor.w); return { steps: B.motor.steps, touch: [+wv[I.tl].toFixed(3), +wv[I.tr].toFixed(3)],
+    top: wv.map((x, j) => [kn[j], +x.toFixed(3)]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 6) }; })() : null,
   cortex: { births: B.cortex.births, deaths: B.cortex.deaths, parts: B.cortex.ch.reduce((a, c) => a + c.parts.length, 0) }, flow: Object.fromEntries(Object.entries(B.led.flow).map(([k, v]) => [k, Math.round(v)])) }));
