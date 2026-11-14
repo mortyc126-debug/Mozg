@@ -13,6 +13,7 @@ const { stream } = require('../rng');
 class BasalGanglia {
   constructor(B) { this.props = B.nav ? [...B.stem.props, ...B.nav.props] : B.stem.props; this.names = B.nav ? [...B.stem.names, ...B.nav.names] : B.stem.names; const J = this.props.length; this.J = J; this.al = new Float64Array(J).fill(1);
     if (B.nav) for (let j = B.stem.props.length; j < J; j++) this.al[j] = B.cfg.NAL0;   // ступень 9: предложения навигатора
+    if (B.pfc) this.res = this.names.map((nm) => B.pfc.constructor.res(nm));   // ступень 10: какой ресурс у предложения
     this.rng = stream(B.seed, 'пробы'); this.cur = null; this.bouts = [];
     this.mabs = new Float64Array(J); this.tst = new Float64Array(J); this.steps = 0;
     this.soc = B.cfg.BSOC && J === 5 ? B.world.innate.pvoice : null; if (this.soc) { const K = this.soc.length; this.ga = new Float64Array(K); if (B.cfg.BSOCG >= 0) { this.ga[0] = this.ga[1] = B.cfg.BSOCG; } this.mz = new Float64Array(K); this.tsg = new Float64Array(K); this.zr = stream(B.seed, 'пробы слов'); this.mem = new Float64Array(K); } }
@@ -22,7 +23,8 @@ class BasalGanglia {
     if (!this.cur || t % c.BOUT === 0) { if (this.cur && this.cur.n) this.bouts.push(this.cur);
       this.cur = { R: 0, n: 0, xi: Float64Array.from({ length: J }, () => c.BSIG * this.rng.gauss()), ex: new Float64Array(J) };
       if (this.soc) { this.cur.ze = Float64Array.from(this.ga, () => (c.BSOCG >= 0 ? 0 : c.BSIG * this.zr.gauss())); this.cur.ez = new Float64Array(this.ga.length); } }
-    let u = 0; for (let j = 0; j < J; j++) { const p = v[P[j]], a = Math.abs(p); this.cur.ex[j] += a; this.mabs[j] += 0.001 * (a - this.mabs[j]);
+    let u = 0; for (let j = 0; j < J; j++) { const p = this.res ? v[P[j]] * B.pfc.gain(this.res[j]) : v[P[j]], a = Math.abs(p); this.cur.ex[j] += a;   // ступень 10: цель глушит предложения о другом ресурсе
+      this.mabs[j] += 0.001 * (a - this.mabs[j]);
       if (this.soc && j === 4) { let w = this.al[j] + this.cur.xi[j]; for (let k = 0; k < this.ga.length; k++) { const now = B.obs[this.soc[k]] > 0.5 ? 1 : 0, ck = c.BMEM > 0 ? (this.mem[k] = Math.max(now, c.BMEM * this.mem[k])) : now; if (ck > 0.01) { w += (this.ga[k] + this.cur.ze[k]) * ck; this.cur.ez[k] += ck * a; } this.mz[k] += 0.001 * (ck * a - this.mz[k]); }
         u += Math.max(0, w) * p; continue; }
       u += (this.al[j] + this.cur.xi[j]) * p; }

@@ -31,6 +31,7 @@ console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerR
     let ok = 0; for (const k of N.walls) { const gx = Math.floor((k + 2048) / 4096), gy = k - gx * 4096, wx = ox + cs * gx - sn * gy, wy = oy + sn * gx + cs * gy;
       const nearB = Math.min(wx, wy, c.KA - wx, c.KA - wy) < 1.5, nearBar = c.BARR && Math.abs(wy - c.KA / 2) < 1.5 && wx > 0.2 * c.KA - 1.5 && wx < 0.8 * c.KA + 1.5; if (nearB || nearBar) ok++; }
     return { on: N.on, resets: N.resets, forgot: N.forgot, placeErr: N.place.map((P, j) => (P ? +Math.hypot(ox + cs * P[0] - sn * P[1] - (j ? W.water.x : W.food.x), oy + sn * P[0] + cs * P[1] - (j ? W.water.y : W.food.y)).toFixed(2) : null)), walls: N.walls.size, wallsTrue: N.walls.size ? +(ok / N.walls.size).toFixed(3) : null, places: N.place.map((p) => !!p) }; })() : null,
+  pfc: B.pfc ? { m: +B.pfc.m.toFixed(3), switches: B.pfc.switches, steps: B.pfc.steps } : null,
   motor: B.motor ? (() => { const kn = W.truth(), I = W.innate, wv = Array.from(B.motor.w); return { steps: B.motor.steps, touch: [+wv[I.tl].toFixed(3), +wv[I.tr].toFixed(3)],
     top: wv.map((x, j) => [kn[j], +x.toFixed(3)]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 6) }; })() : null,
   cortex: { births: B.cortex.births, deaths: B.cortex.deaths, parts: B.cortex.ch.reduce((a, c) => a + c.parts.length, 0) }, flow: Object.fromEntries(Object.entries(B.led.flow).map(([k, v]) => [k, Math.round(v)])) }));
