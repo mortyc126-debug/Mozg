@@ -11,12 +11,14 @@
 // не само слово, а его угасающая память (рабочая память: c_i = max(слово сейчас, BMEM · c_i прошлого круга)).
 const { stream } = require('../rng');
 class BasalGanglia {
-  constructor(B) { const J = B.stem.props.length; this.J = J; this.al = new Float64Array(J).fill(1); this.rng = stream(B.seed, 'пробы'); this.cur = null; this.bouts = [];
+  constructor(B) { this.props = B.nav ? [...B.stem.props, ...B.nav.props] : B.stem.props; this.names = B.nav ? [...B.stem.names, ...B.nav.names] : B.stem.names; const J = this.props.length; this.J = J; this.al = new Float64Array(J).fill(1);
+    if (B.nav) for (let j = B.stem.props.length; j < J; j++) this.al[j] = B.cfg.NAL0;   // ступень 9: предложения навигатора
+    this.rng = stream(B.seed, 'пробы'); this.cur = null; this.bouts = [];
     this.mabs = new Float64Array(J); this.tst = new Float64Array(J); this.steps = 0;
     this.soc = B.cfg.BSOC && J === 5 ? B.world.innate.pvoice : null; if (this.soc) { const K = this.soc.length; this.ga = new Float64Array(K); if (B.cfg.BSOCG >= 0) { this.ga[0] = this.ga[1] = B.cfg.BSOCG; } this.mz = new Float64Array(K); this.tsg = new Float64Array(K); this.zr = stream(B.seed, 'пробы слов'); this.mem = new Float64Array(K); } }
   sense(B) { if (this.cur) this.cur.R += B.critic.delta; }   // ошибка ожидания этого круга -- следствие команды прошлого
   act(B) {
-    const c = B.cfg, t = B.t, v = B.bus.val, P = B.stem.props, J = this.J;
+    const c = B.cfg, t = B.t, v = B.bus.val, P = this.props, J = this.J;
     if (!this.cur || t % c.BOUT === 0) { if (this.cur && this.cur.n) this.bouts.push(this.cur);
       this.cur = { R: 0, n: 0, xi: Float64Array.from({ length: J }, () => c.BSIG * this.rng.gauss()), ex: new Float64Array(J) };
       if (this.soc) { this.cur.ze = Float64Array.from(this.ga, () => (c.BSOCG >= 0 ? 0 : c.BSIG * this.zr.gauss())); this.cur.ez = new Float64Array(this.ga.length); } }
@@ -35,7 +37,7 @@ class BasalGanglia {
     const tOf = (xs) => { let sxx = 0, sxy = 0; for (let i = 0; i < L.length; i++) { sxx += xs[i] * xs[i]; sxy += xs[i] * (L[i].R - m); } if (!(sxx > 0)) return 0;
       const g = sxy / sxx; let rr = 0; for (let i = 0; i < L.length; i++) rr += (L[i].R - m - g * xs[i]) ** 2; const se = Math.sqrt(rr / (L.length - 1) / sxx); return se > 0 ? g / se : 0; };
     const clip = (x) => Math.max(-3, Math.min(3, x));
-    for (let j = 0; j < this.J; j++) { if (!(this.mabs[j] > 0)) continue;
+    for (let j = 0; j < this.J; j++) { if (!(this.mabs[j] > 0) || (c.NALFIX && B.nav && j >= B.stem.props.length)) continue;
       const tt = tOf(L.map((b) => b.xi[j] * (b.ex[j] / b.n) / this.mabs[j])); this.tst[j] = tt; this.al[j] = Math.max(0, Math.min(6, this.al[j] + c.BLR * clip(tt))); }
     if (this.soc && !(c.BSOCG >= 0)) for (let k = 0; k < this.ga.length; k++) { if (!(this.mz[k] > 0)) continue;
       const tg = tOf(L.map((b) => (b.ze ? b.ze[k] * (b.ez[k] / b.n) / this.mz[k] : 0))); this.tsg[k] = tg; this.ga[k] = Math.max(-3, Math.min(3, this.ga[k] + c.BLR * clip(tg))); }

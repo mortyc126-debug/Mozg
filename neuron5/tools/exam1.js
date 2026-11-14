@@ -19,7 +19,7 @@ const nameOf = (g) => (bus.kind[g] === 'рефлекс' ? `рефлекс(${bus.
 console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerRound: B.led.ops / cfg.ROUNDS, ...W.result(),
   words: words.map((w) => ({ name: w.name, auc: auc(w.pos, w.neg), n: w.pos.length, reads: [...new Set(B.cortex.ch[w.k].parts.flatMap((p) => p.in.map(nameOf)))] })),
   traces: { born: B.hippo.born, dead: B.hippo.dead, live: B.hippo.traces.map((tr) => ({ what: tr.f ? 'изобр: ' + tr.f.map((c) => `${ev(c.x)}, ${c.D1}${c.D2 > c.D1 ? '..' + c.D2 : ''} кр. назад`).join(' и ') : `${ev(tr.x)}, ${tr.D} кр. назад`, for: [...tr.targets].map((k) => kinds[k]), inc: +tr.incAvg.toFixed(3) })) },
-  bg: B.bg ? { al: Object.fromEntries(B.stem.names.map((nm, j) => [nm, +B.bg.al[j].toFixed(3)])), steps: B.bg.steps, vfits: B.critic.fits } : null,
+  bg: B.bg ? { al: Object.fromEntries(B.bg.names.map((nm, j) => [nm, +B.bg.al[j].toFixed(3)])), steps: B.bg.steps, vfits: B.critic.fits } : null,
   broca: B.speech ? { babbles: B.speech.babbles, chosen: B.speech.chosen, price: Object.fromEntries(WORDS.map((w, i) => [w, { a: +B.speech.S[i].a.toFixed(3), b: +B.speech.S[i].b.toFixed(3), n: B.speech.S[i].n }])) } : null,
   inventor: B.inventor ? { requests: B.inventor.requests, tried: B.inventor.tried, accepted: B.inventor.accepted.map((a) => ({ for: kinds[a.tk], form: a.f.map((c) => `${ev(c.x)}, ${c.D1}${c.D2 > c.D1 ? '..' + c.D2 : ''}`).join(' и '), t: a.t, lift: a.lift, z: a.z, m: a.m })) } : null,
   explorer: B.explorer ? (() => { const I = W.innate, E = B.explorer, mouth = new Set(I.mouth), found = new Set(B.map.mouth);
@@ -27,6 +27,10 @@ console.log(JSON.stringify({ seed, over, sec: (Date.now() - t00) / 1000, opsPerR
       falseMotor: E.verdict.filter((v, k) => v === 'двигатель' && k !== I.m).length, empty: E.verdict.filter((v) => v === 'пусто').length,
       lines: B.speech && B.speech.L ? B.speech.L.map((L) => { const nm = WORDS[I.mouth.indexOf(L.k)], w = Array.from(L.w.slice(1, 1 + WORDS.length)); const top = w.map((x, i) => [WORDS[i], x]).sort((a, b) => b[1] - a[1])[0];
         return { word: nm, n: L.n, topEvidence: top[0], topW: +top[1].toFixed(3) }; }) : null }; })() : null,
+  nav: B.nav ? (() => { const N = B.nav, c = cfg, th0 = W.th - N.hd, cs = Math.cos(th0), sn = Math.sin(th0), ox = W.x - (cs * N.px - sn * N.py), oy = W.y - (sn * N.px + cs * N.py);
+    let ok = 0; for (const k of N.walls) { const gx = Math.floor((k + 2048) / 4096), gy = k - gx * 4096, wx = ox + cs * gx - sn * gy, wy = oy + sn * gx + cs * gy;
+      const nearB = Math.min(wx, wy, c.KA - wx, c.KA - wy) < 1.5, nearBar = c.BARR && Math.abs(wy - c.KA / 2) < 1.5 && wx > 0.2 * c.KA - 1.5 && wx < 0.8 * c.KA + 1.5; if (nearB || nearBar) ok++; }
+    return { on: N.on, resets: N.resets, forgot: N.forgot, placeErr: N.place.map((P, j) => (P ? +Math.hypot(ox + cs * P[0] - sn * P[1] - (j ? W.water.x : W.food.x), oy + sn * P[0] + cs * P[1] - (j ? W.water.y : W.food.y)).toFixed(2) : null)), walls: N.walls.size, wallsTrue: N.walls.size ? +(ok / N.walls.size).toFixed(3) : null, places: N.place.map((p) => !!p) }; })() : null,
   motor: B.motor ? (() => { const kn = W.truth(), I = W.innate, wv = Array.from(B.motor.w); return { steps: B.motor.steps, touch: [+wv[I.tl].toFixed(3), +wv[I.tr].toFixed(3)],
     top: wv.map((x, j) => [kn[j], +x.toFixed(3)]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 6) }; })() : null,
   cortex: { births: B.cortex.births, deaths: B.cortex.deaths, parts: B.cortex.ch.reduce((a, c) => a + c.parts.length, 0) }, flow: Object.fromEntries(Object.entries(B.led.flow).map(([k, v]) => [k, Math.round(v)])) }));

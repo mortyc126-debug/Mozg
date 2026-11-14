@@ -14,6 +14,7 @@ const { Speech } = require('./organs/speech');
 const { Explorer } = require('./organs/explorer');
 const { Inventor } = require('./organs/inventor');
 const { Motor } = require('./organs/motor');
+const { Navigator } = require('./organs/navigator');
 
 class Brain {
   constructor(cfg, world, seed) {
@@ -28,6 +29,7 @@ class Brain {
     this.stem = new Brainstem(this); this.cortex = new Cortex(this); this.hippo = new Hippocampus(this);
     this.organs = [this.stem, this.cortex, this.hippo];
     if (cfg.INV) { this.inventor = new Inventor(this); this.organs.push(this.inventor); }
+    if (cfg.NAV) { this.nav = new Navigator(this); this.organs.push(this.nav); }
     if (cfg.BG) { this.critic = new Critic(this); this.organs.push(this.critic); if (cfg.MOT) { this.motor = new Motor(this); this.organs.push(this.motor); } this.bg = new BasalGanglia(this); this.organs.push(this.bg); }
     if (cfg.SPEAK) { this.speech = new Speech(this); this.organs.push(this.speech); }
     if (!cfg.MAP) { this.explorer = new Explorer(this); this.organs.push(this.explorer); }
