@@ -16,16 +16,22 @@ class BasalGanglia {
     if (B.pfc) this.res = this.names.map((nm) => B.pfc.constructor.res(nm));   // ступень 10: какой ресурс у предложения
     this.rng = stream(B.seed, 'пробы'); this.cur = null; this.bouts = [];
     this.mabs = new Float64Array(J); this.tst = new Float64Array(J); this.steps = 0;
-    this.soc = B.cfg.BSOC && J === 5 ? B.world.innate.pvoice : null; if (this.soc) { const K = this.soc.length; this.ga = new Float64Array(K); if (B.cfg.BSOCG >= 0) { this.ga[0] = this.ga[1] = B.cfg.BSOCG; } this.mz = new Float64Array(K); this.tsg = new Float64Array(K); this.zr = stream(B.seed, 'пробы слов'); this.mem = new Float64Array(K); } }
+    this.soc = B.cfg.BSOC && B.stem.jOther !== undefined ? B.world.innate.pvoice : null; this.jSoc = B.stem.jOther;
+    // ступень 11 (BCAR): вес «к норе» = alpha + gamma_1 · ноша + gamma_2 · голод; всё с 0 (BCAR = 2 -- без обстановки)
+    if (B.cfg.BCAR && B.stem.jDen !== undefined) { const I = B.world.innate; this.car = { j: B.stem.jDen, cr: I.cr, e: I.e, ga: new Float64Array(2), mz: new Float64Array(2), rng: stream(B.seed, 'пробы норы') }; this.al[B.stem.jDen] = 0; } if (this.soc) { const K = this.soc.length; this.ga = new Float64Array(K); if (B.cfg.BSOCG >= 0) { this.ga[0] = this.ga[1] = B.cfg.BSOCG; } this.mz = new Float64Array(K); this.tsg = new Float64Array(K); this.zr = stream(B.seed, 'пробы слов'); this.mem = new Float64Array(K); } }
   sense(B) { if (this.cur) this.cur.R += B.critic.delta; }   // ошибка ожидания этого круга -- следствие команды прошлого
   act(B) {
     const c = B.cfg, t = B.t, v = B.bus.val, P = this.props, J = this.J;
     if (!this.cur || t % c.BOUT === 0) { if (this.cur && this.cur.n) this.bouts.push(this.cur);
       this.cur = { R: 0, n: 0, xi: Float64Array.from({ length: J }, () => c.BSIG * this.rng.gauss()), ex: new Float64Array(J) };
-      if (this.soc) { this.cur.ze = Float64Array.from(this.ga, () => (c.BSOCG >= 0 ? 0 : c.BSIG * this.zr.gauss())); this.cur.ez = new Float64Array(this.ga.length); } }
+      if (this.soc) { this.cur.ze = Float64Array.from(this.ga, () => (c.BSOCG >= 0 ? 0 : c.BSIG * this.zr.gauss())); this.cur.ez = new Float64Array(this.ga.length); }
+      if (this.car) { this.cur.zc = Float64Array.from(this.car.ga, () => c.BSIG * this.car.rng.gauss()); this.cur.ec = new Float64Array(2); } }
     let u = 0; for (let j = 0; j < J; j++) { const p = this.res ? v[P[j]] * B.pfc.gain(this.res[j]) : v[P[j]], a = Math.abs(p); this.cur.ex[j] += a;   // ступень 10: цель глушит предложения о другом ресурсе
       this.mabs[j] += 0.001 * (a - this.mabs[j]);
-      if (this.soc && j === 4) { let w = this.al[j] + this.cur.xi[j]; for (let k = 0; k < this.ga.length; k++) { const now = B.obs[this.soc[k]] > 0.5 ? 1 : 0, ck = c.BMEM > 0 ? (this.mem[k] = Math.max(now, c.BMEM * this.mem[k])) : now; if (ck > 0.01) { w += (this.ga[k] + this.cur.ze[k]) * ck; this.cur.ez[k] += ck * a; } this.mz[k] += 0.001 * (ck * a - this.mz[k]); }
+      if (this.car && j === this.car.j) { const K = this.car, cx = [B.obs[K.cr] > 0.5 ? 1 : 0, Math.max(0, Math.min(1, 1 - B.obs[K.e]))]; let w = this.al[j] + this.cur.xi[j];
+        if (c.BCAR === 1) for (let k = 0; k < 2; k++) { w += (K.ga[k] + this.cur.zc[k]) * cx[k]; this.cur.ec[k] += cx[k] * a; K.mz[k] += 0.001 * (cx[k] * a - K.mz[k]); }
+        u += Math.max(0, w) * p; continue; }
+      if (this.soc && j === this.jSoc) { let w = this.al[j] + this.cur.xi[j]; for (let k = 0; k < this.ga.length; k++) { const now = B.obs[this.soc[k]] > 0.5 ? 1 : 0, ck = c.BMEM > 0 ? (this.mem[k] = Math.max(now, c.BMEM * this.mem[k])) : now; if (ck > 0.01) { w += (this.ga[k] + this.cur.ze[k]) * ck; this.cur.ez[k] += ck * a; } this.mz[k] += 0.001 * (ck * a - this.mz[k]); }
         u += Math.max(0, w) * p; continue; }
       u += (this.al[j] + this.cur.xi[j]) * p; }
     if (c.SHAND) { const I = B.world.innate; if (B.obs[I.cr] > 0.5) u += c.SHAND * (B.obs[I.dl] - B.obs[I.dr]); }   // диагностика ступени 11
@@ -44,6 +50,8 @@ class BasalGanglia {
       const tt = tOf(L.map((b) => b.xi[j] * (b.ex[j] / b.n) / this.mabs[j])); this.tst[j] = tt; this.al[j] = Math.max(0, Math.min(6, this.al[j] + c.BLR * clip(tt))); }
     if (this.soc && !(c.BSOCG >= 0)) for (let k = 0; k < this.ga.length; k++) { if (!(this.mz[k] > 0)) continue;
       const tg = tOf(L.map((b) => (b.ze ? b.ze[k] * (b.ez[k] / b.n) / this.mz[k] : 0))); this.tsg[k] = tg; this.ga[k] = Math.max(-3, Math.min(3, this.ga[k] + c.BLR * clip(tg))); }
+    if (this.car && c.BCAR === 1) for (let k = 0; k < 2; k++) { if (!(this.car.mz[k] > 0)) continue;
+      const tg = tOf(L.map((b) => (b.zc ? b.zc[k] * (b.ec[k] / b.n) / this.car.mz[k] : 0))); this.car.ga[k] = Math.max(-3, Math.min(6, this.car.ga[k] + c.BLR * clip(tg))); }
     this.steps++; B.led.work(null, L.length * this.J * 4);
   }
 }
