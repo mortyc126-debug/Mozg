@@ -28,6 +28,7 @@ class BasalGanglia {
       if (this.soc && j === 4) { let w = this.al[j] + this.cur.xi[j]; for (let k = 0; k < this.ga.length; k++) { const now = B.obs[this.soc[k]] > 0.5 ? 1 : 0, ck = c.BMEM > 0 ? (this.mem[k] = Math.max(now, c.BMEM * this.mem[k])) : now; if (ck > 0.01) { w += (this.ga[k] + this.cur.ze[k]) * ck; this.cur.ez[k] += ck * a; } this.mz[k] += 0.001 * (ck * a - this.mz[k]); }
         u += Math.max(0, w) * p; continue; }
       u += (this.al[j] + this.cur.xi[j]) * p; }
+    if (c.SHAND) { const I = B.world.innate; if (B.obs[I.cr] > 0.5) u += c.SHAND * (B.obs[I.dl] - B.obs[I.dr]); }   // диагностика ступени 11
     if (c.MHAND) { const I = B.world.innate; u += c.MHAND * (B.obs[I.tl] + B.obs[I.tr]); }   // диагностика ступени 8
     if (B.motor) u += B.motor.u;   // моторная кора: своё движение (ступень 8)
     this.cur.n++; const cmd = Math.max(-4, Math.min(4, u + c.USIG * this.rng.gauss())); if (B.map.m !== null) B.drive(B.map.m, B.map.sign * cmd); B.led.work(null, 3 * J);

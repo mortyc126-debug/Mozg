@@ -19,10 +19,13 @@ class World {
     if (sh) { this.sh = sh; this.x = c.KA * (0.25 + 0.5 * bi); }
     else { this.sh = this; this.rpr = stream(seed, 'хищник'); this.put = () => ({ x: c.KA * this.rp(), y: c.KA * this.rp() }); this.food = this.put(); this.water = this.put();
       if (c.FIXF) { this.food = { x: c.KA * (0.1 + 0.8 * this.rp()), y: c.KA * (0.6 + 0.3 * this.rp()) }; this.water = { x: c.KA * (0.1 + 0.8 * this.rp()), y: c.KA * (0.1 + 0.3 * this.rp()) }; }   // ступень 9: куст сверху, родник снизу
+      if (c.SEAS) { const pts = []; while (pts.length < 3) { const q = { x: c.KA * (0.1 + 0.8 * this.rp()), y: c.KA * (0.1 + 0.8 * this.rp()) }; if (pts.every((p) => Math.hypot(p.x - q.x, p.y - q.y) >= 8)) pts.push(q); }
+        [this.food, this.water, this.den] = pts; this.store = 0; this.carry = 0; this.carryT = 0; this.ss = { picked: 0, delivered: 0, spoiled: 0, fromStore: 0, winterDeaths: 0, storeSum: 0 }; }   // ступень 11: куст, родник, нора
       this.foodLeft = c.KSERV; this.waterLeft = c.KSERV; this.pred = { x: 0, y: 0 }; this.pdir = 2 * Math.PI * this.rpr(); this.relocate(); }
     const ch = (kind) => ({ kind, val: 0 });
     this.S = { fl: ch('запах еды слева'), fr: ch('запах еды справа'), wl: ch('запах воды слева'), wr: ch('запах воды справа'), pl: ch('запах хищника слева'), pr: ch('запах хищника справа'),
       tl: ch('касание слева'), tr: ch('касание справа'), e: ch('сытость'), h: ch('напоённость'), p: ch('положение'), m: ch('двигатель') };
+    if (c.SEAS) { this.S.dl = ch('запах норы слева'); this.S.dr = ch('запах норы справа'); this.S.cr = ch('ноша'); }
     if (sh) { this.S.ol = ch('запах другого слева'); this.S.or = ch('запах другого справа'); }   // ступень 7: другой -- в ощущениях
     this.voice = c.VOICE ? WORDS.map((w) => ch('слово ' + w)) : [];
     // рот, ухо и улыбка родителя (ступень 4, SPEAK): нервы рта ничего не несут (как «двигатель»), ухо -- был ли свой голос,
@@ -50,7 +53,8 @@ class World {
   relocate() { const c = this.cfg, P = this.sh.pred, R = this.sh.rpr; do { P.x = c.KA * R(); P.y = c.KA * R(); } while (Math.hypot(P.x - this.x, P.y - this.y) < Math.min(10, c.KA / 2)); }
   odor(o, a, lam) { const sx = this.x + 0.8 * Math.cos(this.th + a), sy = this.y + 0.8 * Math.sin(this.th + a); return 3 * Math.exp(-Math.hypot(sx - o.x, sy - o.y) / (lam || this.cfg.KLAM)); }
   sense() { const S = this.S;
-    const sh = this.sh; S.fl.val = this.odor(sh.food, 0.6); S.fr.val = this.odor(sh.food, -0.6); S.wl.val = this.odor(sh.water, 0.6); S.wr.val = this.odor(sh.water, -0.6);
+    const sh = this.sh; S.fl.val = this.odor(sh.food, 0.6); S.fr.val = this.odor(sh.food, -0.6);
+    if (this.cfg.SEAS) { if (!this.summer()) { S.fl.val = 0; S.fr.val = 0; } S.dl.val = this.odor(this.den, 0.6); S.dr.val = this.odor(this.den, -0.6); S.cr.val = this.carry; } S.wl.val = this.odor(sh.water, 0.6); S.wr.val = this.odor(sh.water, -0.6);
     S.pl.val = this.odor(sh.pred, 0.6); S.pr.val = this.odor(sh.pred, -0.6); S.e.val = this.E; S.h.val = this.H; S.p.val = this.turn; S.m.val = 0; }
   // шаг мира по командам мозга u (по номерам нервов)
   advance(u) {
@@ -68,10 +72,11 @@ class World {
         if (xc >= x0 && xc <= x1) { const ox = nx - xc, oy = ny - yb, sd = Math.cos(this.th) * oy - Math.sin(this.th) * ox; if (sd > 0) tl = 1; else tr = 1;
           nx = this.x; ny = this.y; } } }
     this.x = nx; this.y = ny; const touch = tl || tr ? 1 : 0;
-    const near = (o) => Math.hypot(this.x - o.x, this.y - o.y) < c.KRF, sh = this.sh, gate = c.KSERV > 1 || c.FIXF;   // ступень 7: место на KSERV раз; ест и пьёт по нужде
-    if (near(sh.food) && (!gate || this.E < 0.9)) { this.E = Math.min(1, this.E + c.KGAIN); if (!c.FIXF && --sh.foodLeft <= 0) { sh.food = sh.put(); sh.foodLeft = c.KSERV; } ev.ate = 1; }
+    const near = (o) => Math.hypot(this.x - o.x, this.y - o.y) < c.KRF, sh = this.sh, gate = c.KSERV > 1 || c.FIXF || c.SEAS;   // ступень 7: место на KSERV раз; ест и пьёт по нужде
+    if (c.SEAS) this.seasons(t, late, near, ev);
+    else if (near(sh.food) && (!gate || this.E < 0.9)) { this.E = Math.min(1, this.E + c.KGAIN); if (!c.FIXF && --sh.foodLeft <= 0) { sh.food = sh.put(); sh.foodLeft = c.KSERV; } ev.ate = 1; }
     if (near(sh.water) && (!gate || this.H < 0.9)) { this.H = Math.min(1, this.H + c.KGAIN); if (!c.FIXF && --sh.waterLeft <= 0) { sh.water = sh.put(); sh.waterLeft = c.KSERV; } ev.drank = 1; }
-    if (this.E <= 0 || this.H <= 0) { ev.died = 1; this.E = 1; this.H = 1; this.x = c.KA * this.rp(); this.y = c.KA * this.rp(); this.th = 2 * Math.PI * this.rp(); }
+    if (this.E <= 0 || this.H <= 0) { ev.died = 1; if (c.SEAS) { this.carry = 0; if (late && !this.summer()) this.ss.winterDeaths++; } this.E = 1; this.H = 1; this.x = c.KA * this.rp(); this.y = c.KA * this.rp(); this.th = 2 * Math.PI * this.rp(); }
     { const P = sh.pred; if (sh === this) sh.movePred(this);   // в общем мире хищник ходит один раз за круг (World2)
       if (Math.hypot(this.x - P.x, this.y - P.y) < 1.5) { ev.bite = 1; this.relocate(); } }
     ev.hit = touch && !this.touch ? 1 : 0; this.touch = touch;   // боль -- за удар, а не за прижатость
@@ -80,6 +85,17 @@ class World {
     if (c.SPEAK) { const e4 = [ev.ate, ev.drank, ev.bite, ev.hit]; for (let j = 0; j < 4; j++) if (e4[j]) { this.lastEv[j] = t; if (late) this.sp.ev[j]++; } }
     S.tl.val = tl; S.tr.val = tr; this.sense();
     if (c.VOICE) this.speak(t);
+  }
+  // ступень 11: год SPER кругов, первая половина -- лето
+  summer() { return ((this.t - 1) % this.cfg.SPER + this.cfg.SPER) % this.cfg.SPER < this.cfg.SPER / 2; }
+  // куст: летом голодный ест, сытый берёт ношу; ноша портится через CSPOIL кругов; в норе ноша -- в запас, голодный ест из запаса
+  seasons(t, late, near, ev) {
+    const c = this.cfg, ss = this.ss;
+    if (near(this.food) && this.summer()) { if (this.E < 0.9) { this.E = Math.min(1, this.E + c.KGAIN); ev.ate = 1; } else if (!this.carry) { this.carry = 1; this.carryT = t; if (late) ss.picked++; } }
+    if (this.carry && t - this.carryT > c.CSPOIL) { this.carry = 0; if (late) ss.spoiled++; }
+    if (near(this.den)) { if (this.carry) { this.carry = 0; this.store = Math.min(30, this.store + 1); if (late) ss.delivered++; }
+      if (this.E < 0.9 && this.store > 0) { this.store--; this.E = Math.min(1, this.E + c.KGAIN); ev.ate = 1; if (late) ss.fromStore++; } }
+    if (late) ss.storeSum += this.store;
   }
   // хищник: гонится за телом b ближе KPR, иначе бродит
   movePred(b) { const c = this.cfg, P = this.pred, dx = b.x - P.x, dy = b.y - P.y, d = Math.hypot(dx, dy);
@@ -123,6 +139,7 @@ class World {
     if (j === 0) this.sh.food = o; else this.sh.water = o;
   }
   result() { const s = this.st, n = Math.max(1, s.n); return { comfort: s.C / n, eat: 1000 * (s.food + s.water) / n, food: 1000 * s.food / n, water: 1000 * s.water / n, bites: 1000 * s.bites / n, deaths: 1000 * s.deaths / n, wall: s.wall / n, needs: { E: s.eh.map((x) => +(x / n).toFixed(3)), H: s.hh.map((x) => +(x / n).toFixed(3)) },
+    seas: this.ss ? { picked: 1000 * this.ss.picked / n, delivered: 1000 * this.ss.delivered / n, spoiled: 1000 * this.ss.spoiled / n, fromStore: 1000 * this.ss.fromStore / n, winterDeaths: 1000 * this.ss.winterDeaths / n, store: this.ss.storeSum / n, deliverShare: this.ss.picked ? this.ss.delivered / this.ss.picked : null } : null,
     speech: this.sp ? { talk: this.sp.talk / n, helps: this.helps ? this.helps.map((x) => 1000 * x / n) : null, words: WORDS.map((w, i) => ({ name: w, said: this.sp.said[i], ok: this.sp.ok[i], tru: this.sp.tru[i], prec: this.sp.said[i] ? this.sp.ok[i] / this.sp.said[i] : null, base: this.sp.tru[i] / n,
       after: this.sp.fresh[i], afterOk: this.sp.freshOk[i],
       ...(i < 4 ? { events: this.sp.ev[i], named: this.sp.ev[i] ? this.sp.named[i] / this.sp.ev[i] : null, when: this.sp.when[i] } : {}) })) } : null }; }
